@@ -15,6 +15,7 @@ from .computer.contracts import GrantRequest, MissionRequest, ToolRequest
 from .computer.gateway import ComputerGateway
 from .computer.actions import Action, ActionPlanRequest, ActionService
 from .agents.graph import MissionGraph
+from .context import ContextError, ContextService
 from .computer.paths import ToolError
 from .computer.system import SystemToolError
 
@@ -52,6 +53,38 @@ class GraphThread(Params):
     thread_id: Annotated[str, Field(min_length=1, max_length=128)]
 
 
+class ContextIndex(Params):
+    mission_id: str = Field(min_length=1, max_length=128)
+    source: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=256_000)
+
+
+class ContextSearch(Params):
+    mission_id: str = Field(min_length=1, max_length=128)
+    query: str = Field(min_length=1, max_length=200)
+    limit: int = Field(default=5, ge=1, le=20, strict=True)
+
+
+class ContextMission(Params):
+    mission_id: str = Field(min_length=1, max_length=128)
+
+
+class ContextClear(ContextMission):
+    source: str | None = Field(default=None, max_length=1000)
+
+
+class ContextPreference(Params):
+    mission_id: str = Field(min_length=1, max_length=128)
+    key: str = Field(min_length=1, max_length=64)
+    value: str = Field(max_length=1000)
+
+
+class ContextSummary(Params):
+    mission_id: str = Field(min_length=1, max_length=128)
+    summary: str = Field(max_length=4000)
+    revision: int = Field(ge=1, le=1_000_000, strict=True)
+
+
 class Application:
     """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
 
@@ -72,6 +105,8 @@ class Application:
                    "computer.grant", "computer.revoke", "computer.status", "computer.execute",
                    "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
+        methods |= {"context.index", "context.search", "context.clear", "context.preferences.set", "context.preferences.get",
+                    "context.summary.update", "context.summary.get"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
             return self.session.handle(line)
         request_id = request.get("id")
@@ -141,6 +176,27 @@ class Application:
                 if self.graph is None:
                     raise RuntimeError("编排图尚未初始化")
                 result = await self.graph.approve_and_resume(GraphThread.model_validate(params).thread_id)
+            elif method == "context.index":
+                request = ContextIndex.model_validate(params)
+                result = await ContextService(self.store).index_text(request.mission_id, request.source, request.text)
+            elif method == "context.search":
+                request = ContextSearch.model_validate(params)
+                result = await ContextService(self.store).search(request.mission_id, request.query, request.limit)
+            elif method == "context.clear":
+                request = ContextClear.model_validate(params)
+                result = await ContextService(self.store).clear(request.mission_id, request.source)
+            elif method == "context.preferences.set":
+                request = ContextPreference.model_validate(params)
+                result = await ContextService(self.store).set_preference(request.mission_id, request.key, request.value)
+            elif method == "context.preferences.get":
+                request = ContextMission.model_validate(params)
+                result = await ContextService(self.store).preferences(request.mission_id)
+            elif method == "context.summary.update":
+                request = ContextSummary.model_validate(params)
+                result = await ContextService(self.store).update_summary(request.mission_id, request.summary, request.revision)
+            elif method == "context.summary.get":
+                request = ContextMission.model_validate(params)
+                result = await ContextService(self.store).summary(request.mission_id)
             elif method == "configuration.status":
                 Params.model_validate(params)
                 result = self.registry.status()
@@ -159,6 +215,8 @@ class Application:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
         except (ToolError, SystemToolError) as error:
+            return error_response(request_id, error.code, error.message)
+        except ContextError as error:
             return error_response(request_id, error.code, error.message)
         except ValueError:
             return error_response(request_id, "CONFLICT", "请求与已有草稿冲突或配置快照无效")

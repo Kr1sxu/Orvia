@@ -77,6 +77,38 @@ class Store:
                     error TEXT,
                     PRIMARY KEY(task_id, sequence)
                 )""")
+                await db.execute("""CREATE TABLE IF NOT EXISTS context_documents (
+                    id TEXT PRIMARY KEY,
+                    mission_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    chunk_count INTEGER NOT NULL
+                )""")
+                await db.execute("""CREATE TABLE IF NOT EXISTS context_chunks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    document_id TEXT NOT NULL REFERENCES context_documents(id) ON DELETE CASCADE,
+                    mission_id TEXT NOT NULL,
+                    chunk_index INTEGER NOT NULL,
+                    content TEXT NOT NULL,
+                    UNIQUE(document_id, chunk_index)
+                )""")
+                await db.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS context_fts USING fts5(
+                    tokens, mission_id UNINDEXED, document_id UNINDEXED, chunk_index UNINDEXED
+                )""")
+                await db.execute("""CREATE TABLE IF NOT EXISTS context_preferences (
+                    mission_id TEXT NOT NULL,
+                    preference_key TEXT NOT NULL,
+                    preference_value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(mission_id, preference_key)
+                )""")
+                await db.execute("""CREATE TABLE IF NOT EXISTS context_summaries (
+                    mission_id TEXT PRIMARY KEY,
+                    summary TEXT NOT NULL,
+                    revision INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL
+                )""")
                 await db.commit()
             except BaseException:
                 # 初始化失败必须释放连接；原异常交给服务层分类，不静默兜底。
@@ -218,3 +250,82 @@ class Store:
             except BaseException:
                 await db.rollback()
                 raise
+
+    async def replace_context_document(self, document: dict, chunks: list[dict], tokenized: list[str]) -> None:
+        """按来源原子替换任务范围内的文本块和 FTS 行，避免半次索引可见。"""
+        async with self._lock:
+            db = self._db()
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                async with db.execute("SELECT id FROM context_documents WHERE mission_id = ? AND source = ?",
+                                      (document["mission_id"], document["source"])) as cursor:
+                    old = await cursor.fetchone()
+                if old is not None:
+                    await db.execute("DELETE FROM context_fts WHERE document_id = ?", (old[0],))
+                    await db.execute("DELETE FROM context_documents WHERE id = ?", (old[0],))
+                await db.execute("INSERT INTO context_documents VALUES (?, ?, ?, ?, ?, ?)",
+                                 (document["id"], document["mission_id"], document["source"], document["content_hash"],
+                                  document["updated_at"], len(chunks)))
+                for chunk, indexed in zip(chunks, tokenized, strict=True):
+                    await db.execute("INSERT INTO context_chunks(id, document_id, mission_id, chunk_index, content) VALUES (?, ?, ?, ?, ?)",
+                                     (chunk["id"], document["id"], document["mission_id"], chunk["chunk_index"], chunk["content"]))
+                    await db.execute("INSERT INTO context_fts(rowid, tokens, mission_id, document_id, chunk_index) VALUES (?, ?, ?, ?, ?)",
+                                     (chunk["id"], indexed, document["mission_id"], document["id"], chunk["chunk_index"]))
+                await db.commit()
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def search_context(self, mission_id: str, match_query: str, limit: int) -> list[dict]:
+        """仅在指定 Mission 的 FTS5 范围内检索，并返回原文块和来源。"""
+        async with self._lock:
+            async with self._db().execute(
+                """SELECT c.document_id, d.source, c.chunk_index, c.content, bm25(context_fts) AS score
+                   FROM context_fts JOIN context_chunks c ON c.id = context_fts.rowid
+                   JOIN context_documents d ON d.id = c.document_id
+                   WHERE context_fts MATCH ? AND context_fts.mission_id = ?
+                   ORDER BY score LIMIT ?""", (match_query, mission_id, limit)) as cursor:
+                return [dict(row) for row in await cursor.fetchall()]
+
+    async def clear_context(self, mission_id: str, source: str | None = None) -> int:
+        """删除任务范围内的索引及原文块；不触碰用户原文件。"""
+        async with self._lock:
+            db = self._db()
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                if source is None:
+                    async with db.execute("SELECT id FROM context_documents WHERE mission_id = ?", (mission_id,)) as cursor:
+                        ids = [row[0] for row in await cursor.fetchall()]
+                    await db.execute("DELETE FROM context_documents WHERE mission_id = ?", (mission_id,))
+                else:
+                    async with db.execute("SELECT id FROM context_documents WHERE mission_id = ? AND source = ?", (mission_id, source)) as cursor:
+                        ids = [row[0] for row in await cursor.fetchall()]
+                    await db.execute("DELETE FROM context_documents WHERE mission_id = ? AND source = ?", (mission_id, source))
+                for document_id in ids:
+                    await db.execute("DELETE FROM context_fts WHERE document_id = ?", (document_id,))
+                await db.commit()
+                return len(ids)
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def set_preference(self, mission_id: str, key: str, value: str) -> None:
+        async with self._lock:
+            await self._db().execute("INSERT INTO context_preferences VALUES (?, ?, ?, ?) ON CONFLICT(mission_id, preference_key) DO UPDATE SET preference_value = excluded.preference_value, updated_at = excluded.updated_at",
+                                     (mission_id, key, value, datetime.now(timezone.utc).isoformat()))
+
+    async def get_preferences(self, mission_id: str) -> dict[str, str]:
+        async with self._lock:
+            async with self._db().execute("SELECT preference_key, preference_value FROM context_preferences WHERE mission_id = ? ORDER BY preference_key", (mission_id,)) as cursor:
+                return {row[0]: row[1] for row in await cursor.fetchall()}
+
+    async def update_summary(self, mission_id: str, summary: str, revision: int) -> None:
+        async with self._lock:
+            await self._db().execute("INSERT INTO context_summaries VALUES (?, ?, ?, ?) ON CONFLICT(mission_id) DO UPDATE SET summary = excluded.summary, revision = excluded.revision, updated_at = excluded.updated_at",
+                                     (mission_id, summary, revision, datetime.now(timezone.utc).isoformat()))
+
+    async def get_summary(self, mission_id: str) -> dict | None:
+        async with self._lock:
+            async with self._db().execute("SELECT mission_id, summary, revision, updated_at FROM context_summaries WHERE mission_id = ?", (mission_id,)) as cursor:
+                row = await cursor.fetchone()
+            return dict(row) if row is not None else None

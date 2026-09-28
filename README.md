@@ -2,11 +2,11 @@
 
 面向 Windows 的本地桌面多 Agent 工作助手。MVP 先完成需要用户审批的桌面文件整理。
 
-当前 **M05 LangGraph 三 Agent 与合成桌面整理闭环已通过本机功能验证**，尚不是完整文件整理产品。实际完成与测试、本地 commit 和用户手动推送状态以 [进度记录](docs/PROGRESS.md) 为准。
+当前 **M06 上下文、用户偏好与轻量 RAG 已通过本机功能验证**，尚不是完整文件整理产品。实际完成与测试、本地 commit 和用户手动推送状态以 [进度记录](docs/PROGRESS.md) 为准。
 
 ## 本轮能力
 
-Electron + React + TypeScript 通过受限 IPC 与 Python 3.12 私有 JSON Lines 通信。界面可查看三个固定模型与凭据状态，创建任务草稿；SQLite 保存草稿、模型快照、文件操作账本和 LangGraph checkpoint，重启仍可读取。后端已具备需主进程授权的三角色合成编排，当前 UI 尚未开放目录选择和写操作按钮。
+Electron + React + TypeScript 通过受限 IPC 与 Python 3.12 私有 JSON Lines 通信。界面可查看三个固定模型与凭据状态，创建任务草稿；SQLite 保存草稿、模型快照、文件操作账本、LangGraph checkpoint 和任务范围上下文，重启仍可读取。后端已具备需主进程授权的三角色合成编排与轻量检索，当前 UI 尚未开放目录选择和写操作按钮。
 开发模式由主进程只读 `.env.local`；发布模式支持 safeStorage 加密保存与删除，无明文回退。三个模型已通过合成文本和结构化工具调用验证；界面不自动调用模型或执行任务。渲染端没有 Node、通用 IPC、密钥读取、路径或命令执行接口。
 
 ## 开发启动

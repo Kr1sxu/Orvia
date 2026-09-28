@@ -2,7 +2,7 @@
 
 ## 用途与结构
 
-`__init__.py` 提供异步 `Store`，保存 Mission 草稿、模型快照和 M04 文件操作账本。当前 schema 版本仍为 1；M04 在现有版本内幂等创建账本表，使用 `PRAGMA user_version` 拒绝未来数据库。
+`__init__.py` 提供异步 `Store`，保存 Mission 草稿、模型快照、M04 文件操作账本和 M06 任务范围上下文。当前 schema 版本仍为 1；M04/M06 在现有版本内幂等创建业务表和 FTS5 表，使用 `PRAGMA user_version` 拒绝未来数据库。
 
 ## 输入、输出与公共接口
 
@@ -13,6 +13,8 @@
 - `await list_missions() -> list[Mission]`：按时间及 ID 倒序列出最新最多 20 条，限制 stdio 响应大小。历史草稿仍可按 ID 查询，目前无分页接口。
 - `await create_operation(operation)`、`get_operation(id)`、`update_operation(...)`：保存计划、逐步状态和核验快照。
 - `await recover_operations()`：重启时把运行中或已审批未执行的计划标成 `interrupted`，不自动重放文件动作。
+- `replace_context_document`、`search_context`、`clear_context`：原子替换、检索和清理 Mission 范围索引。
+- `set_preference/get_preferences`、`update_summary/get_summary`：保存显式偏好和版本化摘要。
 
 读取会重新验证完整契约。损坏的快照引发错误，不会替换成当前模型配置。
 
@@ -47,4 +49,4 @@ async def save_draft(trusted_data_dir: Path):
 
 ## 权限边界与已知限制
 
-只访问可信启动配置指定的数据库；密钥不入库。SQL trigger 禁止修改现有模型快照，但数据库不加密，也不抵御有权直接修改数据库文件的本机用户。恢复不会自动重放，必须由上层显式调用；无自动备份、跨版本降级、分页或多设备同步，未来版本拒绝打开。
+只访问可信启动配置指定的数据库；密钥不入库。SQL trigger 禁止修改现有模型快照，但数据库不加密，也不抵御有权直接修改数据库文件的本机用户。上下文索引只保存调用方提交的文本块和来源，不自动读取文件；无自动备份、跨版本降级、分页或多设备同步，未来版本拒绝打开。

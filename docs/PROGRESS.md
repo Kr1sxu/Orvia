@@ -207,3 +207,21 @@ M04 未读取 `.env.local`、未调用模型、未访问真实用户文件。恢
 | L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | 85 passed, 1 skipped（LangGraph 依赖发出 1 条弃用提示） | 临时 SQLite、进程 mock / 否 | `artifacts/test-results/M05/` | 未覆盖 Electron renderer 流程和断电恢复 |
 
 M05 的 Main 规划使用程序传入的合成动作列表，未让真实模型决定文件动作；Browser 只注册角色边界，搜索与网页读取属于 M07。提交成功后由用户手动 push。
+
+## M06 上下文、用户偏好与轻量 RAG（2026-09-28）
+
+- [x] √ 加入 `jieba` 依赖并锁定；SQLite FTS5 可用性在临时数据库中验证。
+- [x] √ 文本按有界字符数分块，jieba 分词后写入 FTS5；原文块、来源、Mission、内容哈希和更新时间单独保存。
+- [x] √ 检索严格按 Mission 隔离，返回来源、块序号、原文和分数；拒绝 FTS 控制字符和超长查询。
+- [x] √ 显式偏好、版本化滚动摘要、按来源替换和按 Mission 清理；不扫描目录、不删除用户原文件。
+- [x] √ Application 接入 context 索引、检索、清理、偏好和摘要接口；模块 README、存储 README、架构、开发清单已更新。
+
+### M06 验证
+
+| 级别 | 实际命令 | 结果 | mock / 真实模型 | 结果目录 | 未覆盖风险 |
+|---|---|---|---|---|---|
+| L0 | `.venv/Scripts/uv.exe lock --project backend`、`uv sync --project backend --locked`、Python compileall | jieba/锁文件/编译通过 | 无 / 否 | `artifacts/test-results/M06/` | 未做安装包构建 |
+| L1 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_context.py backend/tests/test_application_context.py -q` | 3 passed | 临时 SQLite、合成文本 / 否 | `artifacts/test-results/M06/` | 未覆盖超大生产索引 |
+| L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | 88 passed, 1 skipped | 临时 SQLite、进程 mock / 否 | `artifacts/test-results/M06/` | 未覆盖 Electron renderer 上下文 UI和断电时 FTS 事务 |
+
+M06 未读取 `.env.local`、未调用模型、未联网。摘要由调用方提供，检索证据来自任务范围内显式提交文本；真实模型摘要、全盘索引和向量检索不属于本模块。提交成功后由用户手动 push。
