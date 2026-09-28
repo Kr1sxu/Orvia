@@ -13,7 +13,8 @@ from .protocol import Session, error_response
 from .storage import Store
 from .computer.contracts import GrantRequest, MissionRequest, ToolRequest
 from .computer.gateway import ComputerGateway
-from .computer.actions import ActionPlanRequest, ActionService
+from .computer.actions import Action, ActionPlanRequest, ActionService
+from .agents.graph import MissionGraph
 from .computer.paths import ToolError
 from .computer.system import SystemToolError
 
@@ -39,6 +40,18 @@ class OperationId(Params):
     operation_id: Annotated[str, Field(min_length=1, max_length=64)]
 
 
+class GraphStart(Params):
+    mission_id: str
+    goal: str = Field(min_length=1, max_length=500)
+    root: str = Field(min_length=1, max_length=1000)
+    actions: list[Action] = Field(min_length=1, max_length=100)
+    thread_id: Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class GraphThread(Params):
+    thread_id: Annotated[str, Field(min_length=1, max_length=128)]
+
+
 class Application:
     """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
 
@@ -48,6 +61,7 @@ class Application:
         self.registry = ModelRegistry()
         # 网关只存在于当前后端连接，连接断开即丢失授权和调用预算。
         self.computer = ComputerGateway()
+        self.graph: MissionGraph | None = None
 
     async def handle(self, line: bytes) -> dict:
         try:
@@ -57,7 +71,7 @@ class Application:
         methods = {"initialize", "credentials.replace", "configuration.status", "missions.create", "missions.list", "missions.get",
                    "computer.grant", "computer.revoke", "computer.status", "computer.execute",
                    "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
-                   "computer.verify", "computer.undo_latest"}
+                   "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
             return self.session.handle(line)
         request_id = request.get("id")
@@ -86,6 +100,8 @@ class Application:
                     return error_response(request_id, "STORAGE_UNAVAILABLE", "无法打开当前版本的应用数据库")
                 self.store = store
                 await store.recover_operations()
+                self.graph = MissionGraph(store, directory / "checkpoints.sqlite")
+                await self.graph.__aenter__()
                 self.registry.replace_credentials(initial.credentials)
                 result = {"initialized": True}
             elif self.store is None:
@@ -115,6 +131,16 @@ class Application:
                 result = await ActionService(self.store).verify(OperationId.model_validate(params).operation_id)
             elif method == "computer.undo_latest":
                 result = await ActionService(self.store).undo_latest(str(MissionRequest.model_validate(params).mission_id))
+            elif method == "mission.run":
+                if self.graph is None:
+                    raise RuntimeError("编排图尚未初始化")
+                request = GraphStart.model_validate(params)
+                result = await self.graph.start({"mission_id": request.mission_id, "goal": request.goal,
+                                                 "root": request.root, "actions": [item.model_dump() for item in request.actions]}, request.thread_id)
+            elif method == "mission.approve":
+                if self.graph is None:
+                    raise RuntimeError("编排图尚未初始化")
+                result = await self.graph.approve_and_resume(GraphThread.model_validate(params).thread_id)
             elif method == "configuration.status":
                 Params.model_validate(params)
                 result = self.registry.status()
@@ -141,5 +167,8 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.graph is not None:
+            await self.graph.__aexit__(None, None, None)
+            self.graph = None
         if self.store is not None:
             await self.store.close()

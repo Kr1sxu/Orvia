@@ -189,3 +189,21 @@ M03 未读取 `.env.local`、未调用模型、未访问真实用户文件。空
 | L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | 81 passed, 1 skipped | 临时合成目录与进程 mock / 否 | `artifacts/test-results/M04/` | 未覆盖断电时 OS 文件动作与真实 reparse point |
 
 M04 未读取 `.env.local`、未调用模型、未访问真实用户文件。恢复状态需要用户再次明确调用，撤销只处理本程序账本中且身份未变化的最近任务；没有通用回滚或删除能力。提交成功后由用户手动 push。
+
+## M05 LangGraph 三 Agent 与桌面整理闭环（2026-09-28）
+
+- [x] √ 加入 LangGraph 0.6 与 SQLite checkpoint 依赖；兼容当前 aiosqlite 的连接状态接口。
+- [x] √ Main / Computer / Browser 固定逻辑角色和能力表；Main 负责计划/证据/完成判断，Computer 只能进入 M04 审批动作，Browser 未配置 Tavily 时明确不可用。
+- [x] √ LangGraph 节点完成计划、动作计划、审批暂停、执行、核验和完成判断；Application 暴露 `mission.run` / `mission.approve`。
+- [x] √ SQLite checkpoint 支持按 thread_id 中断后恢复；文件事实仍以 M04 操作账本和核验结果为准。
+- [x] √ 合成目录闭环、空计划拒绝、角色边界和 Browser 不可用测试；未调用真实模型、未联网搜索。
+
+### M05 验证
+
+| 级别 | 实际命令 | 结果 | mock / 真实模型 | 结果目录 | 未覆盖风险 |
+|---|---|---|---|---|---|
+| L0 | `.venv/Scripts/uv.exe lock --project backend`、`uv sync --project backend --locked`、Python compileall | 依赖锁定、安装和编译通过 | 无 / 否 | `artifacts/test-results/M05/` | 未构建安装包 |
+| L1 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_agents_graph.py backend/tests/test_agent_roles.py backend/tests/test_application_actions.py -q` | 5 passed | 合成目录、临时 checkpoint / 否 | `artifacts/test-results/M05/` | 未覆盖真实供应商模型 |
+| L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | 85 passed, 1 skipped（LangGraph 依赖发出 1 条弃用提示） | 临时 SQLite、进程 mock / 否 | `artifacts/test-results/M05/` | 未覆盖 Electron renderer 流程和断电恢复 |
+
+M05 的 Main 规划使用程序传入的合成动作列表，未让真实模型决定文件动作；Browser 只注册角色边界，搜索与网页读取属于 M07。提交成功后由用户手动 push。

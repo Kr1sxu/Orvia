@@ -30,3 +30,25 @@ def test_application_action_approval_boundary(tmp_path):
         finally:
             await app.close()
     asyncio.run(scenario())
+
+
+def test_application_langgraph_checkpoint_flow(tmp_path):
+    async def scenario():
+        root = tmp_path / "workspace"
+        root.mkdir()
+        (root / "draft.txt").write_text("synthetic", encoding="utf-8")
+        app = Application()
+        try:
+            await call(app, "hello")
+            await call(app, "initialize", {"data_directory": str(tmp_path), "credentials": {}})
+            thread_id = "application-thread"
+            started = await call(app, "mission.run", {"mission_id": str(uuid4()), "goal": "整理合成目录",
+                "root": str(root), "thread_id": thread_id,
+                "actions": [{"kind": "rename", "source": "draft.txt", "destination": "final.txt"}]})
+            assert started["result"]["phase"] == "awaiting_approval"
+            completed = await call(app, "mission.approve", {"thread_id": thread_id})
+            assert completed["result"]["phase"] == "completed"
+            assert (root / "final.txt").exists()
+        finally:
+            await app.close()
+    asyncio.run(scenario())
