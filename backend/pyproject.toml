@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "orvia-backend"
+version = "0.1.0"
+description = "序航 Orvia 本地 stdio 后端"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.3,<9"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/orvia_backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

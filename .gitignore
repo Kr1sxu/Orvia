@@ -1,0 +1,26 @@
+# 本地凭据与运行数据，禁止提交。
+.env.local
+.env.*
+!.env.example
+.orvia/
+logs/
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# 开发环境与构建产物。
+.venv/
+node_modules/
+dist/
+build/
+release/
+artifacts/
+artifacts/test-results/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.egg-info/
+.env
+coverage/

@@ -1,0 +1,19 @@
+{
+  "name": "orvia",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["apps/desktop"],
+  "scripts": {
+    "setup:electron": "install-electron",
+    "build": "npm run build --workspace @orvia/desktop",
+    "start": "npm run start --workspace @orvia/desktop",
+    "check": "npm run check --workspace @orvia/desktop",
+    "test:unit": "vitest run apps/desktop/tests",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "vitest": "4.1.11"
+  }
+}
