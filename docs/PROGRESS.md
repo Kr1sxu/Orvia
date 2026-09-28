@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-09-28）
 
-本轮仅 M02。用户确认 M01 已推送并要求继续；预检确认本地与 origin/main 均为完成回执 `f6b8c76`。M02 实现与功能验证已完成，代码提交 `6f2986a` 成功；push 因 GitHub TLS 握手失败受阻，保留本地提交并停止，M03–M08 未开始。以下保留 M01 历史证据，M02 记录位于文末。
+本轮仅 M02。用户确认 M01 已推送并要求继续；预检确认本地与 origin/main 均为完成回执 `f6b8c76`。M02 实现与功能验证已完成，代码提交 `6f2986a` 与失败回执 `6b459c7` 已正常推送至 origin/main，M02 收尾完成并停止，M03–M08 未开始。以下保留 M01 历史证据，M02 记录位于文末。
 
 ## 启动预检
 
@@ -87,8 +87,8 @@
 - [x] √ 初始化失败清理后端；凭据落盘后同步失败停止旧后端并提示重启；工具响应结构与深嵌套 JSON 错误脱敏。
 - [x] √ 中文注释及 domain/storage/configuration/credentials/contracts 的独立 README，根和父模块文档同步。
 - [x] √ M02 commit 成功（`6f2986a`）。
-- [ ] M02 push 成功。
-- [ ] M02 全部收尾完成并停止。
+- [x] √ M02 push 成功（远端从 `f6b8c76` 更新至 `6b459c7`）。
+- [x] √ M02 全部收尾完成并停止。
 
 M02 不创建空壳审批/操作账本/checkpoint，不提前实现 M03–M08。草稿重启持久化不等于执行中任务恢复。完整安装包、发布设置页面全流程、LangGraph 与真实任务在相应后续模块验收。
 
@@ -143,3 +143,9 @@ M02 不创建空壳审批/操作账本/checkpoint，不提前实现 M03–M08。
 - 有限替代尝试：`git -c http.sslBackend=schannel push origin main` 使用 Git for Windows 系统 TLS 后端，仍返回 `schannel: failed to receive handshake, SSL/TLS connection failed`，exit 1。仅该命令指定后端，没有更改全局配置、关闭证书校验或 force push。
 - 保留实现提交，本次失败记录另作文档提交；当前不能勾选 push 或整个 M02 完成。后续网络恢复可正常推送这些本地提交，不重写历史。未开始 M03，未发布 Release。
 - 本次收尾只有文档变化，L0 暂存差异/空白检查通过，复用上述测试结论，不再运行代码测试或付费模型调用。
+
+### M02 推送恢复（2026-09-28）
+
+- 用户要求继续推送；git ls-remote 确认远端 main 为 f6b8c76。git push origin main 首次重试即成功，远端更新至 6b459c7，包含实现与此前失败回执。
+- 本次仅更新 PROGRESS 与 DEVELOPMENT_PLAN；L0 执行 git diff --check、git diff --cached --check 并审查暂存差异及文件范围，无密钥、数据库、日志或测试产物；无 mock、无真实模型调用、无新增结果文件。复用已有测试，未覆盖风险不变。
+- 预存 LICENSE 删除保持未暂存，未开始 M03；此前失败记录作为历史证据保留。
