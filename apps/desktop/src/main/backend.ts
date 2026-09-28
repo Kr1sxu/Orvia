@@ -5,7 +5,7 @@ import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from '.
 import { z } from 'zod';
 import { configurationSchema, missionSchema, missionCreateSchema, type MissionCreate } from './contracts';
 
-type Secrets = Partial<Record<'main' | 'computer' | 'browser', string>>;
+type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily', string>>;
 type Initialization = { dataDirectory: string; credentials: () => Secrets };
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout };

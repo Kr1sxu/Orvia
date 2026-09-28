@@ -8,6 +8,8 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .configuration import Credentials, ModelRegistry
+from .browser import BrowserService
+from .browser.service import ReadRequest, SearchRequest
 from .domain import MissionCreate
 from .protocol import Session, error_response
 from .storage import Store
@@ -92,6 +94,7 @@ class Application:
         self.session = Session()
         self.store: Store | None = None
         self.registry = ModelRegistry()
+        self.browser = BrowserService()
         # 网关只存在于当前后端连接，连接断开即丢失授权和调用预算。
         self.computer = ComputerGateway()
         self.graph: MissionGraph | None = None
@@ -105,6 +108,7 @@ class Application:
                    "computer.grant", "computer.revoke", "computer.status", "computer.execute",
                    "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
+        methods |= {"browser.read", "browser.search"}
         methods |= {"context.index", "context.search", "context.clear", "context.preferences.set", "context.preferences.get",
                     "context.summary.update", "context.summary.get"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
@@ -138,13 +142,22 @@ class Application:
                 self.graph = MissionGraph(store, directory / "checkpoints.sqlite")
                 await self.graph.__aenter__()
                 self.registry.replace_credentials(initial.credentials)
+                self.browser.key = initial.credentials.tavily
                 result = {"initialized": True}
             elif self.store is None:
                 return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
             elif method == "credentials.replace":
                 updated = ReplaceCredentials.model_validate(params)
                 self.registry.replace_credentials(updated.credentials)
+                self.browser.key = updated.credentials.tavily
                 result = {"updated": True}
+            elif method in {"browser.read", "browser.search"}:
+                # 仅可信主进程可提交显式 URL/查询；网页内容不能扩大访问范围或索引自身。
+                request = ReadRequest.model_validate(params) if method == "browser.read" else SearchRequest.model_validate(params)
+                if await self.store.get_mission(request.mission_id) is None:
+                    return error_response(request_id, "NOT_FOUND", "任务不存在")
+                result = (await self.browser.read(request.url, mode=request.mode) if method == "browser.read"
+                          else await self.browser.web_search(request.query, max_results=request.max_results))
             elif method == "computer.grant":
                 result = self.computer.grant(GrantRequest.model_validate(params))
             elif method == "computer.revoke":

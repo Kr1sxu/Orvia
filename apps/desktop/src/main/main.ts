@@ -5,7 +5,7 @@ import { BackendClient } from './backend';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
 import { synchronizeCredentials, CredentialSynchronizationError } from './credentials/synchronize';
-import { credentialInputSchema, missionCreateSchema, roleSchema } from './contracts';
+import { credentialInputSchema, missionCreateSchema, credentialRoleSchema } from './contracts';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -60,7 +60,7 @@ app.whenReady().then(async () => {
     return synchronizeCredentials(vault, backend);
   });
   handle('orvia:remove-credential', 1, async role => {
-    await vault.remove(roleSchema.parse(role));
+    await vault.remove(credentialRoleSchema.parse(role));
     return synchronizeCredentials(vault, backend);
   });
   window.on('closed', () => { window = null; });

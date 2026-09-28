@@ -20,7 +20,7 @@ addFormats(ajv);
 
 describe('M02 真实 Python / SQLite / TypeScript 契约（无模型调用）', () => {
   beforeAll(async () => {
-    const results = path.resolve('artifacts/test-results/M02');
+    const results = path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M02');
     await fs.mkdir(results, { recursive: true });
     directory = await fs.mkdtemp(path.join(results, 'integration-'));
     schemas = JSON.parse(await fs.readFile('contracts/m02.schema.json', 'utf8'));

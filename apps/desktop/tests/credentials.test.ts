@@ -7,7 +7,7 @@ let root: string;
 let userData: string;
 let adapter: SafeStorageAdapter;
 beforeEach(async () => {
-  const artifacts = path.resolve('artifacts/test-results/M02');
+  const artifacts = path.resolve('artifacts/test-results/M07');
   await fs.mkdir(artifacts, { recursive: true });
   root = await fs.mkdtemp(path.join(artifacts, 'credentials-'));
   userData = path.join(root, 'userData');
@@ -26,10 +26,10 @@ function vault(development = false) { return new CredentialVault({ development, 
 
 describe('凭据存储（模拟 safeStorage，真实临时文件，无模型）', () => {
   it('开发模式解析 BOM、引号、export 与注释，只读且不使用系统存储', async () => {
-    const content = '\uFEFF# synthetic\nexport DEEPSEEK_API_KEY="main-synthetic" # comment\nZHIPU_API_KEY=\'computer-synthetic\'\nMIMO_API_KEY=browser-synthetic # comment\nTAVILY_API_KEY=ignored';
+    const content = '\uFEFF# synthetic\nexport DEEPSEEK_API_KEY="main-synthetic" # comment\nZHIPU_API_KEY=\'computer-synthetic\'\nMIMO_API_KEY=browser-synthetic # comment\nTAVILY_API_KEY=tavily-synthetic';
     await fs.writeFile(path.join(root, '.env.local'), content);
     const store = vault(true); await store.load();
-    expect(store.getSecrets()).toEqual({ main: 'main-synthetic', computer: 'computer-synthetic', browser: 'browser-synthetic' });
+    expect(store.getSecrets()).toEqual({ main: 'main-synthetic', computer: 'computer-synthetic', browser: 'browser-synthetic', tavily: 'tavily-synthetic' });
     expect(store.getStatus().every(item => item.source === 'development_env')).toBe(true);
     await expect(store.save('main', 'replacement')).rejects.toThrow('DEVELOPMENT_READ_ONLY');
     await expect(store.remove('main')).rejects.toThrow('DEVELOPMENT_READ_ONLY');

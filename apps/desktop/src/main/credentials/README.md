@@ -1,4 +1,4 @@
-# 主进程凭据模块（M02）
+# 主进程凭据模块（M02/M07）
 
 ## 用途与结构
 `index.ts` 提供 `CredentialVault`、角色类型与 `SafeStorageAdapter`，负责开发凭据只读加载和发布凭据系统加密存储。`synchronize.ts` 处理凭据落盘后与后端的同步边界。本目录不提供 renderer API。
@@ -8,13 +8,13 @@
 `load()` 异步加载；`getStatus()` 返回角色、配置状态及来源；`getSecrets()` 返回内存副本，仅用于后端私有管道；`save(role, key)` 和 `remove(role)` 仅发布模式可用。调用保存前必须成功加载。
 
 ## 依赖与配置
-使用 Node.js 文件系统和注入的 Electron `safeStorage`。固定读取 `DEEPSEEK_API_KEY`、`ZHIPU_API_KEY`、`MIMO_API_KEY`；不读取 Tavily。开发只读根目录 `.env.local`，发布只使用 `userData/credentials.enc.json` 中角色到加密 Base64 的映射。系统安全存储不可用时直接报错，不降级明文。
+使用 Node.js 文件系统和注入的 Electron `safeStorage`。固定读取 `DEEPSEEK_API_KEY`、`ZHIPU_API_KEY`、`MIMO_API_KEY` 与可选 `TAVILY_API_KEY`；tavily 是搜索凭据而非第四模型角色。开发只读根目录 `.env.local`，发布只使用 `userData/credentials.enc.json` 中角色到加密 Base64 的映射。系统安全存储不可用时直接报错，不降级明文。
 
 ## 运行方式
 由 Electron 主进程在 `app.whenReady()` 后实例化，注入 `safeStorage` 及 `app.getPath('userData')`，再等待 `load()`；无需独立服务。
 
 ## 测试方式
-在项目根目录运行 `npx vitest run apps/desktop/tests/credentials.test.ts --reporter=json --outputFile=artifacts/test-results/M02/credentials.json`。测试使用模拟 safeStorage 和合成密钥，临时文件位于忽略的 M02 测试结果目录，不调用模型。
+在项目根目录运行 `npx vitest run apps/desktop/tests/credentials.test.ts --reporter=json --outputFile=artifacts/test-results/M07/credentials.json`。测试使用模拟 safeStorage 和合成密钥，临时文件位于忽略的 M07 测试结果目录，不调用模型。
 
 ## 使用示例
 ```ts

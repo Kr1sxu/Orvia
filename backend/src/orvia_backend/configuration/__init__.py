@@ -17,8 +17,9 @@ class Credentials(BaseModel):
     main: SecretStr | None = None
     computer: SecretStr | None = None
     browser: SecretStr | None = None
+    tavily: SecretStr | None = None
 
-    @field_validator("main", "computer", "browser")
+    @field_validator("main", "computer", "browser", "tavily")
     @classmethod
     def bounded_key(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None:
@@ -39,7 +40,7 @@ class ModelRegistry:
 
     def status(self) -> dict:
         return {"profiles": [{**profile.model_dump(mode="json"), "configured": getattr(self._credentials, profile.role) is not None}
-                             for profile in get_profiles()], "search_available": False}
+                             for profile in get_profiles()], "search_available": self._credentials.tavily is not None}
 
     def key_for(self, profile: ModelProfile) -> str:
         """只为当前固定且已校验的配置取得 Key；缺失就拒绝，不选择备用供应商。"""

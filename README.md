@@ -2,11 +2,11 @@
 
 面向 Windows 的本地桌面多 Agent 工作助手。MVP 先完成需要用户审批的桌面文件整理。
 
-当前 **M06 上下文、用户偏好与轻量 RAG 已通过本机功能验证**，尚不是完整文件整理产品。实际完成与测试、本地 commit 和用户手动推送状态以 [进度记录](docs/PROGRESS.md) 为准。
+当前 **M07 Browser 搜索与只读网页读取已实现并通过合成验证**，尚不是完整文件整理产品。实际完成与测试、本地 commit 和用户手动推送状态以 [进度记录](docs/PROGRESS.md) 为准。
 
 ## 本轮能力
 
-Electron + React + TypeScript 通过受限 IPC 与 Python 3.12 私有 JSON Lines 通信。界面可查看三个固定模型与凭据状态，创建任务草稿；SQLite 保存草稿、模型快照、文件操作账本、LangGraph checkpoint 和任务范围上下文，重启仍可读取。后端已具备需主进程授权的三角色合成编排与轻量检索，当前 UI 尚未开放目录选择和写操作按钮。
+Electron + React + TypeScript 通过受限 IPC 与 Python 3.12 私有 JSON Lines 通信。界面可查看三个固定模型与凭据状态，创建任务草稿；SQLite 保存草稿、模型快照、文件操作账本、LangGraph checkpoint 和任务范围上下文，重启仍可读取。后端已具备需主进程授权的三角色合成编排、轻量检索与 Browser 私有只读接口，当前 UI 尚未开放目录选择和写操作按钮。
 开发模式由主进程只读 `.env.local`；发布模式支持 safeStorage 加密保存与删除，无明文回退。三个模型已通过合成文本和结构化工具调用验证；界面不自动调用模型或执行任务。渲染端没有 Node、通用 IPC、密钥读取、路径或命令执行接口。
 
 ## 开发启动
@@ -39,7 +39,7 @@ Electron 固定启动 `backend/.venv/Scripts/python.exe`，不通过 PATH 搜索
 | `tests/integration/` | 跨进程集成验证 |
 | `tests/e2e/` | Electron 真实窗口端到端验证 |
 | `docs/` | 架构、开发清单、事实进度 |
-| `artifacts/test-results/M02/` | 本轮本地测试证据，不提交 Git；M01 证据原地保留 |
+| `artifacts/test-results/M07/` | 本轮本地测试证据，不提交 Git；历史证据原地保留 |
 
 参见 [开发约定](AGENTS.md)、[架构](docs/ARCHITECTURE.md)、[开发清单](docs/DEVELOPMENT_PLAN.md) 和各模块 README。
 
@@ -59,11 +59,13 @@ npm run test:e2e
 
 ## 目标架构与限制
 
-Main Agent 负责规划、委派和证据判断，Computer Agent 负责受限本地任务，Browser Agent 负责搜索与只读网页访问。当前只实现其固定模型配置基础，LangGraph、文件权限网关和 RAG 尚未实现。
+Main Agent 负责规划、委派和证据判断，Computer Agent 负责受限本地任务，Browser Agent 负责搜索与只读网页访问。已实现固定模型配置、合成 LangGraph 流程、文件权限网关、审批账本、轻量 RAG 和受限网页读取；当前 UI 仍以配置与草稿为主。
 
-开发 Key 仅放根目录被忽略的 `.env.local`，变量名见 `.env.example`。不得提交 Key 或把环境文件打包。三个角色固定模型配置见架构文档；Tavily 未配置，搜索尚未实现且明确不可用。Mission 目前只有草稿状态，不代表任务执行、审批或执行恢复。
+开发 Key 仅放根目录被忽略的 `.env.local`，变量名见 `.env.example`。不得提交 Key 或把环境文件打包。三个角色固定模型配置见架构文档；Tavily 缺失时搜索明确不可用；开发主进程读取可选 TAVILY_API_KEY，发布通过 safeStorage。Browser 接口、合成试用与运行时限制见 [模块 README](backend/src/orvia_backend/browser/README.md)。创建草稿本身不代表开始执行任务。
 首版不删除、覆盖、清理系统或执行任意脚本。PDF/OCR、PPT、标书、完整行业调研、代码生成、原型、桌面点击和浏览器写操作属于后续能力。
 
 ## 提交与远端同步
 
 按最新开发约定，Agent 每轮完成一个模块后创建本地 commit 并停止，push 由用户手动执行。未推送不影响已实现、验证、记录和提交的模块完成；历史推送结果仅作为历史证据保留。
+
+M07 默认动态读取需要 Playwright 配套 Chromium；本轮下载超时，合成动态测试显式使用本机 Edge 的 Chromium 引擎，产品不自动回退。未验证真实 Tavily/互联网网页兼容性，M08 未开始。

@@ -3,7 +3,7 @@ import type { Configuration, Mission, MissionCreate } from '../main/contracts';
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
 export type Reply<T> = { ok: true; result: T } | { ok: false; message: string };
 export type HealthReply = Reply<HealthResult>;
-export type Role = 'main' | 'computer' | 'browser';
+export type Role = 'main' | 'computer' | 'browser' | 'tavily';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {

@@ -47,7 +47,7 @@ function App() {
     finally { setSaving(false); }
   }
   return <main>
-    <header><span className="mark">序</span><span>序航 <b>Orvia</b></span><span className="tag">M02 · 开发预览</span></header>
+    <header><span className="mark">序</span><span>序航 <b>Orvia</b></span><span className="tag">M07 · 开发预览</span></header>
     <section className="intro"><p className="eyebrow">从连接开始，循序启航</p><h1>你的本地工作助手</h1><p>先准备模型配置与任务草稿，桌面整理将在后续模块开放。</p></section>
     <section className="card"><div className="card-heading"><h2>本地服务</h2><span className={`badge ${reply?.ok ? 'online' : ''}`}>{busy ? '检查中' : reply?.ok ? '已连接' : '未连接'}</span></div>
       <div className="route"><span>Electron 窗口</span><i>→</i><span>受限 IPC</span><i>→</i><span>Python 后端</span></div>
@@ -61,13 +61,13 @@ function App() {
         <p>{profile.model}</p><small>{profile.base_url}</small>
       </article>)}</div>
       {settings?.mode === 'development' ? <p className="hint">开发模式：凭据来自项目根目录 .env.local。修改后重启应用；界面不显示或写入密钥。</p> : settings && <div className="credential-form">
-        <label>角色<select value={role} onChange={event => setRole(event.target.value as Role)}><option value="main">Main</option><option value="computer">Computer</option><option value="browser">Browser</option></select></label>
+        <label>凭据类型<select value={role} onChange={event => setRole(event.target.value as Role)}><option value="main">Main</option><option value="computer">Computer</option><option value="browser">Browser</option><option value="tavily">Tavily 搜索</option></select></label>
         <label>API Key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} maxLength={4096} /></label>
         <button disabled={saving || !key || !settings.encryption_available} onClick={() => void changeCredential(false)}>加密保存</button>
         <button disabled={saving || !settings.encryption_available} onClick={() => void changeCredential(true)}>移除凭据</button>
         {!settings.encryption_available && <p className="error">系统安全存储不可用，不能保存凭据。</p>}
       </div>}
-      <p className="hint">网页搜索尚未启用；未配置 Tavily，搜索不可用。</p>
+      <p className="hint">{settings?.search_available ? 'Tavily 已配置；搜索与网页读取目前仅提供后端接口。' : '未配置 Tavily，搜索不可用；公开网页读取不需要搜索凭据。'}</p>
     </section>
     <section className="card drafts"><h2>任务草稿</h2><p className="hint">草稿仅在本地保存名称和模型配置。此阶段不会调用模型或执行文件操作。</p>
       <form onSubmit={event => void createDraft(event)}><label htmlFor="mission-title">草稿名称</label><div className="draft-form"><input id="mission-title" value={title} onChange={event => { setTitle(event.target.value); setDraftId(crypto.randomUUID()); }} maxLength={200} placeholder="例如：整理桌面资料" required /><button disabled={saving || !title.trim() || !reply?.ok}>保存草稿</button></div></form>

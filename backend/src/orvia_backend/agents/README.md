@@ -8,7 +8,7 @@
 
 `MissionGraph(store, checkpoint_path)` 是异步上下文管理器。`start(state, thread_id)` 接收合成任务目标、授权根和已校验动作列表，返回 `awaiting_approval` 或 `completed/failed` 状态；`approve_and_resume(thread_id)` 从 SQLite checkpoint 恢复并继续执行。Application 暴露 `mission.run` 与 `mission.approve`，仍只接受可信主进程私有 JSON Lines。
 
-Main 只能规划和完成判断，Computer 只能准备/执行已经审批的 M04 动作，Browser 当前只有不可用的搜索占位。图状态不保存 Key、模型响应原文或任意命令。
+Main 只能规划和完成判断，Computer 只能准备/执行已经审批的 M04 动作，Browser 经 M07 BrowserService 提供只读搜索与网页读取接口，当前图不自动调用它。图状态不保存 Key、模型响应原文或任意命令。
 
 ## 依赖、运行和测试
 
@@ -22,4 +22,4 @@ Python 3.12、LangGraph 0.6、`langgraph-checkpoint-sqlite`、aiosqlite、Pydant
 
 ## 权限边界与已知限制
 
-LangGraph 节点不能自行扩大 Computer 授权；所有写入仍经过 M04 审批账本。checkpoint 只保存编排状态，文件事实以 M04 账本和执行核验为准。M05 使用程序提供的合成动作列表，Main 的真实模型规划调用与 Browser HTTP/Playwright 读取属于后续显式能力；未配置 Tavily 时不产生伪造搜索结果。
+LangGraph 节点不能自行扩大 Computer 授权；所有写入仍经过 M04 审批账本。checkpoint 只保存编排状态，文件事实以 M04 账本和执行核验为准。M05 使用程序提供的合成动作列表，Main 的真实模型规划仍未开放；M07 HTTP/Playwright 只读服务已可独立调用；未配置 Tavily 时不产生伪造搜索结果。

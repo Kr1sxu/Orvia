@@ -19,8 +19,9 @@ export const missionSchema = missionCreateSchema.extend({ id: z.string().uuid(),
 }).strict();
 export const configurationSchema = z.object({ profiles: z.array(z.object({ ...profileShape.shape, configured: z.boolean() }).strict()
   .refine(value => profileSchema.safeParse(Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'configured'))).success)).length(3)
-  .refine(items => new Set(items.map(item => item.role)).size === 3), search_available: z.literal(false) }).strict();
-export const credentialInputSchema = z.object({ role: roleSchema, key: z.string().min(1).max(4096).refine(value => !!value.trim() && !/[\r\n]/.test(value)) }).strict();
+  .refine(items => new Set(items.map(item => item.role)).size === 3), search_available: z.boolean() }).strict();
+export const credentialRoleSchema = z.enum(['main', 'computer', 'browser', 'tavily']);
+export const credentialInputSchema = z.object({ role: credentialRoleSchema, key: z.string().min(1).max(4096).refine(value => !!value.trim() && !/[\r\n]/.test(value)) }).strict();
 export type Mission = z.infer<typeof missionSchema>;
 export type MissionCreate = z.infer<typeof missionCreateSchema>;
 export type Configuration = z.infer<typeof configurationSchema>;

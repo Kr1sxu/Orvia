@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-09-28）
 
-本轮先按用户要求修改 Git 收尾规则，再开发 M03。当前 HEAD 为 M02 完成回执 `55f3c98`，本地跟踪分支一致；预存 LICENSE 删除不纳入提交。M01/M02 已完成；M03 进行中。以下 M01/M02 推送要求与失败记录属于当时历史，不再作为当前规则。
+M01–M06 已完成并由用户手动 push；本轮从 `db08c59` 开发 M07。M07 已实现并完成下述合成验证，本地提交以包含本节的 `feat(M07): add restricted browser search and page reading` 为准；用户手动 push 待执行，Agent 不 push。预存 LICENSE 删除仍未暂存；M08 未开始。历史推送失败记录原样保留。
 
 ## 启动预检
 
@@ -225,3 +225,49 @@ M05 的 Main 规划使用程序传入的合成动作列表，未让真实模型�
 | L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | 88 passed, 1 skipped | 临时 SQLite、进程 mock / 否 | `artifacts/test-results/M06/` | 未覆盖 Electron renderer 上下文 UI和断电时 FTS 事务 |
 
 M06 未读取 `.env.local`、未调用模型、未联网。摘要由调用方提供，检索证据来自任务范围内显式提交文本；真实模型摘要、全盘索引和向量检索不属于本模块。提交成功后由用户手动 push。
+
+## M07 Browser 搜索、HTTP 与 Playwright 只读读取（2026-09-28）
+
+### 预检与范围
+
+已读取 AGENTS、README、ARCHITECTURE、DEVELOPMENT_PLAN、PROGRESS 及指定技术设计。工作目录正确，本地分支 main、HEAD db08c59；`git ls-remote --symref origin HEAD` 确认远端默认 main 且 HEAD 同为 db08c59c76ec1639db2d9ee8758ddd6ec0d0935e。初始仅 LICENSE 预存删除，无其它用户改动。未 fetch/push，未修改 TLS 或网络配置。
+
+- [x] √ 新增 browser/network.py 与 service.py：公开目标校验、全部 DNS 地址检查、固定 IP 与 TLS SNI、同源逐跳重定向、无 Cookie 的流式 HTTP 出口。
+- [x] √ HTTP 优先与 trafilatura 正文提取；空壳 HTML 可转 Playwright，权限/HTTP 错误不绕过。浏览器单页资源经相同出口 fulfill，CSP sandbox、资源/字节/超时限制与错误证据。
+- [x] √ Tavily 缺 Key 明确 SEARCH_UNAVAILABLE；配置后仅固定搜索 API、基本搜索、有限合成/mock 验证，无伪造结果。
+- [x] √ 主进程开发凭据与发布 safeStorage 增加 tavily，Python 仅持有 SecretStr；configuration.search_available 返回配置存在性。三个模型映射与 Mission 快照不变。
+- [x] √ Application 接入 browser.read/search，要求已有任务且拒绝额外字段；BrowserAgent 委派窄接口。renderer 未开放搜索、读取或任意网络入口。
+- [x] √ 中文注释、模块 README、根/相关模块文档、开发清单与本节记录更新；未提前开发 M08。
+
+### 分级验证
+
+所有本轮报告位于 Git 忽略的 `artifacts/test-results/M07/`。Python 使用项目 `backend/.venv/Scripts/python.exe`；以下命令在仓库根目录执行。未调用任何真实模型或 Tavily，网页 HTTP/DNS 均为 mock，真实浏览器加载的也是合成响应。依赖/运行时下载不涉及用户资料。
+
+| 级别 | 实际命令 | 结果 / 证据 | mock / 真实模型 | 未覆盖风险 |
+|---|---|---|---|---|
+| L0 | `.venv/Scripts/uv.exe lock --project backend`、`.venv/Scripts/uv.exe sync --project backend --locked` | Playwright 1.63.0、trafilatura 2.2.0 及锁文件安装通过 | 无 / 否 | 不等于 Chromium 安装成功 |
+| L0 | `npm run check`、`npm run build`；UI 凭据标签调整后再次 `npm run build` | 类型与构建通过，build.log / build-final.log | 无 / 否 | 未打包 |
+| L0 | `backend/.venv/Scripts/python.exe -m compileall -q backend/src/orvia_backend/browser backend/src/orvia_backend/application.py backend/src/orvia_backend/agents/roles.py` | 编译通过 | 无 / 否 | 非行为验证 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_browser.py backend/tests/test_agent_roles.py backend/tests/test_configuration.py --basetemp=artifacts/test-results/M07/unit-temp --junitxml=artifacts/test-results/M07/unit.xml -q` | 65 passed；URL、DNS、重定向、Cookie、超限、错误脱敏、Tavily 和协议 | HTTP/DNS mock、临时 SQLite / 否 | 未验证真实 TLS/公网可达性 |
+| L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_browser.py backend/tests/test_application.py backend/tests/test_application_actions.py backend/tests/test_application_context.py backend/tests/test_protocol.py backend/tests/test_server.py backend/tests/test_agents_graph.py --basetemp=artifacts/test-results/M07/integration-temp --junitxml=artifacts/test-results/M07/backend-integration.xml -q` | 62 passed；最终 HTTP/应用接口与关联模块回归 | mock 网络、真实临时 DB/合成目录 / 否 | 不重复无关全量测试，非 L4 |
+| L1/L2 | `npx vitest run apps/desktop/tests/credentials.test.ts apps/desktop/tests/credential-sync.test.ts tests/integration/m02.test.ts --reporter=json --outputFile=artifacts/test-results/M07/credentials-integration.json` | 25 passed | fake safeStorage、真实 Python stdio/SQLite / 否 | 首轮复用 M02 测试的临时 DB 仍按旧路径在 M02；后已允许结果目录变量 |
+| L2 | `$env:ORVIA_TEST_RESULTS='artifacts/test-results/M07'` 后 `npx vitest run tests/integration/m07-credentials.test.ts tests/integration/m02.test.ts --reporter=json --outputFile=artifacts/test-results/M07/stdio-final.json` | 10 passed；新增 Tavily 加密重载/删除、配置与三个角色隔离、真实 stdio 替换且不落 DB | fake safeStorage、真实 stdio/SQLite / 否 | 不验证供应商搜索可用性 |
+| L2 | 设置 `ORVIA_BROWSER_TEST=1`、`ORVIA_BROWSER_TEST_CHANNEL=msedge` 后 `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_browser_engine.py --junitxml=artifacts/test-results/M07/engine-unicode-final.xml -q` | 最终 4 passed；真实 Edge Chromium 154.0.4258.37 渲染 JS、相对资源、阻止写/越界/二次导航及预算 | 真实引擎，合成 HTTP/DNS mock / 否 | 不是配套 Chromium 或真实站点验收；默认 pytest 跳过此显式测试 |
+| L3 | `$env:ORVIA_TEST_MODULE='M07'` 后 `npx playwright test tests/e2e/m07.spec.ts` | 1 passed；真实 Electron、Windows safeStorage、私有 Python 同步；e2e.json / settings.png（已视觉检查） | 无加密/通信 mock，仅合成 Key / 否 | 未验完整安装包或发布 UI 的凭据操作流程 |
+
+已有 LangGraph 依赖的序列化弃用提示保留，没有因 M07 改动静默替换依赖行为。没有调用真实模型，不增加模型费用。
+
+### 失败与修复
+
+- 最初用于批量修改的 Python 命令默认 GBK 解码失败，尚未写入文件；改用 `-X utf8` 后完成。后续统一 UTF-8，不影响用户改动。
+- `python -m playwright install chromium` 因官方 CDN 超时失败；随后 `python -m playwright install chromium --only-shell` 也失败，记录 chromium-install.log。未关闭证书验证或改网络配置。显式选择本机 Edge 仅用于测试，产品默认仍为配套 Chromium，缺失会报告 PLAYWRIGHT_FAILED。
+- 初始真实引擎测试 1 通过、2 失败（engine.xml）：合成页面缺 UTF-8 声明导致乱码；被拒绝的表单导航使定位器等待导航。修正合成页面编码，固定只读提取不再依赖定位器导航等待，并增加 CSP sandbox。失败项最小重跑保留 engine-retry.xml；策略变化后重跑 3 项，engine-final.xml 全通过；最终审查补上 UTF-16/UTF-8 emoji 截断与孤立代理项处理，4 项目标用例全部通过（engine-unicode-final.xml）。
+- HTTP 到浏览器的文档重定向在启动页面前由网关解析，浏览器以最终 URL 建立文档，避免相对脚本路径与来源不一致。每一资源重定向都扣减共享请求/字节预算。
+
+### 完成边界与本地提交
+
+本轮只读工具流程、程序边界、文档与对应验证完成，不声称真实 Tavily/公网兼容性、配套 Chromium 安装或 M08 发布验收完成。默认动态读取需要安装匹配 Chromium；当前本机配套下载未成功。跨源 CDN、登录、验证码、互动内容、非 UTF-8 HTTP 文本、持续轮询页面可能受限或失败；公开 GET 不保证网站侧零副作用。Browser 不自动启动模型、不自动把网页写入索引。
+
+本地提交使用 `git -c user.name='踪显' -c user.email='18532112451@163.com' commit -m "feat(M07): add restricted browser search and page reading"`，具体哈希由最终交付回执和 git log 确认。提交前显式选择 M07 文件，检查 status / diff / diff --cached 与空白、敏感信息及忽略路径；LICENSE 预存删除不在索引。用户手动 push 待执行，Agent 本轮无任何 push。M07 完成后停止等待，不开始 M08。
+
+提交前卫生检查：31 个显式暂存文件，无禁止路径；扫描暂存内容与当时 101 个 M07 产物，真实开发 Key 匹配均为 0（仅检查存在性、不输出值）。三个模型变量存在，Tavily 未配置。staged-hygiene.json 保存计数；代码/报告/截图均无真实 Key，数据库、日志和截图未暂存。最终仅 Browser Unicode 边界与相关测试、记录追加，复核暂存差异后创建本地提交。

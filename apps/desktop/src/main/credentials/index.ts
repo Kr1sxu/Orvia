@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-export const roles = ['main', 'computer', 'browser'] as const;
+export const roles = ['main', 'computer', 'browser', 'tavily'] as const;
 export type CredentialRole = typeof roles[number];
 type Secrets = Partial<Record<CredentialRole, string>>;
 export interface SafeStorageAdapter {
@@ -16,7 +16,7 @@ interface Options {
   userData: string;
   safeStorage: SafeStorageAdapter;
 }
-const variables = { main: 'DEEPSEEK_API_KEY', computer: 'ZHIPU_API_KEY', browser: 'MIMO_API_KEY' };
+const variables = { main: 'DEEPSEEK_API_KEY', computer: 'ZHIPU_API_KEY', browser: 'MIMO_API_KEY', tavily: 'TAVILY_API_KEY' };
 const invalid = () => new Error('CREDENTIAL_INVALID: 密钥必须为非空单行文本且不超过 4096 字符');
 function validKey(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= 4096 && !/[\r\n]/.test(value);
@@ -57,7 +57,7 @@ export class CredentialVault {
       const next: Secrets = {};
       try {
         if (this.options.development) {
-          // 只解析固定变量，绝不执行表达式、展开环境变量或读取其他搜索凭据。
+          // 只解析固定变量，绝不执行表达式、展开环境变量；搜索凭据与模型凭据分开命名。
           const values = new Map<string, string>();
           for (const line of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
             const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);

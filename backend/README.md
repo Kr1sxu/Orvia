@@ -1,4 +1,4 @@
-# Orvia Python 后端（M01–M06）
+# Orvia Python 后端（M01–M07）
 
 ## 用途和目录结构
 
@@ -14,7 +14,8 @@
 - `src/orvia_backend/computer/`：M03 只读文件工具、系统探测与 Mission 权限网关，见该目录 README。
 - `src/orvia_backend/computer/actions.py`：M04 审批后文件动作、账本核验、恢复和受限撤销。
 - `src/orvia_backend/context/`：M06 jieba + SQLite FTS5 任务范围上下文与偏好，见该目录 README。
-- `tests/`：协议和流读取单元测试。
+- `src/orvia_backend/browser/`：M07 Tavily、HTTP、Playwright 只读网关，详见模块 README。
+- `tests/`：协议、模块边界与合成集成测试。
 - `pyproject.toml`：Python 包、版本约束和测试配置。
 
 ## 输入输出与公共接口
@@ -68,6 +69,8 @@ M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initiali
 
 ## 权限边界与已知限制
 
-只开放健康检查、初始化、配置和草稿方法，不提供 shell、用户文件整理、任意 SQL、任意模型提示词或桌面控制接口。模型适配只由受控后端代码与显式测试调用，渲染端没有模型执行入口。
+主进程私有协议已增加 M03–M07 的工具与任务方法，renderer 仍只开放配置和草稿；不提供任意 SQL、任意模型提示词或桌面控制接口。模型适配只由受控后端代码与显式测试调用，渲染端没有模型执行入口。
 这不是操作系统级沙箱；应由可信 Electron 主进程启动，禁止把 stdio 直接暴露给不可信远程端。
 M04 已验证动作计划、审批、核验、恢复和受限撤销；M06 增加显式提交文本的上下文索引和偏好。仍无通用删除、覆盖、任意脚本或 renderer 写操作 UI。父进程负责超时和进程清理，EOF 关闭数据库连接后退出。
+
+M07 增加 browser.read / browser.search，须存在的 mission_id；来源与正文证据不自动落盘。Tavily 仅以内存 SecretStr 持有，不作为模型配置。Browser 策略、Chromium 依赖和合成试用见 `src/orvia_backend/browser/README.md`。

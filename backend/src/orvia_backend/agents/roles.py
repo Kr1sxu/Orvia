@@ -22,12 +22,14 @@ def can(role: AgentRole, capability: str) -> bool:
 
 
 class BrowserAgent:
-    """M05 仅注册 Browser 逻辑角色；Tavily 未配置时明确不可用，不伪造搜索结果。"""
+    """Browser 仅持有窄服务，不提供脚本、点击或 Computer 工具。"""
 
-    def __init__(self, tavily_available: bool = False):
-        self.tavily_available = tavily_available
+    def __init__(self, service=None):
+        from ..browser import BrowserService
+        self.service = service or BrowserService()
 
     async def web_search(self, query: str) -> dict:
-        if not self.tavily_available:
-            return {"available": False, "error": {"code": "SEARCH_UNAVAILABLE", "message": "未配置搜索凭据"}}
-        raise NotImplementedError("M07 才实现 Browser 搜索")
+        return await self.service.web_search(query)
+
+    async def read_web(self, url: str, *, mode: str = "auto") -> dict:
+        return await self.service.read(url, mode=mode)
