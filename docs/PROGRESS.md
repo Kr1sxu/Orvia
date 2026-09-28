@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-09-28）
 
-本轮仅 M01。实现和本机分级验证已完成；用户已确认沿用仓库初始作者身份，正在完成 commit/push；M02–M08 未开始。M01 尚未全部完成 Git 收尾。
+本轮仅 M01。实现和本机分级验证已完成；代码提交 `d9bab2a` 成功，两次正常 push 均因 GitHub TLS 连接错误失败，未推送。保留本地提交并停止，M02–M08 未开始，M01 尚未全部完成 Git 收尾。
 
 ## 启动预检
 
@@ -22,7 +22,7 @@
 - [x] √ Node 隔离、sandbox、CSP、新窗口/导航/权限/网络拒绝，Python 环境变量白名单。
 - [x] √ EOF 关闭及自有进程清理；修复退出早于首次请求的启动竞态。
 - [x] √ 中文注释、根文档、桌面/后端/跨进程测试模块 README。
-- [ ] Git commit 成功。
+- [x] √ Git commit 成功（代码提交 `d9bab2a`）。
 - [ ] Git push 成功。
 - [ ] M01 全部收尾完成并停止。
 
@@ -61,8 +61,9 @@
 提交前已检查 `git status`、`git diff`、`git diff --cached`、`git diff --cached --check`；清除 5 个文件末尾多余空行后静态检查通过，纯空白修订不重复代码测试。
 通过内存比较本地 Key 与 38 个暂存文件及本地测试产物，密钥匹配为 0；禁止路径为 0；JSON 配置、Markdown 本地链接及 `.env.example` 空值均通过。报告 `staged-hygiene.json` 仅含计数，无密钥或摘要。
 测试报告、运行数据、虚拟环境、node_modules 与真实 Key 均未暂存；`git check-ignore` 已确认保护生效。预存 LICENSE 删除未纳入本轮提交。
-- 提交：`git commit -m "feat(M01): establish restricted Electron Python health bridge"` 失败，Git 返回 `Author identity unknown` 和 `unable to auto-detect email address`；未产生新 commit，HEAD 仍为 `8446647`。
-- 推送：未执行。必须先成功提交，不能将远端已有初始提交当作本轮推送成功。
+- 首次提交尝试：因 `Author identity unknown` / `unable to auto-detect email address` 失败，未产生 commit；随后用户确认身份。
+- 提交成功：`git -c user.name='踪显' -c user.email='18532112451@163.com' commit -m "feat(M01): establish restricted Electron Python health bridge"`，生成 `d9bab2a`，38 个模块文件。作者身份已核对。
+- 推送失败：连续两次 `git push origin main` 均 exit 1，错误为 `OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443`。未报告远端更新成功，保留本地提交，不 force push、不重写历史、不关闭 TLS 校验。
 - 身份阻塞已解除：用户明确确认沿用“踪显 <18532112451@163.com>”。仅为本次 Git 命令指定该身份，不修改全局配置。
-- 当前 38 个模块文件已显式暂存，保留实现和验证证据；工作区另有预存 LICENSE 删除，仍未暂存。继续本模块 commit/push 和完成记录，不开始 M02。
+- 模块代码已提交，另将本次失败回执作为独立文档提交保留；这些本地提交尚未推送。工作区预存 LICENSE 删除仍未暂存。网络恢复后只需继续正常 push 和更新回执，不开始 M02。
 - 本次仅 Git 与文档收尾，复用上述 L0–L3 结论，不重复运行代码测试。
