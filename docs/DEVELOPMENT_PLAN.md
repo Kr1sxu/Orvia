@@ -1,6 +1,6 @@
 # 模块开发清单
 
-当前模块：M07。M01–M06 已完成并由用户手动 push；本轮完成 Browser 只读服务、合成验证和本地提交后停止。Agent 不 push，M08 未开始。
+当前模块：M08。M01–M07 已完成并由用户手动 push；本轮完成安装包、冻结后端和本机整体验收后停止。Agent 不 push。
 
 ## M01 工程骨架与 Electron-Python 通信
 
@@ -76,17 +76,19 @@
 - [x] √ M07 模块代码与受限读取流程验收完成，停止；配套 Chromium 后续重试安装成功，默认引擎 4 项合成测试通过。
 - [ ] 用户手动 push 本轮提交；Agent 未执行 push。
 
-真实 Edge 与配套 Chromium Headless Shell 均已通过合成 HTTP 响应验证；本机匹配运行时已安装，不等于真实 Tavily/互联网兼容性或 M08 分发已验收。详见 PROGRESS。
+真实 Edge 与配套 Chromium Headless Shell 均已通过合成 HTTP 响应验证；本机匹配运行时已安装，不等于真实 Tavily/互联网兼容性；M08 本机分发验收见 PROGRESS。详见 PROGRESS。
 
 ## M08 安装包与整体验收
 
-- [ ] PyInstaller onedir + console 后端分发。
-- [ ] electron-builder 安装包、ASAR 外资源与匹配 Chromium。
-- [ ] 无开发环境 Windows 验收、FTS5/依赖检查、安装卸载。
-- [ ] 发布验收所需 L4 全量回归与限制说明。
-- [ ] 检查安装包不含 Key、开发数据库、日志和用户文件。
-- [ ] 文档、进度与本地 commit；用户手动 push，不自动发布 GitHub Release。
-- [ ] M08 实际验收完成并停止。
+- [x] √ PyInstaller onedir + console 冻结 Python 3.12 后端，发布启动不查找系统 Python。
+- [x] √ electron-builder Windows x64 NSIS 安装包、目录包与 ASAR 外 backend/chromium/runtime-manifest 资源。
+- [x] √ 发布版固定资源路径、safeStorage、SQLite/FTS5、审批恢复、Browser/Playwright 与安装版重启流程。
+- [x] √ 安装包隔离目录安装、发布 E2E、静默卸载与资源敏感信息审查。
+- [x] √ 中文 M08 README、分级测试、进度与本地 commit；用户手动 push。
+- [ ] 无开发环境独立 Windows 机器验收；当前以隔离安装目录和清空开发 PATH 的实际验收替代，需后续环境补验。
+- [x] √ M08 代码和本机构建验收完成，停止；未发布 GitHub Release。
+
+本模块不提前实现自动更新、签名证书或发布渠道。安装器当前未签名，NSIS 默认图标；用户数据不随包分发，`app.getPath('userData')` 独立保存。
 
 ## 后续路线（未授权当前实现）
 

@@ -6,8 +6,9 @@ import { mkdir, mkdtemp } from 'node:fs/promises';
 test('真实窗口 → 受限 IPC → Python → 健康响应与退出清理', async () => {
   // 使用真实 Electron 和真实 Python，不模拟任何通信层。
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
-  await mkdir('artifacts/test-results/M02', { recursive: true });
-  env.ORVIA_DEV_DATA_DIR = await mkdtemp(path.resolve('artifacts/test-results/M02/health-'));
+  const results = path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M02');
+  await mkdir(results, { recursive: true });
+  env.ORVIA_DEV_DATA_DIR = await mkdtemp(path.join(results, 'health-'));
   for (const name of ['DEEPSEEK_API_KEY', 'ZHIPU_API_KEY', 'MIMO_API_KEY', 'TAVILY_API_KEY']) delete env[name];
   const app = await electron.launch({ args: [path.resolve('apps/desktop')], env });
   let pythonPid: number | undefined;
@@ -29,7 +30,7 @@ test('真实窗口 → 受限 IPC → Python → 健康响应与退出清理', a
       return { sandbox: prefs.sandbox, contextIsolation: prefs.contextIsolation, nodeIntegration: prefs.nodeIntegration };
     });
     expect(security).toEqual({ sandbox: true, contextIsolation: true, nodeIntegration: false });
-    await page.screenshot({ path: 'artifacts/test-results/M02/health-window.png', fullPage: true });
+    await page.screenshot({ path: path.join(results, 'health-window.png'), fullPage: true });
   } finally { await app.close(); }
   expect(() => process.kill(pythonPid!, 0)).toThrow();
 });

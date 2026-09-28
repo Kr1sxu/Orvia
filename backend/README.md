@@ -14,7 +14,7 @@
 - `src/orvia_backend/computer/`：M03 只读文件工具、系统探测与 Mission 权限网关，见该目录 README。
 - `src/orvia_backend/computer/actions.py`：M04 审批后文件动作、账本核验、恢复和受限撤销。
 - `src/orvia_backend/context/`：M06 jieba + SQLite FTS5 任务范围上下文与偏好，见该目录 README。
-- `src/orvia_backend/browser/`：M07 Tavily、HTTP、Playwright 只读网关，详见模块 README。
+- `src/orvia_backend/browser/`：M07 Tavily、HTTP、Playwright 只读网关；M08 PyInstaller 发布入口与冻结验收见 `packaging/README.md`，详见模块 README。
 - `tests/`：协议、模块边界与合成集成测试。
 - `pyproject.toml`：Python 包、版本约束和测试配置。
 

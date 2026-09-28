@@ -280,3 +280,29 @@ M06 未读取 `.env.local`、未调用模型、未联网。摘要由调用方提
 L2：设置 `ORVIA_BROWSER_TEST=1` 并清除 `ORVIA_BROWSER_TEST_CHANNEL` 后，运行 `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_browser_engine.py --junitxml=artifacts/test-results/M07/engine-bundled-chromium.xml -q`，**4 passed**。使用真实配套 Chromium，HTTP/DNS 为合成 mock，无真实模型或 Tavily 调用。覆盖动态正文、相对脚本路径、写/越界请求、导航/数量预算和 Unicode 截断。默认动态读取的运行时缺失限制解除；公网兼容性与 M08 安装包验收仍未覆盖。
 
 本次源码、依赖锁均无变化，仅更新根 README、Browser README、开发清单及本记录。L0 检查 Git status、diff、暂存差异与空白；安装日志/测试报告在忽略的 M07 目录，未暂存密钥、数据库、用户文件或测试产物。使用指定作者创建本地文档提交，用户手动 push 待执行；LICENSE 预存删除继续未暂存，M08 未开始。
+
+
+## M08 安装包与整体验收（2026-09-28）
+
+### 构建与资源
+
+- PyInstaller 6.22.3 onedir + console：`artifacts/test-results/M08/build/python/orvia-backend/`，运行时清除 `PATH/PYTHONPATH/PYTHONHOME` 后可握手。依赖包含 SQLite FTS5、jieba、trafilatura、Playwright。
+- Playwright 1.63.0 配套 Chromium Headless Shell 153.0.8010.12/revision 1243、ffmpeg 1011、winldd 1007 复制至 `resources/chromium`；`runtime-manifest.json` 记录版本。
+- electron-builder 26.15.3 / Electron 44.4.5 生成 `Orvia-0.1.0-win-x64-setup.exe`（约 274 MB）和 `win-unpacked` 目录包。资源白名单仅含 dist、后端、Chromium、manifest 和许可证；不执行 publish。
+
+### 验证
+
+| 级别 | 命令 | 结果 | 边界 |
+|---|---|---|---|
+| L0 | `npm run check`；`uv lock/sync --group packaging`；PyInstaller；electron-builder | 通过；依赖锁定、构建日志和包产物在 M08 目录 | 未签名，默认图标；不是发布渠道验收 |
+| L1/L2 | `vitest run apps/desktop/tests/runtime.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/credentials.test.ts` | 通过；发布资源定位、进程生命周期、safeStorage | 模拟生命周期与合成密钥 |
+| L2 | `pytest backend/tests/test_frozen.py backend/tests/test_browser.py backend/tests/test_context.py backend/tests/test_agents_graph.py` | 42 passed；冻结 EXE、SQLite/FTS5、Browser、LangGraph 审批恢复 | 临时合成资料；无真实用户文件/模型 |
+| L3 | `ORVIA_PACKAGED_EXE=.../install-smoke/Orvia.exe ORVIA_TEST_MODULE=M08 npx playwright test tests/e2e/m08.spec.ts` | 1 passed；隔离安装版窗口、safeStorage、草稿重启、随包 Chromium data 页面 | 无真实网络/模型；非独立机器 |
+| L3 | `m08-install.ps1 -Stage Install` / `-Stage Uninstall` | 安装与静默卸载均 exit 0；installation.json、uninstallation.json | 只操作本轮隔离目录，未覆盖已有安装 |
+| L0 | 包内容审查 `package-hygiene.json` | 扫描 5625 个包/冻结资源文件；真实合成 Key 0，禁止用户文件路径 0 | 环境变量名/依赖许可证文本可能出现，非密钥值 |
+
+### 重要限制
+
+当前无法获得无开发环境的独立 Windows 机器；本机采用清空开发 PATH、显式隔离 userData、实际安装/卸载和冻结后端进程验收。安装器未签名，完整证书、杀毒软件、升级/回滚和多用户安装行为未验收。未调用真实模型、Tavily 或真实互联网网页，不产生供应商费用。
+
+M08 使用固定发布后端资源路径和 `PLAYWRIGHT_BROWSERS_PATH`，不读取系统 Python、用户浏览器配置、`.env.local` 或普通环境 Key。安装版用户数据只写 userData，卸载保留用户数据策略由 electron-builder 配置决定。未发布 GitHub Release。

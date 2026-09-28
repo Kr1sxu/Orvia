@@ -25,7 +25,8 @@ app.whenReady().then(async () => {
   const vault = new CredentialVault({ development, root, userData: dataDirectory, safeStorage });
   let credentialError: string | null = null;
   try { await vault.load(); } catch (error) { credentialError = error instanceof Error ? error.message : '凭据不可用'; }
-  backend = new BackendClient(root, 5000, { dataDirectory, credentials: () => vault.getSecrets() });
+  backend = new BackendClient(root, development ? 5000 : 20000, { dataDirectory, credentials: () => vault.getSecrets() },
+    development ? undefined : { resourcesPath: process.resourcesPath });
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
   // 模型请求仅后端显式发起；渲染端仍拒绝权限申请及所有联网请求。

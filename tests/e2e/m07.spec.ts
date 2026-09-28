@@ -3,7 +3,7 @@ import path from 'node:path';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 
 test('M07 真实 Electron Tavily 加密、私有管道同步与三模型边界（不联网）', async () => {
-  const results = path.resolve('artifacts/test-results/M07');
+  const results = path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M07');
   await mkdir(results, { recursive: true });
   const directory = await mkdtemp(path.join(results, 'electron-'));
   const env = { ...process.env, ORVIA_DEV_DATA_DIR: directory };

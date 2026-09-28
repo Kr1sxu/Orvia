@@ -3,8 +3,9 @@ import path from 'node:path';
 import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 
 test('真实设置、草稿重启持久化、受限 IPC 与 Windows safeStorage', async () => {
-  await mkdir('artifacts/test-results/M02', { recursive: true });
-  const directory = await mkdtemp(path.resolve('artifacts/test-results/M02/e2e-profile-'));
+  const results = path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M02');
+  await mkdir(results, { recursive: true });
+  const directory = await mkdtemp(path.join(results, 'e2e-profile-'));
   const env = { ...process.env, ORVIA_DEV_DATA_DIR: directory }; delete (env as NodeJS.ProcessEnv).ELECTRON_RUN_AS_NODE;
   for (const variable of ['DEEPSEEK_API_KEY', 'ZHIPU_API_KEY', 'MIMO_API_KEY', 'TAVILY_API_KEY']) delete (env as NodeJS.ProcessEnv)[variable];
   let app = await electron.launch({ args: [path.resolve('apps/desktop')], env });
@@ -50,7 +51,7 @@ test('真实设置、草稿重启持久化、受限 IPC 与 Windows safeStorage'
       return { available: safeStorage.isEncryptionAvailable(), matches, plaintextAbsent, removed: !reloaded.getStatus()[0].configured };
     }, { modulePath: path.resolve('apps/desktop/dist/main/credentials/index.js'), directory: path.join(directory, 'secure') });
     expect(secure).toEqual({ available: true, matches: true, plaintextAbsent: true, removed: true });
-    await page.screenshot({ path: 'artifacts/test-results/M02/settings-and-draft.png', fullPage: true });
+    await page.screenshot({ path: path.join(results, 'settings-and-draft.png'), fullPage: true });
     await app.close();
     app = await electron.launch({ args: [path.resolve('apps/desktop')], env });
     const reopened = await app.firstWindow();

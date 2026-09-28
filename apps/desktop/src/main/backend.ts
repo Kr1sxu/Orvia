@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import path from 'node:path';
+import { backendLaunch, type PackagedRuntime } from './runtime';
 import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
 import { configurationSchema, missionSchema, missionCreateSchema, type MissionCreate } from './contracts';
@@ -10,7 +10,7 @@ type Initialization = { dataDirectory: string; credentials: () => Secrets };
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout };
 
-/** M01 只启动项目内已知 Python；安装包资源路径在 M08 实现。 */
+/** 开发使用固定虚拟环境，发布使用 ASAR 外的自带后端；失败不会回退系统 Python。 */
 export class BackendClient {
   private child?: ChildProcessWithoutNullStreams;
   private pending = new Map<string, Pending>();
@@ -18,18 +18,15 @@ export class BackendClient {
   private failed?: Error;
   private closing = false;
   private exited?: Promise<void>;
-  constructor(private readonly root: string, private readonly timeoutMs = 5000, private readonly initialization?: Initialization) {}
+  constructor(private readonly root: string, private readonly timeoutMs = 5000, private readonly initialization?: Initialization, private readonly packaged?: PackagedRuntime) {}
 
   start(): Promise<void> {
     // 退出可能先于首次健康检查；阻止排队 IPC 在退出期间创建孤儿进程。
     if (this.failed || this.closing) return Promise.reject(this.failed ?? new Error('应用正在退出'));
     if (this.ready) return this.ready;
-    const executable = path.join(this.root, 'backend', '.venv', 'Scripts', 'python.exe');
-    // 不继承开发密钥、PYTHONPATH 或用户 Python 启动配置。
-    const env: NodeJS.ProcessEnv = {};
-    for (const key of ['SystemRoot', 'WINDIR', 'TEMP', 'TMP']) if (process.env[key]) env[key] = process.env[key];
-    this.child = spawn(executable, ['-I', '-u', '-X', 'utf8', '-m', 'orvia_backend'], {
-      cwd: path.join(this.root, 'backend'), shell: false, windowsHide: true, env, stdio: 'pipe',
+    const launch = backendLaunch(this.root, this.packaged);
+    this.child = spawn(launch.executable, launch.args, {
+      cwd: launch.cwd, shell: false, windowsHide: true, env: launch.env, stdio: 'pipe',
     });
     const lines = new JsonLines();
     this.exited = new Promise((resolve) => {
@@ -38,7 +35,7 @@ export class BackendClient {
         resolve();
       });
     });
-    this.child.on('error', () => this.fail(new Error('无法启动本地 Python 3.12 后端，请先按 README 安装环境')));
+    this.child.on('error', () => this.fail(new Error(this.packaged ? '安装包后端无法启动，请检查安装文件完整性' : '无法启动本地 Python 3.12 后端，请先按 README 安装环境')));
     this.child.stdin.on('error', () => this.fail(new Error('本地后端输入管道已关闭')));
     this.child.stdout.on('data', (chunk: Buffer) => {
       try {

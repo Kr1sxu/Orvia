@@ -7,7 +7,7 @@ let root: string;
 let userData: string;
 let adapter: SafeStorageAdapter;
 beforeEach(async () => {
-  const artifacts = path.resolve('artifacts/test-results/M07');
+  const artifacts = path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M07');
   await fs.mkdir(artifacts, { recursive: true });
   root = await fs.mkdtemp(path.join(artifacts, 'credentials-'));
   userData = path.join(root, 'userData');

@@ -12,12 +12,16 @@
     "check": "npm run check --workspace @orvia/desktop",
     "test:unit": "vitest run apps/desktop/tests",
     "test:integration": "vitest run tests/integration",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:backend": "backend\\.venv\\Scripts\\python.exe -X utf8 packaging/build_backend.py",
+    "package:dir": "npm run build && npm run build:backend && electron-builder --config electron-builder.config.cjs --dir --publish never",
+    "package:win": "npm run build && npm run build:backend && electron-builder --config electron-builder.config.cjs --win --publish never"
   },
   "devDependencies": {
     "@playwright/test": "1.58.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "electron-builder": "26.15.3",
     "vitest": "4.1.11"
   }
 }
