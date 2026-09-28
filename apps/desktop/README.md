@@ -1,4 +1,4 @@
-# Electron 桌面模块（M01–M03）
+# Electron 桌面模块（M01–M04）
 
 用途：React 显示本地连接、固定模型配置与任务草稿；主进程管理 Python 和凭据，preload 只暴露六个固定业务接口。
 
@@ -16,7 +16,7 @@
 
 `health(): Promise<HealthReply>` 成功返回 `{ok:true,result:{status:'ok',service:'orvia-backend'}}`；失败返回 `{ok:false,message}`。
 `settings()` 返回固定配置、Key 是否存在和凭据来源；`missions()` 返回最新 20 条草稿；`createMission({client_request_id,title})` 幂等保存草稿；`saveCredential({role,key})` / `removeCredential(role)` 仅发布模式支持。每个入口校验窗口、顶层 frame、精确页面 URL、参数个数与 Zod 参数契约。
-渲染端没有 `initialize`、任意方法、SQL、数据目录选择或读取 Key 的接口。M03 的 `computer.*` 只读授权暂由可信主进程接口预留，尚未开放 renderer 目录选择。所有返回为 `{ok:true,result}` / `{ok:false,message}`，不回显异常输入。
+渲染端没有 `initialize`、任意方法、SQL、数据目录选择或读取 Key 的接口。M03/M04 的 `computer.*` 观察、审批和动作接口暂由可信主进程后端预留，尚未开放 renderer 目录选择与写操作 UI。所有返回为 `{ok:true,result}` / `{ok:false,message}`，不回显异常输入。
 `BackendClient(root).health()` 首次启动并 hello 握手，然后按 UUID 关联响应；`stop()` 发送 EOF 并等待关闭，1.5 秒后终止自有进程。
 协议 v1 使用 UTF-8 JSON Lines；每行最多 64 KiB（含换行），5 秒超时，最多 16 个待响应请求。不兼容版本或失联后不自动重试。
 

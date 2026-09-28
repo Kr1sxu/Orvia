@@ -13,6 +13,7 @@ from .protocol import Session, error_response
 from .storage import Store
 from .computer.contracts import GrantRequest, MissionRequest, ToolRequest
 from .computer.gateway import ComputerGateway
+from .computer.actions import ActionPlanRequest, ActionService
 from .computer.paths import ToolError
 from .computer.system import SystemToolError
 
@@ -34,6 +35,10 @@ class MissionId(Params):
     id: Annotated[str, Field(min_length=1, max_length=64)]
 
 
+class OperationId(Params):
+    operation_id: Annotated[str, Field(min_length=1, max_length=64)]
+
+
 class Application:
     """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
 
@@ -50,7 +55,9 @@ class Application:
         except (ValueError, RecursionError):
             return self.session.handle(line)
         methods = {"initialize", "credentials.replace", "configuration.status", "missions.create", "missions.list", "missions.get",
-                   "computer.grant", "computer.revoke", "computer.status", "computer.execute"}
+                   "computer.grant", "computer.revoke", "computer.status", "computer.execute",
+                   "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
+                   "computer.verify", "computer.undo_latest"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
             return self.session.handle(line)
         request_id = request.get("id")
@@ -78,6 +85,7 @@ class Application:
                     await store.close()
                     return error_response(request_id, "STORAGE_UNAVAILABLE", "无法打开当前版本的应用数据库")
                 self.store = store
+                await store.recover_operations()
                 self.registry.replace_credentials(initial.credentials)
                 result = {"initialized": True}
             elif self.store is None:
@@ -95,6 +103,18 @@ class Application:
             elif method == "computer.execute":
                 # stdio 只由 Electron 主进程连接；网关仍再次固定 Computer 角色。
                 result = self.computer.execute("computer", ToolRequest.model_validate(params))
+            elif method == "computer.plan":
+                result = await ActionService(self.store).create_plan(ActionPlanRequest.model_validate(params))
+            elif method == "computer.approve":
+                result = await ActionService(self.store).approve(OperationId.model_validate(params).operation_id)
+            elif method == "computer.execute_action":
+                result = await ActionService(self.store).execute(OperationId.model_validate(params).operation_id)
+            elif method == "computer.resume":
+                result = await ActionService(self.store).resume(OperationId.model_validate(params).operation_id)
+            elif method == "computer.verify":
+                result = await ActionService(self.store).verify(OperationId.model_validate(params).operation_id)
+            elif method == "computer.undo_latest":
+                result = await ActionService(self.store).undo_latest(str(MissionRequest.model_validate(params).mission_id))
             elif method == "configuration.status":
                 Params.model_validate(params)
                 result = self.registry.status()

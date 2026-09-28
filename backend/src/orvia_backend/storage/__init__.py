@@ -54,6 +54,29 @@ class Store:
                         WHEN NEW.models_json IS NOT OLD.models_json
                         BEGIN SELECT RAISE(ABORT, 'mission model snapshot is immutable'); END""")
                     await db.execute("PRAGMA user_version = 1")
+                # M04 在 v1 数据库中追加账本表；不升高 user_version，保持已有 M02 数据库可打开。
+                await db.execute("""CREATE TABLE IF NOT EXISTS operation_tasks (
+                    id TEXT PRIMARY KEY,
+                    mission_id TEXT NOT NULL,
+                    root TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('planned','approved','running','completed','failed','interrupted','undone','partially_undone')),
+                    plan_json TEXT NOT NULL CHECK(json_valid(plan_json)),
+                    error TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )""")
+                await db.execute("""CREATE TABLE IF NOT EXISTS operation_entries (
+                    task_id TEXT NOT NULL REFERENCES operation_tasks(id) ON DELETE CASCADE,
+                    sequence INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    source TEXT,
+                    destination TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('planned','completed','failed','undone')),
+                    before_json TEXT,
+                    after_json TEXT,
+                    error TEXT,
+                    PRIMARY KEY(task_id, sequence)
+                )""")
                 await db.commit()
             except BaseException:
                 # 初始化失败必须释放连接；原异常交给服务层分类，不静默兜底。
@@ -114,3 +137,84 @@ class Store:
             async with self._db().execute("SELECT * FROM missions ORDER BY created_at DESC, id DESC LIMIT 20") as cursor:
                 rows = await cursor.fetchall()
             return [self._decode(row) for row in rows]
+
+    async def create_operation(self, operation: dict) -> None:
+        """持久化不可变计划和账本初始条目；调用方已完成路径与契约校验。"""
+        async with self._lock:
+            db = self._db()
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                await db.execute("INSERT INTO operation_tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (
+                    operation["id"], operation["mission_id"], operation["root"], operation["status"],
+                    json.dumps(operation["plan"], ensure_ascii=False), None,
+                    operation["created_at"], operation["created_at"],
+                ))
+                for entry in operation["plan"]["actions"]:
+                    await db.execute("INSERT INTO operation_entries(task_id, sequence, kind, source, destination, status) VALUES (?, ?, ?, ?, ?, ?)",
+                                     (operation["id"], entry["sequence"], entry["kind"], entry.get("source"), entry["destination"], "planned"))
+                await db.commit()
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def get_operation(self, operation_id: str) -> dict | None:
+        """读取计划及逐步状态，供恢复和撤销重新核验，不信任调用方缓存。"""
+        async with self._lock:
+            async with self._db().execute("SELECT * FROM operation_tasks WHERE id = ?", (operation_id,)) as cursor:
+                task = await cursor.fetchone()
+            if task is None:
+                return None
+            async with self._db().execute("SELECT * FROM operation_entries WHERE task_id = ? ORDER BY sequence", (operation_id,)) as cursor:
+                entries = [dict(row) for row in await cursor.fetchall()]
+            result = dict(task)
+            result["plan"] = json.loads(result.pop("plan_json"))
+            result["entries"] = entries
+            return result
+
+    async def get_latest_operation(self, mission_id: str) -> dict | None:
+        """仅按任务创建时间取最近一条账本，供受限撤销使用。"""
+        async with self._lock:
+            async with self._db().execute(
+                "SELECT id FROM operation_tasks WHERE mission_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                (mission_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            operation_id = row[0] if row is not None else None
+        return await self.get_operation(operation_id) if operation_id is not None else None
+
+    async def update_operation(self, operation_id: str, status: str, *, error: str | None = None,
+                               sequence: int | None = None, entry_status: str | None = None,
+                               before: dict | None = None, after: dict | None = None) -> None:
+        """以单事务更新任务和一个账本条目，崩溃后不会产生半条记录。"""
+        async with self._lock:
+            db = self._db()
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                now = datetime.now(timezone.utc).isoformat()
+                await db.execute("UPDATE operation_tasks SET status = ?, error = ?, updated_at = ? WHERE id = ?",
+                                 (status, error, now, operation_id))
+                if sequence is not None and entry_status is not None:
+                    await db.execute("UPDATE operation_entries SET status = ?, before_json = ?, after_json = ?, error = ? WHERE task_id = ? AND sequence = ?",
+                                     (entry_status, json.dumps(before, ensure_ascii=False) if before else None,
+                                      json.dumps(after, ensure_ascii=False) if after else None, error, operation_id, sequence))
+                await db.commit()
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def recover_operations(self) -> list[str]:
+        """后端重启时将未完成任务标成 interrupted，等待用户明确恢复或撤销。"""
+        async with self._lock:
+            db = self._db()
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                async with db.execute("SELECT id FROM operation_tasks WHERE status IN ('running','approved')") as cursor:
+                    ids = [row[0] for row in await cursor.fetchall()]
+                if ids:
+                    await db.execute("UPDATE operation_tasks SET status = 'interrupted', error = '后端连接中断，需重新核验', updated_at = ? WHERE status IN ('running','approved')",
+                                     (datetime.now(timezone.utc).isoformat(),))
+                await db.commit()
+                return ids
+            except BaseException:
+                await db.rollback()
+                raise

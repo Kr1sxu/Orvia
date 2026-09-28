@@ -172,3 +172,20 @@ M02 不创建空壳审批/操作账本/checkpoint，不提前实现 M03–M08。
 | L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_application.py backend/tests/test_protocol.py backend/tests/test_server.py -q` | 20 passed；应用协议回归通过 | 内存流与临时 SQLite / 否 | `artifacts/test-results/M03/` | 未接入 Electron renderer 目录选择流程 |
 
 M03 未读取 `.env.local`、未调用模型、未访问真实用户文件。空间统计为逻辑大小，不代表磁盘可释放空间。系统探测仍受 Windows 安装路径和权限影响；完整审批、写入、账本和撤销属于 M04。提交成功后由用户手动 push。
+
+## M04 文件动作、审批、操作账本与撤销（2026-09-28）
+
+- [x] √ 动作计划契约支持 `mkdir`、`move`、`rename`；计划固定授权根、任务 ID 和顺序，拒绝删除、覆盖、绝对路径、越界和跨卷动作。
+- [x] √ 计划必须经过显式 `computer.approve` 才能执行；执行前后复核源/目标，逐步记录账本并返回核验结果。
+- [x] √ SQLite 新增 `operation_tasks` / `operation_entries` 账本表；连接重启把 running/approved 标成 `interrupted`，恢复不会自动重放。
+- [x] √ `computer.resume` 只恢复 interrupted 计划，`computer.undo_latest` 只撤销指定 Mission 最近完成任务，并检查目标身份、原位置冲突和新建目录是否为空。
+- [x] √ 应用协议、存储 README、Computer README、开发清单和目标测试已更新；未开放 renderer 写操作 UI。
+
+### M04 验证
+
+| 级别 | 实际命令 | 结果 | mock / 真实模型 | 结果目录 | 未覆盖风险 |
+|---|---|---|---|---|---|
+| L1 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_computer_actions.py backend/tests/test_application_actions.py -q` | 4 passed | 临时合成目录、真实临时 SQLite / 否 | `artifacts/test-results/M04/` | 未做 Electron renderer 完整审批界面 |
+| L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | 81 passed, 1 skipped | 临时合成目录与进程 mock / 否 | `artifacts/test-results/M04/` | 未覆盖断电时 OS 文件动作与真实 reparse point |
+
+M04 未读取 `.env.local`、未调用模型、未访问真实用户文件。恢复状态需要用户再次明确调用，撤销只处理本程序账本中且身份未变化的最近任务；没有通用回滚或删除能力。提交成功后由用户手动 push。
