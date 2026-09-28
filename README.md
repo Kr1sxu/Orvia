@@ -68,4 +68,4 @@ Main Agent 负责规划、委派和证据判断，Computer Agent 负责受限本
 
 按最新开发约定，Agent 每轮完成一个模块后创建本地 commit 并停止，push 由用户手动执行。未推送不影响已实现、验证、记录和提交的模块完成；历史推送结果仅作为历史证据保留。
 
-M07 默认动态读取需要 Playwright 配套 Chromium；本轮下载超时，合成动态测试显式使用本机 Edge 的 Chromium 引擎，产品不自动回退。未验证真实 Tavily/互联网网页兼容性，M08 未开始。
+M07 配套 Chromium Headless Shell 已于 2026-09-28 重试安装成功，默认动态读取的 4 项合成测试通过，无需切换 Edge。未验证真实 Tavily/互联网网页兼容性，M08 未开始。

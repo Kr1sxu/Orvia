@@ -27,7 +27,7 @@ npm run build
 npm start
 ```
 
-本轮配套 Chromium 下载超时；未把系统浏览器自动当成产品回退。动态读取缺失运行时会返回 `PLAYWRIGHT_FAILED`。本机测试通过显式测试开关使用已安装 Edge 的真实 Chromium 引擎；配套 Chromium 安装与 M08 分发仍需验收。
+2026-09-28 重试后，Playwright 配套 Chromium Headless Shell 153.0.8010.12（revision 1243）已安装，默认引擎 4 项合成测试通过，无需 Edge 测试覆盖。此前下载超时的记录保留于 PROGRESS；其它机器缺失运行时仍会返回 `PLAYWRIGHT_FAILED`，产品无自动回退。M08 分发仍需验收。
 
 ## 只读边界与预算
 
@@ -65,10 +65,10 @@ npm start
 
 ```powershell
 $env:ORVIA_BROWSER_TEST='1'
-# 配套 Chromium 安装成功时无需下一行；本轮显式选择本机 Edge。
-$env:ORVIA_BROWSER_TEST_CHANNEL='msedge'
+# 使用默认配套 Chromium，清除此前可能设置的测试浏览器选择。
+Remove-Item Env:ORVIA_BROWSER_TEST_CHANNEL -ErrorAction SilentlyContinue
 .\backend\.venv\Scripts\python.exe -X utf8 -m pytest backend/tests/test_browser_engine.py --junitxml=artifacts/test-results/M07/engine-demo.xml -q
-Remove-Item Env:ORVIA_BROWSER_TEST, Env:ORVIA_BROWSER_TEST_CHANNEL
+Remove-Item Env:ORVIA_BROWSER_TEST
 ```
 
 私有协议示例（先 hello、initialize 并通过 missions.create 创建合成草稿，将返回的 id 代入）：

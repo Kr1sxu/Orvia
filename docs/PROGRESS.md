@@ -271,3 +271,12 @@ M06 未读取 `.env.local`、未调用模型、未联网。摘要由调用方提
 本地提交使用 `git -c user.name='踪显' -c user.email='18532112451@163.com' commit -m "feat(M07): add restricted browser search and page reading"`，具体哈希由最终交付回执和 git log 确认。提交前显式选择 M07 文件，检查 status / diff / diff --cached 与空白、敏感信息及忽略路径；LICENSE 预存删除不在索引。用户手动 push 待执行，Agent 本轮无任何 push。M07 完成后停止等待，不开始 M08。
 
 提交前卫生检查：31 个显式暂存文件，无禁止路径；扫描暂存内容与当时 101 个 M07 产物，真实开发 Key 匹配均为 0（仅检查存在性、不输出值）。三个模型变量存在，Tavily 未配置。staged-hygiene.json 保存计数；代码/报告/截图均无真实 Key，数据库、日志和截图未暂存。最终仅 Browser Unicode 边界与相关测试、记录追加，复核暂存差异后创建本地提交。
+
+
+### M07 配套 Chromium 安装恢复（2026-09-28）
+
+用户要求重新尝试安装。首次以默认 30 秒连接上限重试仍失败（chromium-install-retry.log）；随后只对当前安装进程设置 `PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=60000`，运行 `backend/.venv/Scripts/python.exe -m playwright install chromium --only-shell`，退出码 0。配套 Chromium Headless Shell 153.0.8010.12（revision 1243）与所需辅助组件安装完成，日志 chromium-install-retry-60s.log。未修改系统网络/TLS 配置，未关闭证书验证，未更换 Playwright 版本。
+
+L2：设置 `ORVIA_BROWSER_TEST=1` 并清除 `ORVIA_BROWSER_TEST_CHANNEL` 后，运行 `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_browser_engine.py --junitxml=artifacts/test-results/M07/engine-bundled-chromium.xml -q`，**4 passed**。使用真实配套 Chromium，HTTP/DNS 为合成 mock，无真实模型或 Tavily 调用。覆盖动态正文、相对脚本路径、写/越界请求、导航/数量预算和 Unicode 截断。默认动态读取的运行时缺失限制解除；公网兼容性与 M08 安装包验收仍未覆盖。
+
+本次源码、依赖锁均无变化，仅更新根 README、Browser README、开发清单及本记录。L0 检查 Git status、diff、暂存差异与空白；安装日志/测试报告在忽略的 M07 目录，未暂存密钥、数据库、用户文件或测试产物。使用指定作者创建本地文档提交，用户手动 push 待执行；LICENSE 预存删除继续未暂存，M08 未开始。
