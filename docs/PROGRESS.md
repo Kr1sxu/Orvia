@@ -154,3 +154,21 @@ M02 不创建空壳审批/操作账本/checkpoint，不提前实现 M03–M08。
 
 用户明确要求：只创建本地提交，由用户自行手动 push。已同步 AGENTS、README、DEVELOPMENT_PLAN；Agent 不再执行 push，不尝试为 push 更改 TLS/网络配置。模块完成条件为实现、分级验证、文档与本地提交，未推送不再导致模块未完成。历史推送记录保留，不改写事实。
 本次规则变更为文档-only，L0 使用 `git diff --check` 和暂存差异检查，无 mock、无真实模型，不运行代码测试。随后仅开发 M03，完成本地提交后停止。
+
+## M03 Computer 只读工具与权限网关（2026-09-28）
+
+- [x] √ 本地目录授权、路径穿越、UNC、符号链接和 Windows reparse point 拒绝；每次调用复核授权根身份。
+- [x] √ 目录枚举、文件名搜索、文件属性、UTF-8 文本读取、逻辑空间统计和大文件清单；扫描预算与 `complete/truncated/errors` 证据。
+- [x] √ PowerShell、Git Bash、WSL 固定路径探测；受限进程概况；仅允许 `runtime_version` 模板，拒绝任意命令和 WSL 发行版执行。
+- [x] √ Computer 角色、Mission、grant ID、撤销和 200 次调用预算网关；接入 `Application` 的 `computer.grant/revoke/status/execute`。
+- [x] √ 中文模块 README、M03 JSON Schema 与目标测试；未开放 renderer 目录选择，未执行写操作。
+
+### M03 验证
+
+| 级别 | 实际命令 | 结果 | mock / 真实模型 | 结果目录 | 未覆盖风险 |
+|---|---|---|---|---|---|
+| L0 | `python backend/src/orvia_backend/computer/contracts.py`、`git diff --check` | Schema 生成、空白检查通过 | 无 / 否 | `artifacts/test-results/M03/` | 未做安装包构建 |
+| L1 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_computer_files.py backend/tests/test_computer_gateway.py backend/tests/test_computer_system.py -q` | 10 passed, 1 skipped（Windows 无符号链接权限时跳过） | mock 进程、临时合成目录 / 否 | `artifacts/test-results/M03/` | 未覆盖真实 reparse point、权限拒绝组合 |
+| L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_application.py backend/tests/test_protocol.py backend/tests/test_server.py -q` | 20 passed；应用协议回归通过 | 内存流与临时 SQLite / 否 | `artifacts/test-results/M03/` | 未接入 Electron renderer 目录选择流程 |
+
+M03 未读取 `.env.local`、未调用模型、未访问真实用户文件。空间统计为逻辑大小，不代表磁盘可释放空间。系统探测仍受 Windows 安装路径和权限影响；完整审批、写入、账本和撤销属于 M04。提交成功后由用户手动 push。

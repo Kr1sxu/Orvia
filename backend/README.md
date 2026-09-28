@@ -1,4 +1,4 @@
-# Orvia Python 后端（M01–M02）
+# Orvia Python 后端（M01–M03）
 
 ## 用途和目录结构
 
@@ -11,6 +11,7 @@
 - `src/orvia_backend/domain/`：Pydantic 数据契约与导出 Schema。
 - `src/orvia_backend/storage/`：SQLite 迁移、事务、幂等与模型快照。
 - `src/orvia_backend/configuration/`：内存凭据、固定配置与模型适配。三个子模块均有独立 README。
+- `src/orvia_backend/computer/`：M03 只读文件工具、系统探测与 Mission 权限网关，见该目录 README。
 - `tests/`：协议和流读取单元测试。
 - `pyproject.toml`：Python 包、版本约束和测试配置。
 
@@ -28,15 +29,15 @@ EOF 时最后一个没有换行的完整 JSON 也可处理，随后干净退出�
 - 错误码：`INVALID_REQUEST`、`UNSUPPORTED_VERSION`、`METHOD_NOT_FOUND`、`NOT_READY`。
 
 `Session.handle(bytes)` 处理单帧，`serve(BinaryIO, BinaryIO)` 服务连接。
-M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initialize({data_directory,credentials})`，一次连接仅初始化一次。`credentials.replace` 更新内存 Key；二者不对渲染进程公开。
-初始化后 `configuration.status({})` 仅返回无 Key 配置和存在性；`missions.create({client_request_id,title})` 保存草稿；`missions.list({})` 返回最新 20 条；`missions.get({id})` 返回指定草稿。无 SQL 或文件工具入口。
+M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initialize({data_directory,credentials})`，一次连接仅初始化一次。`credentials.replace` 更新内存 Key；二者不对渲染进程公开。M03 增加 `computer.grant/revoke/status/execute`，只读请求必须带 Mission 与当前连接的 `grant_id`，角色固定为 Computer。
+初始化后 `configuration.status({})` 仅返回无 Key 配置和存在性；`missions.create({client_request_id,title})` 保存草稿；`missions.list({})` 返回最新 20 条；`missions.get({id})` 返回指定草稿。M03 文件工具只能通过 Computer 网关调用，不开放 SQL 或任意命令。
 错误增加 `NOT_INITIALIZED`、`ALREADY_INITIALIZED`、`INVALID_PARAMS`、`CONFLICT`、`NOT_FOUND`、`STORAGE_UNAVAILABLE`。接口错误只含固定说明，不序列化 Pydantic 输入或供应商原始错误。
 阻塞读取通过 `asyncio.to_thread` 与主协程分离；单连接依次处理，不并行执行请求。
 
 ## 依赖与配置
 
 要求 Python 3.12；运行时依赖 Pydantic、aiosqlite、httpx，版本在 uv.lock 固定。pytest 为开发依赖，hatchling 为构建依赖。
-正常后端进程不读取 `.env.local`，Key 由可信 Electron 私有管道注入内存。数据目录由主进程提供，数据库只存草稿与无密钥配置。M02 还没有 LangGraph、文件工具或网页工具。
+正常后端进程不读取 `.env.local`，Key 由可信 Electron 私有管道注入内存。数据目录由主进程提供，数据库只存草稿与无密钥配置。M03 不读取 Key，不调用模型，不操作用户文件。
 
 ## 运行方式与示例
 

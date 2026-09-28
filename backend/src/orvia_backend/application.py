@@ -11,6 +11,10 @@ from .configuration import Credentials, ModelRegistry
 from .domain import MissionCreate
 from .protocol import Session, error_response
 from .storage import Store
+from .computer.contracts import GrantRequest, MissionRequest, ToolRequest
+from .computer.gateway import ComputerGateway
+from .computer.paths import ToolError
+from .computer.system import SystemToolError
 
 
 class Params(BaseModel):
@@ -37,13 +41,16 @@ class Application:
         self.session = Session()
         self.store: Store | None = None
         self.registry = ModelRegistry()
+        # 网关只存在于当前后端连接，连接断开即丢失授权和调用预算。
+        self.computer = ComputerGateway()
 
     async def handle(self, line: bytes) -> dict:
         try:
             request = json.loads(line.decode("utf-8"))
         except (ValueError, RecursionError):
             return self.session.handle(line)
-        methods = {"initialize", "credentials.replace", "configuration.status", "missions.create", "missions.list", "missions.get"}
+        methods = {"initialize", "credentials.replace", "configuration.status", "missions.create", "missions.list", "missions.get",
+                   "computer.grant", "computer.revoke", "computer.status", "computer.execute"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
             return self.session.handle(line)
         request_id = request.get("id")
@@ -79,6 +86,15 @@ class Application:
                 updated = ReplaceCredentials.model_validate(params)
                 self.registry.replace_credentials(updated.credentials)
                 result = {"updated": True}
+            elif method == "computer.grant":
+                result = self.computer.grant(GrantRequest.model_validate(params))
+            elif method == "computer.revoke":
+                result = self.computer.revoke(str(MissionRequest.model_validate(params).mission_id))
+            elif method == "computer.status":
+                result = self.computer.status(str(MissionRequest.model_validate(params).mission_id))
+            elif method == "computer.execute":
+                # stdio 只由 Electron 主进程连接；网关仍再次固定 Computer 角色。
+                result = self.computer.execute("computer", ToolRequest.model_validate(params))
             elif method == "configuration.status":
                 Params.model_validate(params)
                 result = self.registry.status()
@@ -96,6 +112,8 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
+        except (ToolError, SystemToolError) as error:
+            return error_response(request_id, error.code, error.message)
         except ValueError:
             return error_response(request_id, "CONFLICT", "请求与已有草稿冲突或配置快照无效")
         except (sqlite3.Error, OSError):

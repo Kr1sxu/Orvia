@@ -1,0 +1,414 @@
+{
+  "$defs": {
+    "DirectoryArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "default": ".",
+          "maxLength": 1000,
+          "title": "Path",
+          "type": "string"
+        },
+        "limit": {
+          "default": 100,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "DirectoryArgs",
+      "type": "object"
+    },
+    "DirectoryCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "list_directory",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/DirectoryArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "DirectoryCall",
+      "type": "object"
+    },
+    "MetadataCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "get_file_metadata",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/PathArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "MetadataCall",
+      "type": "object"
+    },
+    "Params": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "Params",
+      "type": "object"
+    },
+    "PathArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "PathArgs",
+      "type": "object"
+    },
+    "ProcessArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "ProcessArgs",
+      "type": "object"
+    },
+    "ProcessCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "list_processes",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/ProcessArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "ProcessCall",
+      "type": "object"
+    },
+    "ReadArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "start_line": {
+          "default": 1,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Start Line",
+          "type": "integer"
+        },
+        "max_lines": {
+          "default": 100,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Max Lines",
+          "type": "integer"
+        },
+        "max_chars": {
+          "default": 8000,
+          "maximum": 8000,
+          "minimum": 1,
+          "title": "Max Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ReadArgs",
+      "type": "object"
+    },
+    "ReadCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "read_text_file",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/ReadArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "ReadCall",
+      "type": "object"
+    },
+    "RuntimeCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "detect_runtimes",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/Params"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "RuntimeCall",
+      "type": "object"
+    },
+    "SearchArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "default": ".",
+          "maxLength": 1000,
+          "title": "Path",
+          "type": "string"
+        },
+        "limit": {
+          "default": 100,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "query": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "extension": {
+          "anyOf": [
+            {
+              "maxLength": 20,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extension"
+        },
+        "recursive": {
+          "default": true,
+          "title": "Recursive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "SearchArgs",
+      "type": "object"
+    },
+    "SearchCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "search_files",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/SearchArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "SearchCall",
+      "type": "object"
+    },
+    "SpaceArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "default": ".",
+          "maxLength": 1000,
+          "title": "Path",
+          "type": "string"
+        },
+        "top_n": {
+          "default": 10,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Top N",
+          "type": "integer"
+        },
+        "min_size": {
+          "default": 0,
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Min Size",
+          "type": "integer"
+        }
+      },
+      "title": "SpaceArgs",
+      "type": "object"
+    },
+    "SpaceCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "analyze_directory_space",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/SpaceArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "SpaceCall",
+      "type": "object"
+    },
+    "TemplateArgs": {
+      "additionalProperties": false,
+      "properties": {
+        "template_id": {
+          "const": "runtime_version",
+          "default": "runtime_version",
+          "title": "Template Id",
+          "type": "string"
+        },
+        "runtime": {
+          "default": "powershell",
+          "enum": [
+            "powershell",
+            "git_bash",
+            "wsl"
+          ],
+          "title": "Runtime",
+          "type": "string"
+        }
+      },
+      "title": "TemplateArgs",
+      "type": "object"
+    },
+    "TemplateCall": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "const": "run_readonly_template",
+          "title": "Tool",
+          "type": "string"
+        },
+        "arguments": {
+          "$ref": "#/$defs/TemplateArgs"
+        }
+      },
+      "required": [
+        "tool",
+        "arguments"
+      ],
+      "title": "TemplateCall",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "mission_id": {
+      "format": "uuid",
+      "title": "Mission Id",
+      "type": "string"
+    },
+    "grant_id": {
+      "format": "uuid",
+      "title": "Grant Id",
+      "type": "string"
+    },
+    "call": {
+      "discriminator": {
+        "mapping": {
+          "analyze_directory_space": "#/$defs/SpaceCall",
+          "detect_runtimes": "#/$defs/RuntimeCall",
+          "get_file_metadata": "#/$defs/MetadataCall",
+          "list_directory": "#/$defs/DirectoryCall",
+          "list_processes": "#/$defs/ProcessCall",
+          "read_text_file": "#/$defs/ReadCall",
+          "run_readonly_template": "#/$defs/TemplateCall",
+          "search_files": "#/$defs/SearchCall"
+        },
+        "propertyName": "tool"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DirectoryCall"
+        },
+        {
+          "$ref": "#/$defs/SearchCall"
+        },
+        {
+          "$ref": "#/$defs/MetadataCall"
+        },
+        {
+          "$ref": "#/$defs/ReadCall"
+        },
+        {
+          "$ref": "#/$defs/SpaceCall"
+        },
+        {
+          "$ref": "#/$defs/RuntimeCall"
+        },
+        {
+          "$ref": "#/$defs/ProcessCall"
+        },
+        {
+          "$ref": "#/$defs/TemplateCall"
+        }
+      ],
+      "title": "Call"
+    }
+  },
+  "required": [
+    "mission_id",
+    "grant_id",
+    "call"
+  ],
+  "title": "ToolRequest",
+  "type": "object"
+}
