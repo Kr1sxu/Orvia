@@ -306,3 +306,31 @@ L2：设置 `ORVIA_BROWSER_TEST=1` 并清除 `ORVIA_BROWSER_TEST_CHANNEL` 后，
 当前无法获得无开发环境的独立 Windows 机器；本机采用清空开发 PATH、显式隔离 userData、实际安装/卸载和冻结后端进程验收。安装器未签名，完整证书、杀毒软件、升级/回滚和多用户安装行为未验收。未调用真实模型、Tavily 或真实互联网网页，不产生供应商费用。
 
 M08 使用固定发布后端资源路径和 `PLAYWRIGHT_BROWSERS_PATH`，不读取系统 Python、用户浏览器配置、`.env.local` 或普通环境 Key。安装版用户数据只写 userData，卸载保留用户数据策略由 electron-builder 配置决定。未发布 GitHub Release。
+
+## M09 桌面整理用户界面闭环（2026-09-28）
+
+### 实现范围
+
+- [x] √ 主进程新增系统目录选择与授权流程；绝对路径仅在主进程和 Python Computer gateway 间流转，renderer 只得到任务/授权 ID、目录名摘要和剩余预算。
+- [x] √ BackendClient/preload/contextBridge 接入固定 `computer.grant`、`computer.status`、`computer.execute` 适配；renderer 只允许四个 Computer 只读工具，未开放通用 IPC、Node、命令或写操作。
+- [x] √ UI 完成授权目录、扫描进度/部分结果、文件列表、文件名搜索、文件属性、空间统计、大文件清单，以及空结果、截断、不可访问、权限/越界/失败提示。
+- [x] √ 新增 M09 合成目录集成测试和真实 Electron E2E；开发测试目录通过 `ORVIA_TEST_DIRECTORY` 注入，发布模式仍强制系统目录选择器。
+- [x] √ 更新桌面 README 与开发计划；未开始 M10。
+
+### 分级验证
+
+测试结果放在 Git 忽略的 `artifacts/test-results/M09/`，未读取真实用户文件、未调用真实模型、Tavily 或互联网。
+
+| 级别 | 实际命令 | 结果 | mock / 真实模型 | 未覆盖风险 |
+|---|---|---|---|---|
+| L0 | `npm run check`；`npm run build`；`git diff --check` | 通过 | 无 / 否 | 未重新构建安装包 |
+| L1 | `npx vitest run apps/desktop/tests --reporter=dot` | 5 files, 30 passed | 进程与 IPC mock / 否 | 未覆盖系统原生选择器自动化 |
+| L2 | `npx vitest run tests/integration/m09-computer-ui.test.ts --reporter=dot` | 2 passed | 临时合成目录、真实 Python/SQLite / 否 | 未覆盖真实用户权限变化组合 |
+| L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_computer_files.py backend/tests/test_computer_gateway.py backend/tests/test_application.py -q` | 8 passed, 1 skipped | 临时目录与既有测试 mock / 否 | 符号链接跳过项受 Windows 权限影响 |
+| L3 | `$env:ORVIA_TEST_MODULE='M09'; $env:ORVIA_TEST_RESULTS='artifacts/test-results/M09'; npx playwright test tests/e2e/m09.spec.ts` | 1 passed；真实 Electron/Python 窗口闭环，已检查截图 | 合成目录 / 否 | 未验安装包版本的目录选择器 |
+
+### 安全与边界
+
+没有把 `.env.local`、真实 Key、数据库、日志、用户文件或测试产物加入 Git；M09 只读，不执行移动、重命名、创建目录、删除、审批、撤销或真实模型任务。空间统计为逻辑文件大小。错误消息不回显绝对路径或异常输入。`ORVIA_TEST_DIRECTORY` 仅在未打包开发进程生效，不能改变发布模式的系统选择器和 Computer 路径校验。
+
+本地提交使用固定作者，用户手动 push 待执行；Agent 未执行 push。M09 完成后停止，不开始 M10。

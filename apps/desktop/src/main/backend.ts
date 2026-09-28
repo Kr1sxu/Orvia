@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { backendLaunch, type PackagedRuntime } from './runtime';
 import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
-import { configurationSchema, missionSchema, missionCreateSchema, type MissionCreate } from './contracts';
+import { configurationSchema, missionSchema, missionCreateSchema, grantStatusSchema, scanEnvelopeSchema, type MissionCreate, type GrantStatus, type ScanEnvelope } from './contracts';
 
 type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily', string>>;
 type Initialization = { dataDirectory: string; credentials: () => Secrets };
@@ -79,10 +79,19 @@ export class BackendClient {
   async missions() { await this.start(); return z.object({ missions: z.array(missionSchema) }).strict().parse(await this.request('missions.list')); }
   async createMission(input: MissionCreate) { await this.start(); return missionSchema.parse(await this.request('missions.create', missionCreateSchema.parse(input))); }
   async getMission(id: string) { await this.start(); return missionSchema.parse(await this.request('missions.get', { id: z.string().uuid().parse(id) })); }
+  async grantComputer(input: { mission_id: string; root: string }) {
+    await this.start();
+    return grantStatusSchema.parse(await this.request('computer.grant', { mission_id: z.string().uuid().parse(input.mission_id), root: input.root, allow_text: false, allow_system: false }));
+  }
+  async computerStatus(missionId: string) { await this.start(); return grantStatusSchema.parse(await this.request('computer.status', { mission_id: z.string().uuid().parse(missionId) })); }
+  async executeComputer(input: { mission_id: string; grant_id: string; call: object }): Promise<ScanEnvelope> {
+    await this.start();
+    return scanEnvelopeSchema.parse(await this.request('computer.execute', { mission_id: z.string().uuid().parse(input.mission_id), grant_id: z.string().uuid().parse(input.grant_id), call: input.call }));
+  }
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace', params: object = {}): Promise<unknown> {
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute', params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));

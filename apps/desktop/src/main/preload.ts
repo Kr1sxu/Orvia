@@ -8,4 +8,7 @@ contextBridge.exposeInMainWorld('orvia', Object.freeze({
   createMission: (input: unknown) => ipcRenderer.invoke('orvia:create-mission', input),
   saveCredential: (input: unknown) => ipcRenderer.invoke('orvia:save-credential', input),
   removeCredential: (role: unknown) => ipcRenderer.invoke('orvia:remove-credential', role),
+  chooseDirectory: () => ipcRenderer.invoke('orvia:choose-directory'),
+  computerStatus: (missionId: unknown) => ipcRenderer.invoke('orvia:computer-status', missionId),
+  computerScan: (input: unknown) => ipcRenderer.invoke('orvia:computer-scan', input),
 }));

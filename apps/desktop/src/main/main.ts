@@ -1,15 +1,17 @@
-import { app, BrowserWindow, ipcMain, session, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, safeStorage } from 'electron';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BackendClient } from './backend';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
 import { synchronizeCredentials, CredentialSynchronizationError } from './credentials/synchronize';
-import { credentialInputSchema, missionCreateSchema, credentialRoleSchema } from './contracts';
+import { credentialInputSchema, missionCreateSchema, credentialRoleSchema, computerCallSchema } from './contracts';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
 let quitting = false;
+const activeComputerGrants = new Map<string, string>();
 
 // 单实例避免两个主进程同时覆盖凭据文件；M02 不支持多工作区进程。
 const primaryInstance = app.requestSingleInstanceLock();
@@ -63,6 +65,24 @@ app.whenReady().then(async () => {
   handle('orvia:remove-credential', 1, async role => {
     await vault.remove(credentialRoleSchema.parse(role));
     return synchronizeCredentials(vault, backend);
+  });
+  handle('orvia:choose-directory', 0, async () => {
+    // 仅开发测试进程可注入合成目录，发布模式始终使用系统选择器。
+    const testDirectory = development ? process.env.ORVIA_TEST_DIRECTORY : undefined;
+    const selection = testDirectory ? { canceled: false, filePaths: [path.resolve(testDirectory)] } : await dialog.showOpenDialog(window!, { title: '选择要扫描的本地目录', properties: ['openDirectory', 'createDirectory'] });
+    if (selection.canceled || !selection.filePaths[0]) return { cancelled: true };
+    // 目录绝对路径只在主进程内传给 Computer；renderer 仅得到不可推导的任务/授权标识。
+    const mission = await backend.createMission({ client_request_id: randomUUID(), title: '桌面整理只读扫描' });
+    const grant = await backend.grantComputer({ mission_id: mission.id, root: selection.filePaths[0] });
+    if (!grant.grant_id) throw new Error('目录授权未建立');
+    activeComputerGrants.set(mission.id, grant.grant_id);
+    return { cancelled: false, mission_id: mission.id, grant_id: grant.grant_id, root_label: grant.root_label, calls_remaining: grant.calls_remaining };
+  });
+  handle('orvia:computer-status', 1, async missionId => backend.computerStatus(String(missionId)));
+  handle('orvia:computer-scan', 1, async input => {
+    const request = computerCallSchema.parse(input);
+    if (activeComputerGrants.get(request.mission_id) !== request.grant_id) throw new Error('目录授权已失效，请重新选择目录');
+    return backend.executeComputer(request);
   });
   window.on('closed', () => { window = null; });
   await window.loadFile(page);

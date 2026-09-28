@@ -25,3 +25,23 @@ export const credentialInputSchema = z.object({ role: credentialRoleSchema, key:
 export type Mission = z.infer<typeof missionSchema>;
 export type MissionCreate = z.infer<typeof missionCreateSchema>;
 export type Configuration = z.infer<typeof configurationSchema>;
+
+export const grantStatusSchema = z.object({
+  mission_id: z.string().uuid(), grant_id: z.string().uuid().nullable(), root_label: z.string().nullable(),
+  allow_files: z.boolean(), allow_text: z.boolean(), allow_system: z.boolean(), calls_remaining: z.number().int().min(0),
+}).strict();
+export const directoryEntrySchema = z.object({ path: z.string(), name: z.string(), kind: z.enum(['file', 'directory']), size: z.number(), modified_at: z.string() }).strict();
+export const scanEnvelopeSchema = z.object({
+  data: z.record(z.unknown()), complete: z.boolean(), truncated: z.boolean(), errors: z.array(z.object({ code: z.string() }).strict()),
+  scanned_at: z.string(), scanned_entries: z.number().int().min(0), tool: z.string(), mission_id: z.string().uuid(), grant_id: z.string().uuid(), calls_remaining: z.number().int().min(0),
+}).strict();
+export const grantRequestSchema = z.object({ mission_id: z.string().uuid(), root: z.string().min(1), allow_text: z.literal(false), allow_system: z.literal(false) }).strict();
+export const computerCallSchema = z.object({
+  mission_id: z.string().uuid(), grant_id: z.string().uuid(),
+  call: z.object({
+    tool: z.enum(['list_directory', 'search_files', 'get_file_metadata', 'analyze_directory_space']),
+    arguments: z.record(z.unknown()),
+  }).strict(),
+}).strict();
+export type GrantStatus = z.infer<typeof grantStatusSchema>;
+export type ScanEnvelope = z.infer<typeof scanEnvelopeSchema>;

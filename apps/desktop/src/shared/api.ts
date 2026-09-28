@@ -1,4 +1,5 @@
-import type { Configuration, Mission, MissionCreate } from '../main/contracts';
+import type { Configuration, Mission, MissionCreate, GrantStatus, ScanEnvelope } from '../main/contracts';
+export type { GrantStatus, ScanEnvelope } from '../main/contracts';
 /** 渲染端只能请求有限业务接口，没有通用 IPC、后端初始化或凭据读取入口。 */
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
 export type Reply<T> = { ok: true; result: T } | { ok: false; message: string };
@@ -13,4 +14,7 @@ declare global { interface Window { orvia: {
   createMission: (input: MissionCreate) => Promise<Reply<Mission>>;
   saveCredential: (input: { role: Role; key: string }) => Promise<Reply<{ updated: true }>>;
   removeCredential: (role: Role) => Promise<Reply<{ updated: true }>>;
+  chooseDirectory: () => Promise<Reply<{ cancelled: boolean; mission_id?: string; grant_id?: string; root_label?: string | null; calls_remaining?: number }>>;
+  computerStatus: (missionId: string) => Promise<Reply<GrantStatus>>;
+  computerScan: (input: { mission_id: string; grant_id: string; call: { tool: 'list_directory' | 'search_files' | 'get_file_metadata' | 'analyze_directory_space'; arguments: Record<string, unknown> } }) => Promise<Reply<ScanEnvelope>>;
 } } }
