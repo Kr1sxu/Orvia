@@ -1,5 +1,13 @@
 # Computer 只读工具（M03）
 
+## M10 接入更新
+
+M03 只读能力已通过对话卡片接入。`ComputerGateway.authorized_root(mission_id)` 供会话动作入口复核当前授权根身份；重启、根替换后需重新选择目录。PathPolicy 在 resolve 之前检查原始路径链，拒绝链接、Windows 联接与 ADS。
+
+M04 ActionService 的计划现包含 SHA256 revision、根/源身份。审批和执行前重新核对，计划内重复源/目标或父目录顺序冲突在审批前拒绝；核验比较账本 after 身份。中断步骤不能证明未执行时拒绝重放；撤销开始就记录部分撤销状态。旧无快照计划需重新生成。对话入口另行验证会话、最新 operation、版本与当前 grant，旧私有接口不向 renderer 透传。
+
+目标回归见 `backend/tests/test_m10_action_safety.py` 和 `test_chat.py`，仅合成目录、临时数据库与模型 mock。以下 M03 段落保留原工具边界；当前整体桌面行为见 chat/README。
+
 ## 用途
 
 提供授权目录扫描、文件名搜索、元数据、受限 UTF-8 文本读取、逻辑空间统计，以及固定运行时版本探测和必要进程概况。不创建、移动、重命名、删除文件，也不接受任意命令。

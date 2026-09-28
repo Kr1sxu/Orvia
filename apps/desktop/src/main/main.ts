@@ -2,7 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, session, safeStorage } from 'elect
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BackendClient } from './backend';
+import { BackendClient, BackendRequestError } from './backend';
+import { chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, parseInspect } from './chat-contracts';
+import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
 import { synchronizeCredentials, CredentialSynchronizationError } from './credentials/synchronize';
@@ -36,7 +38,7 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (_details, callback) => callback({ cancel: true }));
   window = new BrowserWindow({ width: 1120, height: 880, minWidth: 760, minHeight: 560,
-    title: '序航 Orvia', backgroundColor: '#101a24', autoHideMenuBar: true,
+    title: '序航 Orvia', backgroundColor: '#f7f8fa', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false },
   });
   const contents = window.webContents;
@@ -49,10 +51,36 @@ app.whenReady().then(async () => {
         return { ok: false, message: '此来源或请求不允许调用该接口' };
       }
       try { return { ok: true, result: await action(...args) }; }
-      catch (error) { return { ok: false, message: error instanceof CredentialSynchronizationError ? error.message : '操作失败：请检查输入、凭据状态或重启本地服务' }; }
+      catch (error) { return { ok: false, message: error instanceof CredentialSynchronizationError ? error.message : error instanceof BackendRequestError ? chatErrorMessage(error.code) : '操作失败：请检查输入、凭据状态或重启本地服务' }; }
     });
   }
   handle('orvia:health', 0, () => backend.health());
+  // 串行会话操作防止多次点击原生选择器及写动作；后台仍独立检查归属、版本和状态。
+  let chatBusy = false;
+  async function chatAction<T>(action: () => Promise<T>) {
+    if (chatBusy) throw new Error('会话操作进行中');
+    chatBusy = true;
+    try { return await action(); } finally { chatBusy = false; }
+  }
+  handle('orvia:chat-list', 0, () => chatAction(() => backend.chatList()));
+  handle('orvia:chat-create', 1, input => chatAction(() => backend.chat('chat.create', chatCreateSchema.parse(input))));
+  handle('orvia:chat-get', 1, input => chatAction(() => backend.chat('chat.get', chatIdSchema.parse(input))));
+  handle('orvia:chat-send', 1, input => chatAction(() => backend.chat('chat.send', chatSendSchema.parse(input))));
+  handle('orvia:chat-inspect', 1, input => chatAction(() => backend.chat('chat.inspect', parseInspect(input))));
+  handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
+  handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));
+  handle('orvia:chat-undo', 1, input => chatAction(() => backend.chat('chat.undo', chatApprovalSchema.parse(input))));
+  handle('orvia:chat-choose-directory', 1, input => chatAction(async () => {
+    const { id } = chatIdSchema.parse(input);
+    await backend.chat('chat.get', { id });
+    const selection = await dialog.showOpenDialog(window!, {
+      title: '授权此对话访问一个本地目录', buttonLabel: '选择并授权', properties: ['openDirectory'],
+    });
+    if (selection.canceled || selection.filePaths.length !== 1) return { cancelled: true };
+    // 只有主进程可以提供绝对根；Python 复用 PathPolicy 校验原始路径链和根身份。
+    const conversation = await backend.chat('chat.grant', { id, root: selection.filePaths[0] });
+    return { cancelled: false, conversation };
+  }));
   handle('orvia:settings', 0, async () => ({ ...await backend.configuration(), mode: development ? 'development' : 'secure_storage',
     encryption_available: safeStorage.isEncryptionAvailable(), credential_error: credentialError, credentials: vault.getStatus() }));
   handle('orvia:missions', 0, () => backend.missions());
@@ -67,9 +95,7 @@ app.whenReady().then(async () => {
     return synchronizeCredentials(vault, backend);
   });
   handle('orvia:choose-directory', 0, async () => {
-    // 仅开发测试进程可注入合成目录，发布模式始终使用系统选择器。
-    const testDirectory = development ? process.env.ORVIA_TEST_DIRECTORY : undefined;
-    const selection = testDirectory ? { canceled: false, filePaths: [path.resolve(testDirectory)] } : await dialog.showOpenDialog(window!, { title: '选择要扫描的本地目录', properties: ['openDirectory', 'createDirectory'] });
+    const selection = await dialog.showOpenDialog(window!, { title: '选择要扫描的本地目录', properties: ['openDirectory'] });
     if (selection.canceled || !selection.filePaths[0]) return { cancelled: true };
     // 目录绝对路径只在主进程内传给 Computer；renderer 仅得到不可推导的任务/授权标识。
     const mission = await backend.createMission({ client_request_id: randomUUID(), title: '桌面整理只读扫描' });

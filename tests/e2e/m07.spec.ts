@@ -8,13 +8,17 @@ test('M07 真实 Electron Tavily 加密、私有管道同步与三模型边界�
   const directory = await mkdtemp(path.join(results, 'electron-'));
   const env = { ...process.env, ORVIA_DEV_DATA_DIR: directory };
   delete (env as NodeJS.ProcessEnv).ELECTRON_RUN_AS_NODE;
-  const app = await electron.launch({ args: [path.resolve('apps/desktop')], env });
+  for (const variable of ['DEEPSEEK_API_KEY', 'ZHIPU_API_KEY', 'MIMO_API_KEY', 'TAVILY_API_KEY']) delete (env as NodeJS.ProcessEnv)[variable];
+  const app = await electron.launch({ args: [path.resolve('tests/e2e/m10-launch.cjs')], env });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByRole('status')).toHaveText('健康检查通过 · orvia-backend');
-    await expect(page.getByText(/Tavily/)).toBeVisible();
+    await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '⚙ 设置' }).click();
+    await expect(page.getByText('未配置 Tavily，搜索不可用。', { exact: true })).toBeVisible();
     const result = await app.evaluate(async ({ safeStorage }, args) => {
       const requireModule = process.getBuiltinModule('module').createRequire(args.vaultModule);
+      // safeStorage 必须使用原始 CredentialVault，不能沿用无凭据启动器的替身。
+      delete requireModule.cache[requireModule.resolve(args.vaultModule)];
       const { CredentialVault } = requireModule(args.vaultModule);
       const { BackendClient } = requireModule(args.backendModule);
       const options = { development: false, root: args.root, userData: args.directory, safeStorage };

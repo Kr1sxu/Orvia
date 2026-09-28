@@ -3,6 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { backendLaunch, type PackagedRuntime } from './runtime';
 import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
+import { chatSnapshotSchema, chatListSchema } from './chat-contracts';
+
+/** 仅传递后端固定错误码；正文可能含输入或供应商回显，禁止转发。 */
+export class BackendRequestError extends Error {
+  constructor(public readonly code: string) { super(`后端拒绝请求：${code}`); }
+}
 import { configurationSchema, missionSchema, missionCreateSchema, grantStatusSchema, scanEnvelopeSchema, type MissionCreate, type GrantStatus, type ScanEnvelope } from './contracts';
 
 type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily', string>>;
@@ -46,7 +52,7 @@ export class BackendClient {
           this.pending.delete(response.id!);
           clearTimeout(pending.timer);
           if (response.ok) pending.resolve(response.result);
-          else pending.reject(new Error(`后端拒绝请求：${response.error.code}`));
+          else pending.reject(new BackendRequestError(response.error.code));
         }
       } catch { this.fail(new Error('本地后端协议无效或版本不兼容')); }
     });
@@ -76,6 +82,11 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  async chatList() { await this.start(); return chatListSchema.parse(await this.request('chat.list')); }
+  /** 方法名仅供主进程固定业务入口使用；preload 不暴露此分发器。 */
+  async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
+    await this.start(); return chatSnapshotSchema.parse(await this.request(method, params));
+  }
   async missions() { await this.start(); return z.object({ missions: z.array(missionSchema) }).strict().parse(await this.request('missions.list')); }
   async createMission(input: MissionCreate) { await this.start(); return missionSchema.parse(await this.request('missions.create', missionCreateSchema.parse(input))); }
   async getMission(id: string) { await this.start(); return missionSchema.parse(await this.request('missions.get', { id: z.string().uuid().parse(id) })); }
@@ -91,13 +102,14 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute', params: object = {}): Promise<unknown> {
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
     const id = randomUUID();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => this.fail(new Error('本地后端响应超时')), this.timeoutMs);
+      // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
+      const timer = setTimeout(() => this.fail(new Error('本地后端响应超时')), method.startsWith('chat.') ? 65000 : this.timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       this.child!.stdin.write(JSON.stringify({ v: VERSION, id, method, params }) + '\n');
     });

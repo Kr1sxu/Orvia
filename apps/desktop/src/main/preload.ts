@@ -2,6 +2,15 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
+  chatList: () => ipcRenderer.invoke('orvia:chat-list'),
+  chatCreate: (input: unknown) => ipcRenderer.invoke('orvia:chat-create', input),
+  chatGet: (input: unknown) => ipcRenderer.invoke('orvia:chat-get', input),
+  chatSend: (input: unknown) => ipcRenderer.invoke('orvia:chat-send', input),
+  chatChooseDirectory: (input: unknown) => ipcRenderer.invoke('orvia:chat-choose-directory', input),
+  chatInspect: (input: unknown) => ipcRenderer.invoke('orvia:chat-inspect', input),
+  chatApprove: (input: unknown) => ipcRenderer.invoke('orvia:chat-approve', input),
+  chatResume: (input: unknown) => ipcRenderer.invoke('orvia:chat-resume', input),
+  chatUndo: (input: unknown) => ipcRenderer.invoke('orvia:chat-undo', input),
   health: () => ipcRenderer.invoke('orvia:health'),
   settings: () => ipcRenderer.invoke('orvia:settings'),
   missions: () => ipcRenderer.invoke('orvia:missions'),

@@ -55,6 +55,13 @@ class ComputerGateway:
         self._grants.pop(mission_id, None)
         return self.status(mission_id)
 
+    def authorized_root(self, mission_id: str):
+        """会话写动作入口复核当前授权；历史数据库中的路径不构成授权。"""
+        grant = self._grants.get(mission_id)
+        if grant is None or grant.root is None:
+            raise ToolError("PERMISSION_DENIED", "请重新选择并授权本地目录")
+        return grant.root.resolve(".", "directory")
+
     def execute(self, role: str, request: ToolRequest) -> dict:
         """role 由内部调度代码传入，不在工具参数中接收，Main/Browser 无本地权限。"""
         if role != "computer":

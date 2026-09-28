@@ -39,6 +39,7 @@ class PathPolicy:
             raise ToolError("invalid_root", "授权目录必须是本地绝对路径。")
         if candidate.anchor.startswith("\\\\"):
             raise ToolError("invalid_root", "不允许授权 UNC 或网络路径。")
+        self._check_chain(candidate)
         try:
             resolved = candidate.resolve(strict=True)
         except OSError as exc:
@@ -47,6 +48,13 @@ class PathPolicy:
             raise ToolError("invalid_root", "授权根必须是普通目录，不能是链接或联接。")
         self.root = resolved
         self._identity = self._stat_identity(resolved)
+
+    @staticmethod
+    def _check_chain(path: Path) -> None:
+        """在规范化之前检查原始路径链，避免内部链接或联接被 resolve 隐去。"""
+        for component in [*reversed(path.parents), path]:
+            if _reparse(component):
+                raise ToolError("path_denied", "不允许访问符号链接或重解析路径。")
 
     @staticmethod
     def _stat_identity(path: Path) -> tuple[int, int, int, int]:
@@ -58,6 +66,7 @@ class PathPolicy:
             raise ToolError("path_unavailable", "授权目录无法访问。") from exc
 
     def _check_root(self) -> None:
+        self._check_chain(self.root)
         if _reparse(self.root) or not self.root.is_dir() or self._stat_identity(self.root) != self._identity:
             raise ToolError("permission_denied", "授权目录身份已变化，请重新授权。")
 
@@ -67,13 +76,14 @@ class PathPolicy:
         if not isinstance(relative, str) or not relative or len(relative) > 1000:
             raise ToolError("invalid_path", "路径参数无效。")
         supplied = Path(relative)
-        if supplied.is_absolute() or supplied.drive or supplied.anchor:
+        if supplied.is_absolute() or supplied.drive or supplied.anchor or supplied.is_reserved() or any(":" in part for part in supplied.parts):
             raise ToolError("path_denied", "工具只接受授权根内相对路径。")
         if any(part == ".." for part in supplied.parts):
             raise ToolError("path_denied", "路径不能越过授权目录。")
         if any(sensitive(part) for part in supplied.parts):
             raise ToolError("path_denied", "不允许读取应用内部或凭据目录。")
         target = self.root.joinpath(supplied)
+        self._check_chain(target)
         try:
             resolved = target.resolve(strict=True)
         except OSError as exc:

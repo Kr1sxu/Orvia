@@ -345,3 +345,50 @@ M08 使用固定发布后端资源路径和 `PLAYWRIGHT_BROWSERS_PATH`，不读�
 - [x] √ 排除自动/定时/后台主动任务、技能与插件市场、管家团队管理、促销与推荐内容信息流，不设置虚假占位入口。
 
 L0 文档检查：核对范围、模块依赖、未完成标记和历史记录，运行 `git diff --check`、`git diff`、`git status` 及暂存差异检查。按 AGENTS 文档-only 规则不运行代码测试；无 mock 或真实模型/网络业务调用，无测试产物。只暂存两份 Markdown，不包含密钥、数据库、日志、用户文件、LICENSE 或构建产物。使用固定作者创建本地文档提交；不 push，等待用户手动同步。此次计划修订不代表对话界面已实现，原 M09 验证不等于新对话流程验收。
+
+## M10 对话式主界面、任务编排与审批闭环（2026-09-28）
+
+### 实现与范围
+
+起点为 main 分支 `4d269c9`，远端默认分支 main；本轮开始工作区干净，LICENSE 无待提交改动，全程未触碰 LICENSE。按用户修订后的计划只开发 M10，M11–M14 未开始。
+
+- [x] √ 新建/历史会话、欢迎页、消息流、底部输入框和设置；M09 授权、扫描、搜索、属性、空间及大文件结果迁入对话卡片。没有自动任务、技能广场等额外入口。
+- [x] √ SQLite 持久化会话、消息、Mission 关联和幂等请求；重启标记中断，不自动重放。会话与授权隔离，历史不会恢复文件访问权限。
+- [x] √ 固定 Main 模型生成受限只读或整理提案，经 Application、Computer gateway 与 LangGraph 校验；计划、审批、执行核验、恢复和最近任务受限撤销形成闭环。聊天中输入“同意”不能执行操作。
+- [x] √ 审批绑定最新操作及 SHA256 版本；核对授权根和源文件身份，拒绝重复来源/目标、错误目录创建顺序、旧审批和跨会话审批；不确定恢复拒绝继续。检查原始路径链，阻止链接、联接及越界。撤销记录部分完成状态。
+- [x] √ renderer 仅使用固定类型 IPC；原生目录选择和授权在主进程完成。移除产品代码中的旧测试目录绕过，测试专用启动器独立模拟选择器；中文错误不回显内部路径。
+- [x] √ 更新根、桌面、chat、Computer、agents README 及架构、清单；完成中文接口/边界注释和分级验证。
+
+### 验证记录
+
+所有报告位于 Git 忽略的 `artifacts/test-results/M10/`。自动化使用合成目录和临时数据库，不读取真实用户文件。下列重复目标验证与回归存在用例重叠，不能累加为独立测试总数。
+
+| 级别 | 实际命令 | 最终结果与边界 |
+|---|---|---|
+| L0 | `npm run check`；`npm run build` | 通过，最终构建记录 build-final.log；未重新打包 |
+| L1 | `npx vitest run apps/desktop/tests/chat.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/protocol.test.ts --reporter=json --outputFile=artifacts/test-results/M10/desktop-unit.json` | 16 passed；进程/协议 mock，无真实模型 |
+| L1 | `npx vitest run apps/desktop/tests/chat.test.ts --reporter=json --outputFile=artifacts/test-results/M10/chat-contract-final.json` | 最终错误映射调整后 5 passed |
+| L2 | `npx vitest run tests/integration/m10.test.ts tests/integration/m09-computer-ui.test.ts --reporter=json --outputFile=artifacts/test-results/M10/stdio.json` | 3 passed；真实 Python stdio/SQLite，无真实模型 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_application.py backend/tests/test_application_actions.py backend/tests/test_agents_graph.py backend/tests/test_computer_gateway.py backend/tests/test_computer_files.py backend/tests/test_computer_actions.py backend/tests/test_m10_action_safety.py backend/tests/test_chat.py backend/tests/test_protocol.py backend/tests/test_server.py -q --basetemp=artifacts/test-results/M10/integration-temp --junitxml=artifacts/test-results/M10/backend-final.xml` | 52 passed、1 skipped；Windows 符号链接权限相关既有跳过；模型 mock、合成文件 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m10_action_safety.py backend/tests/test_computer_actions.py backend/tests/test_agents_graph.py -q --basetemp=artifacts/test-results/M10/conflict-temp --junitxml=artifacts/test-results/M10/conflicts-final.xml` | 最终冲突校验修改后 16 passed，含新增 3 项冲突用例 |
+| L3 | 设置 `ORVIA_TEST_MODULE=M10`、`ORVIA_TEST_RESULTS=artifacts/test-results/M10` 后运行 `npx playwright test tests/e2e/m10.spec.ts tests/e2e/health.spec.ts tests/e2e/m02.spec.ts tests/e2e/m07.spec.ts tests/e2e/m09.spec.ts` | 最终 6 passed，0 flaky；真实 Electron/Python/SQLite/Windows safeStorage，模型与原生选择器 mock；截图已检查 |
+| L2 真实模型 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_m10_preflight.py --run-live` | 通过；仅固定 Main 的合成请求，三角色密钥只报告存在性 |
+| L2 真实模型 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_m10_plan.py --run-live` | 通过；固定 Main 对合成 sample.txt 生成重命名计划，最多 3 次请求、每次 1024 输出 token、零重试；未审批执行，源未变、目标不存在 |
+
+E2E 覆盖独立审批、版本/会话拒绝、自然语言不能审批、重启重新授权、撤销、空目录、部分结果、模型失败、键盘输入及 800×650 窗口布局。旧 M01/M02/M07/M09 用户流程测试适配当前入口；M08 安装包测试保留历史语义。未调用真实 Computer/Browser 模型或 Tavily；mock 执行闭环与真实 Main 规划验收分别记录，不等价于三角色真实端到端验收。
+
+开发中发现并修复 React 19 useRef 初始化类型错误、M03 错误码测试断言大小写和嵌套结果裁切问题；相关目标重跑通过，无未解决测试失败。已有 LangGraph 弃用提示保留。
+
+### 试用与已知限制
+
+在项目根运行 `npm run build`，然后 `npm start`。配置固定 Main 凭据，新建对话，选择专用测试目录，发送扫描或重命名需求；检查计划后用独立按钮审批，再查看核验与撤销结果。首次未授权的提问会请求选择目录，选择后需要再次发送需求。
+
+- 只有 Main 在本轮使用模型；Computer 执行受限程序工具，Browser 不参与本轮会话任务。
+- 历史快照最多 30 条消息且受 46 KiB 限制，无分页；每会话最多 100 次发送，结果截断会提示。
+- 当前为阶段状态展示，没有逐 token 流式输出、取消或自动重连，这些留待 M11。
+- 旧版缺少身份/版本的动作计划返回 STALE_PLAN，必须重新生成；外部进程并发替换路径仍存在操作系统层竞态限制。
+- 原生目录选择器通过 mock 自动化，未读取真实用户目录；未重新生成安装包，旧 M08 安装器不包含本轮 UI。
+
+本轮使用固定作者创建本地提交 `feat(M10): add conversational file tasks and versioned approvals`，哈希以最终回执与 git log 为准。提交前显式暂存本模块文件并检查 status、diff、cached diff、空白及敏感信息；最终卫生检查见本节后续记录。Agent 不执行 push，等待用户手动推送；M10 完成后停止。
+
+提交前卫生检查通过：41 个显式暂存文件，禁止路径 0，暂存内容中的真实开发密钥匹配 0；扫描 1280 个本轮产物，真实密钥匹配 0。仅输出三角色凭据存在性，未输出值。结果保存于忽略的 hygiene.json；密钥、数据库、日志、用户文件、测试产物及 LICENSE 均未暂存。最终文档补记不触发代码测试重跑。

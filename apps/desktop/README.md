@@ -1,56 +1,50 @@
-# Electron 桌面模块（M01–M07）
+# Electron 桌面模块（M10）
 
-用途：React 显示本地连接、固定模型配置与任务草稿；主进程管理 Python 和凭据，preload 只暴露六个固定业务接口。
+用途：以对话完成授权目录观察、计划审批、执行核验与受限撤销。新建/历史会话在侧栏，中央消息流展示事实卡片，底部输入框持续提问，设置保留固定模型与凭据管理。不提供自动任务、技能广场、团队管理等入口。
 
-## 目录结构
+## 结构
 
-- `src/main/`：窗口、IPC 权限策略、stdio 客户端、协议解析、preload。
-- `src/main/credentials/`：开发凭据只读加载、发布 safeStorage、后端同步；有独立 README。
-- `src/main/contracts.ts`：与后端 JSON Schema 交叉验证的 Zod 契约。
-- `src/renderer/`：健康状态页面与样式。
-- `src/shared/api.ts`：渲染端公共返回类型。
-- `tests/`：协议与 IPC 策略单元测试。
-- `dist/`：忽略的编译输出。
+- `src/main/main.ts`：窗口、来源校验、系统目录选择及串行业务 IPC。
+- `src/main/backend.ts`：私有 Python stdio 客户端；`chat-contracts.ts` 校验会话输入/快照，`chat-errors.ts` 提供固定中文错误。
+- `src/main/credentials/`：开发凭据加载、发布 safeStorage 与后端同步，详见该目录 README。
+- `src/main/preload.ts`：固定 contextBridge 函数；`src/shared/api.ts` 定义类型。
+- `src/renderer/main.tsx`：欢迎页、会话、输入与异步状态；`ChatCards.tsx` 展示工具与计划证据；`SettingsPanel.tsx` 管理凭据。
 
 ## 输入输出与公共接口
 
-`health(): Promise<HealthReply>` 成功返回 `{ok:true,result:{status:'ok',service:'orvia-backend'}}`；失败返回 `{ok:false,message}`。
-`settings()` 返回固定配置、Key 是否存在和凭据来源；`missions()` 返回最新 20 条草稿；`createMission({client_request_id,title})` 幂等保存草稿；`saveCredential({role,key})` / `removeCredential(role)` 仅发布模式支持。每个入口校验窗口、顶层 frame、精确页面 URL、参数个数与 Zod 参数契约。
-渲染端没有 `initialize`、任意方法、SQL、数据目录选择或读取 Key 的接口。M03/M04 的 `computer.*` 观察、审批和动作接口暂由可信主进程后端预留，尚未开放 renderer 目录选择与写操作 UI。所有返回为 `{ok:true,result}` / `{ok:false,message}`，不回显异常输入。
-`BackendClient(root).health()` 首次启动并 hello 握手，然后按 UUID 关联响应；`stop()` 发送 EOF 并等待关闭，1.5 秒后终止自有进程。
-协议 v1 使用 UTF-8 JSON Lines；每行最多 64 KiB（含换行），5 秒超时，最多 16 个待响应请求。不兼容版本或失联后不自动重试。
+所有函数返回 `{ok:true,result}` 或 `{ok:false,message}`，错误不回显原始请求/供应商正文。
 
-## 依赖与配置
+| preload 函数 | 输入与结果 |
+|---|---|
+| `chatList()` | 最多100条 `{id,title}` 历史会话 |
+| `chatCreate({client_request_id,title})` | 幂等创建会话与固定 Mission |
+| `chatGet({id})` | 读取会话事实快照 |
+| `chatSend({id,request_id,text})` | 最多2000字，固定 Main 规划，返回新快照 |
+| `chatChooseDirectory({id})` | 主进程系统选择器；取消无授权变化，成功返回会话 |
+| `chatInspect({id,tool,arguments})` | 只允许列表、文件名搜索、属性和空间统计 |
+| `chatApprove/Resume/Undo({id,operation_id,revision})` | 当前会话、根授权、最新计划及版本都有效才执行 |
+| `health/settings/saveCredential/removeCredential` | 连接与固定模型设置，发布模式保存/移除加密凭据 |
 
-版本由根 `package-lock.json` 锁定；Electron、React、TypeScript、Vite、Zod。
-开发 Python 固定在 `backend/.venv/Scripts/python.exe`，需要先从根 README 安装。启动使用 `-I -u -X utf8 -m orvia_backend`，只继承系统运行必要变量，不继承密钥。
-M02 主进程读取根 `.env.local`，私有初始化请求向后端内存传入凭据；Python 不继承 Key 环境变量。发布模式只读取系统加密存储，不回退开发 Key。UI 创建草稿无需联网，不自动调用模型。
-开发业务数据默认 `.orvia/app.sqlite`，可用主进程环境变量 `ORVIA_DEV_DATA_DIR` 指定隔离开发/测试目录，发布模式忽略此变量。单实例运行，关闭窗口即退出。
+旧 `missions/createMission` 与 M09 只读窄接口保留兼容；界面不再以草稿面板作为任务入口。没有通用方法转发、绝对根输入或任意命令接口。目录授权不包含文本读取/系统权限。M09 的开发测试目录环境变量入口已移除；E2E 只在测试启动器中替换模型与目录对话框。
 
-## 运行方式与示例
+## 配置与运行
 
-先按根 README 同步 npm/uv 依赖和 Electron 运行时，再从根执行 `npm run build`、`npm start`。看到“健康检查通过”后查看三个角色，在“草稿名称”输入合成名称并保存；关闭、重启后仍可见。修改源码或开发 Key 后重新启动，源码变更需先 build。
+依赖沿用根锁文件：Electron、React、TypeScript、Vite、Zod，无新增运行依赖。开发 Python 固定为 `backend/.venv/Scripts/python.exe`；发布使用安装资源，不回退系统 Python。开发数据默认 `.orvia/`，测试用 `ORVIA_DEV_DATA_DIR` 隔离；发布忽略该变量。
 
-## 测试方式
+根目录运行 `npm run build` 后 `npm start`。示例：选择只含合成 `a.txt` 的目录 → 查看列表 → 发送“把 a.txt 重命名为 b.txt” → 核对源/目标与版本 → 独立批准 → 查看程序核验 → 必要时撤销最近变更。重新打开会话后必须重新授权原根。未授权的消息不会在选择目录后自动重放，请再次提交目标。
 
-根目录 `npm run check`（L0）；按文件选择 Vitest 的凭据/生命周期 L1、真实 Python/SQLite/Schema L2；`npm run test:e2e`（L3，真实 Electron/Python/safeStorage，先 build）。实际最小测试命令见根 `docs/PROGRESS.md`，本轮结果在 `artifacts/test-results/M02/`。
+主动发送会把必要对话与文件元数据发送给固定 Main 云服务；不自动发送文件正文。开发主进程读根 `.env.local`，发布只用 safeStorage，不回退明文。输入的 API Key 提交即清空，不进入消息。
 
-## 权限边界
+## 验证
 
-渲染端启用 sandbox/contextIsolation，禁用 Node/webview；拒绝新窗口、导航、权限申请及联网请求。CSP 只允许本地静态资源。渲染端不能选通道、命令或路径。
-进程通过 `shell:false, windowsHide:true` 启动；stdout 专用于协议，stderr 持续消费但不持久化原始内容。应用不是操作系统安全沙箱。
+L0：`npm run check`、`npm run build`。L1：`npx vitest run apps/desktop/tests/chat.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/protocol.test.ts`。L2：`npx vitest run tests/integration/m10.test.ts`。L3：先构建，设置 `ORVIA_TEST_MODULE=M10` 后运行 `npx playwright test tests/e2e/m10.spec.ts`。
 
-## 已知限制
+报告、数据库和截图均在忽略的 `artifacts/test-results/M10/`；准确命令与结果见根 PROGRESS。E2E 保留真实 Electron/Python/SQLite/文件网关，以测试专用启动器替换模型和凭据来源，系统选择器用测试侧 mock；不触发真实模型。显式真实 Main 合成预检与规划测试脚本单列，不属于默认测试。
 
-仅 Windows 开发环境；未打包、无托盘、无自动重连、无日志持久化、无文件操作或 Agent 执行。草稿不是已执行任务。安装包资源定位和无开发环境机器验收属于 M08；safeStorage 已验证实际 OS 加密，但完整发布安装流程未验收。
-凭据落盘后同步后端失败时，停止旧后端并明确要求重启，不能继续使用已删除 Key。极端 OS 拒绝终止且不发送 close 时的退出上限仍未验证。
+## 权限与限制
 
-M07：发布凭据选择增加 Tavily 搜索，开发主进程读取 TAVILY_API_KEY；搜索状态来自后端实际凭据存在性。模型配置仍严格三个角色，未向 renderer 开放 Browser 读取/搜索接口。
+sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、新窗口和权限申请。所有入口检查主窗口、顶层 frame、精确 URL、参数个数与结构；UI 单操作锁及后端会话锁避免重复提交。原始错误不显示，模型文本标为建议，程序卡片才代表执行事实。
 
-## M09 桌面整理只读界面
+私有 UTF-8 JSON Lines 每行64 KiB；会话请求65秒客户端超时，对应模型50秒总预算，最多三次请求，每次1024输出token；其他开发请求仍5秒，发布20秒。当前展示请求阶段，无伪造百分比或token流式输出。关闭中断不自动重放；历史快照不是执行恢复。
 
-M09 在主进程通过系统目录选择器建立一次 Computer 目录授权，renderer 只接收任务 ID、授权 ID 和目录名摘要。目录绝对路径不会进入页面或 preload；`computer-scan` 只允许 `list_directory`、`search_files`、`get_file_metadata`、`analyze_directory_space` 四个固定只读工具，具体路径、越界、符号链接和权限检查继续由 M03 gateway 执行。
-
-界面支持一级文件列表、文件名搜索、文件属性、逻辑空间统计和大文件清单，并展示扫描进行中、空结果、截断、不可访问、授权失效和失败提示。空间统计不会清空已经显示的文件列表。开发测试可在主进程设置 `ORVIA_TEST_DIRECTORY` 注入合成目录，发布模式始终使用系统选择器。
-
-运行 `npm run build && npm start` 后点击“选择目录”即可试用。M09 不执行移动、重命名、创建目录、删除、审批、撤销或模型任务；授权只在当前后端连接内有效。
+历史只显示最近30条并按46 KiB裁剪，较早记录仍保存，当前无分页。只读卡片8 KiB，截断明确提示。没有托盘、自动重连、通用取消或自动任务；稳定性扩展属于M11。M08安装包未随本轮重建。旧无身份快照计划拒绝审批；部分撤销/不确定中断需人工核对，不承诺任意回滚。外部进程并发文件竞态不能由路径检查完全消除。

@@ -23,3 +23,8 @@ Python 3.12、LangGraph 0.6、`langgraph-checkpoint-sqlite`、aiosqlite、Pydant
 ## 权限边界与已知限制
 
 LangGraph 节点不能自行扩大 Computer 授权；所有写入仍经过 M04 审批账本。checkpoint 只保存编排状态，文件事实以 M04 账本和执行核验为准。M05 使用程序提供的合成动作列表，Main 的真实模型规划仍未开放；M07 HTTP/Playwright 只读服务已可独立调用；未配置 Tavily 时不产生伪造搜索结果。
+# M10 对话接入补充
+
+ChatService 先以固定 Main 模型提交受限提案，然后用服务端生成的独立 thread_id 调用 MissionGraph.start；模型提案不能设置 approved。图建立的计划携带 revision，停在 awaiting_approval。独立审批入口复核当前会话授权、最新计划与摘要后才调用 approve_and_resume，图再次拒绝重复审批与线程复用。完成证据来自 ActionService 逐项身份核验。
+
+Computer 在本轮是程序工具执行器，Browser 对话未开放。历史合成图测试仍保留；M10 真实 Main 仅做显式合成规划验收，不审批执行真实用户文件。每个角色固定配置不变。

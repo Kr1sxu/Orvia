@@ -23,6 +23,7 @@ class MissionState(TypedDict, total=False):
     root: str
     actions: list[dict[str, Any]]
     operation_id: str
+    revision: str
     approved: bool
     phase: Literal["planning", "awaiting_approval", "executing", "verifying", "completed", "failed"]
     evidence: list[dict[str, Any]]
@@ -101,12 +102,13 @@ class MissionGraph(AbstractAsyncContextManager):
             raise ToolError("ROLE_DENIED", "Computer 不具备计划能力")
         service = ActionService(self.store)
         plan = await service.create_plan(ActionPlanRequest(mission_id=state["mission_id"], root=state["root"], actions=[Action.model_validate(x) for x in state["actions"]]))
-        return {"operation_id": plan["operation_id"], "phase": "awaiting_approval",
+        return {"operation_id": plan["operation_id"], "revision": plan["revision"], "approved": False,
+                "phase": "awaiting_approval",
                 "evidence": state.get("evidence", []) + [{"agent": "computer", "kind": "plan", "operation_id": plan["operation_id"]}]}
 
     async def _approval_gate(self, state: MissionState) -> dict:
         if state.get("approved"):
-            await ActionService(self.store).approve(state["operation_id"])
+            await ActionService(self.store).approve(state["operation_id"], state.get("revision"))
             return {"phase": "executing"}
         return {"phase": "awaiting_approval"}
 
@@ -138,6 +140,10 @@ class MissionGraph(AbstractAsyncContextManager):
         if self._graph is None:
             raise RuntimeError("MissionGraph 未打开")
         config = {"configurable": {"thread_id": thread_id}}
+        # 已存在的 thread 只能通过显式审批入口恢复，不能把新输入合并到旧 approved 状态。
+        snapshot = await self._graph.aget_state(config)
+        if snapshot.values:
+            raise ToolError("INVALID_STATE", "任务线程已存在，请使用独立任务或审批入口")
         result = await self._graph.ainvoke(state, config)
         return result
 
@@ -146,4 +152,11 @@ class MissionGraph(AbstractAsyncContextManager):
         if self._graph is None:
             raise RuntimeError("MissionGraph 未打开")
         config = {"configurable": {"thread_id": thread_id}}
+        snapshot = await self._graph.aget_state(config)
+        state = snapshot.values
+        if state.get("phase") != "awaiting_approval" or state.get("approved"):
+            raise ToolError("INVALID_STATE", "任务不处于待审批状态")
+        operation = await self.store.get_operation(state["operation_id"])
+        if operation is None or operation["status"] != "planned" or operation["mission_id"] != state["mission_id"]:
+            raise ToolError("INVALID_STATE", "任务计划状态已变化，不能重复审批")
         return await self._graph.ainvoke({"approved": True}, config)

@@ -20,6 +20,7 @@ from .agents.graph import MissionGraph
 from .context import ContextError, ContextService
 from .computer.paths import ToolError
 from .computer.system import SystemToolError
+from .chat import ChatService
 
 
 class Params(BaseModel):
@@ -98,6 +99,7 @@ class Application:
         # 网关只存在于当前后端连接，连接断开即丢失授权和调用预算。
         self.computer = ComputerGateway()
         self.graph: MissionGraph | None = None
+        self.chat: ChatService | None = None
 
     async def handle(self, line: bytes) -> dict:
         try:
@@ -109,6 +111,8 @@ class Application:
                    "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
+        methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
+                    "chat.approve", "chat.resume", "chat.undo"}
         methods |= {"context.index", "context.search", "context.clear", "context.preferences.set", "context.preferences.get",
                     "context.summary.update", "context.summary.get"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
@@ -143,9 +147,13 @@ class Application:
                 await self.graph.__aenter__()
                 self.registry.replace_credentials(initial.credentials)
                 self.browser.key = initial.credentials.tavily
+                self.chat = ChatService(store, self.computer, self.graph, self.registry)
+                await self.chat.open()
                 result = {"initialized": True}
             elif self.store is None:
                 return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
+            elif method.startswith("chat."):
+                result = await self.chat.handle(method, params)
             elif method == "credentials.replace":
                 updated = ReplaceCredentials.model_validate(params)
                 self.registry.replace_credentials(updated.credentials)
