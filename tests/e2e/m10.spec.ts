@@ -7,7 +7,7 @@ async function mockDialog(app: ElectronApplication, directory: string | null) {
 }
 
 test('M10 对话→授权→观察→版本审批→核验→重启重新授权→撤销（模型mock）',async()=>{
-  const results=path.resolve('artifacts/test-results/M10');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M10');await mkdir(results,{recursive:true});
   const profile=await mkdtemp(path.join(results,'profile-'));
   const root=await mkdtemp(path.join(results,'files-'));
   await writeFile(path.join(root,'合成说明.txt'),'synthetic-only');
@@ -73,7 +73,7 @@ test('M10 对话→授权→观察→版本审批→核验→重启重新授权�
 });
 
 test('M10 空目录、模型失败、部分结果与键盘输入（mock，无真实供应商）',async()=>{
-  const results=path.resolve('artifacts/test-results/M10');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M10');await mkdir(results,{recursive:true});
   const profile=await mkdtemp(path.join(results,'states-profile-'));
   const root=await mkdtemp(path.join(results,'empty-'));
   const env={...process.env,ORVIA_DEV_DATA_DIR:profile};delete env.ELECTRON_RUN_AS_NODE;

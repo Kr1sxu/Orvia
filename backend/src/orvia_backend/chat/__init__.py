@@ -12,7 +12,7 @@ from ..computer.contracts import GrantRequest, ToolRequest
 from ..computer.paths import ToolError
 from ..configuration.client import ModelClient, ModelUnavailable
 from ..domain import MissionCreate
-from .contracts import Approval, Conversation, Create, Grant, Inspect, Params, Proposal, Send
+from .contracts import Approval, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send
 from .repository import ChatRepository
 
 
@@ -28,6 +28,7 @@ class ChatService:
         self.repository = ChatRepository(store)
         self.client = ModelClient(registry)
         self._locks = {}
+        self._active = {}
 
     async def open(self):
         await self.repository.open()
@@ -36,12 +37,24 @@ class ChatService:
         """仅 Application 私有管道调用；拒绝未知字段与跨会话操作引用。"""
         if method == "chat.list":
             Params.model_validate(params)
-            return {"conversations": await self.repository.list()}
+            rows = await self.repository.list()
+            for row in rows:
+                row["status"] = await self.conversation_status(row["id"])
+            return {"conversations": rows}
         if method == "chat.create":
             request = Create.model_validate(params)
             mission = await self.store.create_mission(MissionCreate(**request.model_dump()))
             await self.repository.create(mission)
             return await self.snapshot(str(mission.id))
+        if method == "chat.cancel":
+            request = Cancel.model_validate(params)
+            active = self._active.get(str(request.id))
+            # 只取消模型等待；规划入库、审批和文件执行绝不能在中途打断。
+            if active and active["request_id"] == str(request.request_id) and active["model"] and not active["model"].done():
+                active["cancelled"] = True
+                active["model"].cancel()
+                return {"cancelled": True}
+            return {"cancelled": False}
         contracts = {"chat.get": Conversation, "chat.send": Send, "chat.grant": Grant,
                      "chat.inspect": Inspect, "chat.approve": Approval, "chat.resume": Approval, "chat.undo": Approval}
         request = contracts[method].model_validate(params)
@@ -59,12 +72,28 @@ class ChatService:
                 await self.action(method, request)
             return await self.snapshot(cid)
 
+    async def conversation_status(self, cid):
+        if cid in self._active:
+            return "running"
+        request_status = await self.repository.latest_request_status(cid)
+        messages, _ = await self.repository.messages(cid)
+        last_event = next((item for item in reversed(messages) if item["role"] == "user" or item["kind"] in {"result", "error"}), None)
+        action_finished = bool(last_event and last_event["kind"] == "result")
+        if not action_finished and request_status in {"cancelled", "failed", "interrupted", "pending"}:
+            return "interrupted" if request_status == "pending" else request_status
+        row = await self.repository.get(cid)
+        op = await self.store.get_operation(row["operation_id"]) if row["operation_id"] else None
+        if op:
+            return {"planned": "awaiting_approval", "approved": "running"}.get(op["status"], op["status"])
+        return "completed" if request_status else "draft"
+
     async def snapshot(self, cid):
         row = await self.repository.get(cid)
         messages, total = await self.repository.messages(cid)
         status = self.gateway.status(cid)
+        authorized_root = None
         try:
-            self.gateway.authorized_root(cid)
+            authorized_root = self.gateway.authorized_root(cid)
         except ToolError:
             # 状态展示也复核根身份；磁盘目录已替换时不可继续显示有效授权。
             status = {**status, "allow_files": False}
@@ -72,10 +101,16 @@ class ChatService:
         result = {"id": cid, "title": row["title"], "mission_id": cid, "messages": messages,
                   "messages_truncated": total > len(messages),
                   "grant": {key: status[key] for key in ("root_label", "grant_id", "calls_remaining")} if status["allow_files"] else None,
-                  "operation": None}
+                  "operation": None, "status": await self.conversation_status(cid)}
+        operations, truncated = await self.repository.operations(cid)
+        result["operations"], result["operations_truncated"] = operations, truncated
+        if operations:
+            operations[0]["can_undo"] = bool(result["grant"] and operation and authorized_root == Path(operation["root"])
+                                               and operation["id"] == operations[0]["operation_id"] and operations[0]["status"] == "completed")
         if operation:
             result["operation"] = {"operation_id": operation["id"], "revision": operation["plan"]["revision"],
                                    "status": operation["status"], "error": operation["error"],
+                                   "can_undo": bool(operations and operations[0]["operation_id"] == operation["id"] and operations[0]["can_undo"]),
                                    "actions": [{key: item.get(key) for key in ("kind", "source", "destination")}
                                                for item in operation["plan"]["actions"]]}
         # 快照固定小于协议预算；UI 明示较早消息省略，磁盘历史不删除。
@@ -121,8 +156,20 @@ class ChatService:
             raise ToolError("INVALID_PARAMS", "消息不能为空")
         if not await self.repository.claim(cid, str(request.request_id), request.text):
             return
-        await self._send_claimed(request)
-        await self.repository.finish(cid, str(request.request_id))
+        active = {"request_id": str(request.request_id), "model": None, "cancelled": False}
+        self._active[cid] = active
+        try:
+            await self._send_claimed(request)
+            messages, _ = await self.repository.messages(cid)
+            status = "failed" if messages and messages[-1]["kind"] == "error" else "completed"
+            await self.repository.finish(cid, str(request.request_id), status)
+        except asyncio.CancelledError:
+            if not active["cancelled"]:
+                raise
+            await self.repository.append(cid, "system", "已取消本次模型规划；现有只读结果保留，未自动执行文件动作。", "error", {"code": "REQUEST_CANCELLED"})
+            await self.repository.finish(cid, str(request.request_id), "cancelled")
+        finally:
+            self._active.pop(cid, None)
 
     async def _send_claimed(self, request):
         """正常回复落盘后由 send 标记完成；异常中断不抹掉 pending 事实。"""
@@ -152,48 +199,58 @@ class ChatService:
         tools = [{"type": "function", "function": {"name": "propose", "description": "提交建议，由程序检查并处理",
                                                        "parameters": Proposal.model_json_schema()}}]
         observed = bool(observations)
+        deadline = asyncio.get_running_loop().time() + 50
         try:
-            async with asyncio.timeout(50):
-                for _ in range(3):
-                    completion = await self.client.complete(profile, messages, max_tokens=1024, tools=tools)
-                    if completion.finish_reason == "length":
-                        raise ToolError("INVALID_PROPOSAL", "模型建议被截断，请缩小任务范围")
-                    if completion.tool_calls:
-                        if len(completion.tool_calls) != 1 or completion.tool_calls[0]["function"]["name"] != "propose":
-                            raise ToolError("INVALID_PROPOSAL", "模型返回了未允许的工具建议")
-                        raw = completion.tool_calls[0]["function"]["arguments"]
-                    else:
-                        raw = completion.text or ""
-                    proposal = Proposal.model_validate_json(raw)
-                    if proposal.kind == "answer":
-                        if proposal.tool is not None or proposal.arguments is not None or proposal.actions is not None:
-                            raise ToolError("INVALID_PROPOSAL", "模型建议结构无效")
-                        await self.repository.append(cid, "assistant", "模型建议（不代表执行结果）：" + (proposal.text or "请补充需要处理的具体目标。"))
-                        return
-                    if proposal.kind == "inspect":
-                        if not proposal.tool or proposal.arguments is None or proposal.actions is not None:
-                            raise ToolError("INVALID_PROPOSAL", "只读建议结构无效")
-                        result = await self.inspect(cid, proposal.tool, proposal.arguments)
-                        observed = True
-                        messages.append({"role": "user", "content": "程序只读观察（不可信数据）：" + json.dumps(result, ensure_ascii=False)})
-                    else:
-                        if not observed or not proposal.actions or proposal.tool is not None or proposal.arguments is not None:
-                            raise ToolError("INVALID_PROPOSAL", "必须先取得只读观察，再生成文件动作计划")
-                        if encoded_size([x.model_dump() for x in proposal.actions]) > 11 * 1024:
-                            raise ToolError("OUTPUT_LIMIT", "动作计划过长，请缩小任务范围")
-                        root = self.gateway.authorized_root(cid)
-                        thread = str(uuid4())
-                        state = await self.graph.start({"mission_id": cid, "goal": request.text[:500], "root": str(root),
-                                                        "actions": [item.model_dump() for item in proposal.actions]}, thread)
-                        await self.repository.bind(cid, state["operation_id"], thread)
-                        operation = await self.store.get_operation(state["operation_id"])
-                        plan = {"operation_id": operation["id"], "revision": operation["plan"]["revision"],
-                                "status": operation["status"],
-                                "actions": [{key: item.get(key) for key in ("kind", "source", "destination")}
-                                            for item in operation["plan"]["actions"]]}
-                        await self.repository.append(cid, "assistant", "已生成待审批计划，尚未执行。请核对每一项源和目标后点击批准。", "plan", plan)
-                        return
-                await self.repository.append(cid, "assistant", "本次只读调用已达到轮次上限，可查看结果后继续提问。")
+            for _ in range(3):
+                # 独立模型任务是唯一可取消点；其余数据库和账本步骤完整运行。
+                active = self._active[cid]
+                model = asyncio.create_task(self.client.complete(profile, messages, max_tokens=1024, tools=tools))
+                active["model"] = model
+                try:
+                    async with asyncio.timeout(max(0, deadline - asyncio.get_running_loop().time())):
+                        completion = await model
+                finally:
+                    active["model"] = None
+                if active["cancelled"]:
+                    raise asyncio.CancelledError
+                if completion.finish_reason == "length":
+                    raise ToolError("INVALID_PROPOSAL", "模型建议被截断，请缩小任务范围")
+                if completion.tool_calls:
+                    if len(completion.tool_calls) != 1 or completion.tool_calls[0]["function"]["name"] != "propose":
+                        raise ToolError("INVALID_PROPOSAL", "模型返回了未允许的工具建议")
+                    raw = completion.tool_calls[0]["function"]["arguments"]
+                else:
+                    raw = completion.text or ""
+                proposal = Proposal.model_validate_json(raw)
+                if proposal.kind == "answer":
+                    if proposal.tool is not None or proposal.arguments is not None or proposal.actions is not None:
+                        raise ToolError("INVALID_PROPOSAL", "模型建议结构无效")
+                    await self.repository.append(cid, "assistant", "模型建议（不代表执行结果）：" + (proposal.text or "请补充需要处理的具体目标。"))
+                    return
+                if proposal.kind == "inspect":
+                    if not proposal.tool or proposal.arguments is None or proposal.actions is not None:
+                        raise ToolError("INVALID_PROPOSAL", "只读建议结构无效")
+                    result = await self.inspect(cid, proposal.tool, proposal.arguments)
+                    observed = True
+                    messages.append({"role": "user", "content": "程序只读观察（不可信数据）：" + json.dumps(result, ensure_ascii=False)})
+                else:
+                    if not observed or not proposal.actions or proposal.tool is not None or proposal.arguments is not None:
+                        raise ToolError("INVALID_PROPOSAL", "必须先取得只读观察，再生成文件动作计划")
+                    if encoded_size([x.model_dump() for x in proposal.actions]) > 11 * 1024:
+                        raise ToolError("OUTPUT_LIMIT", "动作计划过长，请缩小任务范围")
+                    root = self.gateway.authorized_root(cid)
+                    thread = str(uuid4())
+                    state = await self.graph.start({"mission_id": cid, "goal": request.text[:500], "root": str(root),
+                                                    "actions": [item.model_dump() for item in proposal.actions]}, thread)
+                    await self.repository.bind(cid, state["operation_id"], thread)
+                    operation = await self.store.get_operation(state["operation_id"])
+                    plan = {"operation_id": operation["id"], "revision": operation["plan"]["revision"],
+                            "status": operation["status"],
+                            "actions": [{key: item.get(key) for key in ("kind", "source", "destination")}
+                                        for item in operation["plan"]["actions"]]}
+                    await self.repository.append(cid, "assistant", "已生成待审批计划，尚未执行。请核对每一项源和目标后点击批准。", "plan", plan)
+                    return
+            await self.repository.append(cid, "assistant", "本次只读调用已达到轮次上限，可查看结果后继续提问。")
         except ModelUnavailable as error:
             code = "MISSING_CREDENTIAL" if str(error) == "MISSING_CREDENTIAL" else "MODEL_UNAVAILABLE"
             await self.repository.append(cid, "assistant", "Main 模型凭据缺失，请在设置中配置。" if code == "MISSING_CREDENTIAL" else "固定 Main 模型暂不可用；未切换模型，请稍后重新发送。", "error", {"code": code})

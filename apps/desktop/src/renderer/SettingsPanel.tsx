@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Settings, Role } from '../shared/api';
 
 /** 凭据只停留在输入框本轮内存，提交立即清空，不加入会话或通知。 */
@@ -7,6 +7,12 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const panel=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const previous=document.activeElement as HTMLElement|null;
+    panel.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return ()=>previous?.focus();
+  },[]);
   async function change(remove: boolean) {
     setBusy(true);
     const pending = remove ? window.orvia.removeCredential(role) : window.orvia.saveCredential({role, key});
@@ -15,7 +21,17 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
     catch { setNotice('凭据同步失败，请重新启动应用检查状态。'); }
     finally { setBusy(false); }
   }
-  return <div className="settings-overlay"><section role="dialog" aria-modal="true" aria-label="设置" className="settings-panel">
+  return <div className="settings-overlay"><section ref={panel} role="dialog" aria-modal="true" aria-label="设置" className="settings-panel" onKeyDown={e=>{
+    if(e.key==='Escape'&&!busy){e.preventDefault();close();}
+    if(e.key==='Tab'){
+      // 模态设置只在自身可用控件间移动焦点，避免键盘触发背后的会话操作。
+      const nodes=panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)');
+      if(!nodes?.length){e.preventDefault();return;}
+      const first=nodes[0],last=nodes[nodes.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  }}>
     <div className="row between"><h2>设置</h2><button onClick={close} disabled={busy}>关闭设置</button></div>
     <p>三个角色使用各自固定模型。主动发送需求时，必要对话与已授权目录的文件元数据会发送给 Main 云服务；文件正文不会自动上传。</p>
     {settings?.credential_error && <p className="error">{settings.credential_error}</p>}

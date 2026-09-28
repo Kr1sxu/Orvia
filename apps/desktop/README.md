@@ -1,4 +1,4 @@
-# Electron 桌面模块（M10）
+# Electron 桌面模块（M11）
 
 用途：以对话完成授权目录观察、计划审批、执行核验与受限撤销。新建/历史会话在侧栏，中央消息流展示事实卡片，底部输入框持续提问，设置保留固定模型与凭据管理。不提供自动任务、技能广场、团队管理等入口。
 
@@ -16,10 +16,13 @@
 
 | preload 函数 | 输入与结果 |
 |---|---|
-| `chatList()` | 最多100条 `{id,title}` 历史会话 |
+| `chatList()` | 最多100条 `{id,title,status}` 历史会话 |
 | `chatCreate({client_request_id,title})` | 幂等创建会话与固定 Mission |
 | `chatGet({id})` | 读取会话事实快照 |
 | `chatSend({id,request_id,text})` | 最多2000字，固定 Main 规划，返回新快照 |
+| `chatCancel({id,request_id})` | 仅取消匹配的模型等待；返回 cancelled，不能取消写操作 |
+| `connectionStatus()` | 主进程连接/忙碌状态及活动发送标识，无正文和路径；1秒轮询 |
+| `reconnect()` | 空闲时明确重连，旧后端确认退出后才新建，不重放业务请求 |
 | `chatChooseDirectory({id})` | 主进程系统选择器；取消无授权变化，成功返回会话 |
 | `chatInspect({id,tool,arguments})` | 只允许列表、文件名搜索、属性和空间统计 |
 | `chatApprove/Resume/Undo({id,operation_id,revision})` | 当前会话、根授权、最新计划及版本都有效才执行 |
@@ -37,9 +40,17 @@
 
 ## 验证
 
-L0：`npm run check`、`npm run build`。L1：`npx vitest run apps/desktop/tests/chat.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/protocol.test.ts`。L2：`npx vitest run tests/integration/m10.test.ts`。L3：先构建，设置 `ORVIA_TEST_MODULE=M10` 后运行 `npx playwright test tests/e2e/m10.spec.ts`。
+L0：`npm run check`、`npm run build`。L1：`npx vitest run apps/desktop/tests/chat.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/m11-contracts.test.ts apps/desktop/tests/m11-ui.test.ts`。L2：`npx vitest run tests/integration/m10.test.ts`。L3：先构建，设置 `ORVIA_TEST_MODULE=M11`、`ORVIA_TEST_RESULTS=artifacts/test-results/M11` 后运行 `npx playwright test tests/e2e/m11.spec.ts tests/e2e/m11-ui.spec.ts tests/e2e/m10.spec.ts tests/e2e/m09.spec.ts`。
 
-报告、数据库和截图均在忽略的 `artifacts/test-results/M10/`；准确命令与结果见根 PROGRESS。E2E 保留真实 Electron/Python/SQLite/文件网关，以测试专用启动器替换模型和凭据来源，系统选择器用测试侧 mock；不触发真实模型。显式真实 Main 合成预检与规划测试脚本单列，不属于默认测试。
+报告、数据库和截图均在忽略的 `artifacts/test-results/M11/`；准确命令与结果见根 PROGRESS。E2E 保留真实 Electron/Python/SQLite/文件网关，以测试专用启动器替换模型和凭据来源，系统选择器用测试侧 mock；不触发真实模型。M10 已有的真实 Main 合成验证未重复执行；M11 不改变供应商配置。
+
+## M11 稳定性试用
+
+- 模型等待时点击“取消规划”，只有收到取消并落盘后才为取消终态。计划入库、审批执行、撤销不可取消，已完成的只读观察保留。再次发送同一请求标识不会重复调用模型。
+- 后端退出或超时显示明确提示；“重新连接”先等待旧进程退出，失败时不启动第二个后端，不删除数据库。连接恢复后原目录权限失效，请重新选择并核对状态。正在处理时禁止重连，窗口关闭先发 EOF，1.5秒未退出则终止自有后端；4秒仍未确认退出时停止等待并拒绝重连。
+- renderer 重载后读取主进程的活动请求事实，显示处理中及可用取消入口；不会再发送需求。侧栏状态随快照更新，最近10项操作历史仅供查阅。
+- “重新尝试规划”只针对模型/消息中断错误，由用户发起新请求，可能产生新模型费用；审批、恢复和撤销没有自动重试。数据库忙/空间不足/权限错误显示固定中文证据，不展示内部路径、SQL 或供应商回显。
+- 历史阅读不强制滚动；长消息及超过10项的文件列表默认折叠。Enter发送、Shift+Enter换行，中文候选确认不会误发；设置支持 Tab 焦点循环与 Escape，最小窗口760×560仍保留输入区。
 
 ## 权限与限制
 
@@ -47,4 +58,4 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 
 私有 UTF-8 JSON Lines 每行64 KiB；会话请求65秒客户端超时，对应模型50秒总预算，最多三次请求，每次1024输出token；其他开发请求仍5秒，发布20秒。当前展示请求阶段，无伪造百分比或token流式输出。关闭中断不自动重放；历史快照不是执行恢复。
 
-历史只显示最近30条并按46 KiB裁剪，较早记录仍保存，当前无分页。只读卡片8 KiB，截断明确提示。没有托盘、自动重连、通用取消或自动任务；稳定性扩展属于M11。M08安装包未随本轮重建。旧无身份快照计划拒绝审批；部分撤销/不确定中断需人工核对，不承诺任意回滚。外部进程并发文件竞态不能由路径检查完全消除。
+历史只显示最近30条并按46 KiB裁剪，较早记录仍保存，当前无分页。只读卡片8 KiB，截断明确提示。没有托盘、自动重连、通用取消或自动任务。M08安装包未随本轮重建。旧无身份快照计划拒绝审批；部分撤销/不确定中断需人工核对，不承诺任意回滚。外部进程并发文件竞态不能由路径检查完全消除。

@@ -9,6 +9,9 @@ import { chatSnapshotSchema, chatListSchema } from './chat-contracts';
 export class BackendRequestError extends Error {
   constructor(public readonly code: string) { super(`后端拒绝请求：${code}`); }
 }
+export class BackendConnectionError extends Error {
+  constructor(public readonly code: 'BACKEND_TIMEOUT' | 'BACKEND_DISCONNECTED' | 'BACKEND_PROTOCOL', message: string) { super(message); }
+}
 import { configurationSchema, missionSchema, missionCreateSchema, grantStatusSchema, scanEnvelopeSchema, type MissionCreate, type GrantStatus, type ScanEnvelope } from './contracts';
 
 type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily', string>>;
@@ -24,6 +27,12 @@ export class BackendClient {
   private failed?: Error;
   private closing = false;
   private exited?: Promise<void>;
+  private connected = false;
+  private stopped?: Promise<void>;
+  /** 只投影连接事实，不暴露子进程、路径或待处理请求内容。 */
+  get connectionState(): 'ready' | 'starting' | 'disconnected' {
+    return this.failed || this.closing ? 'disconnected' : this.connected ? 'ready' : 'starting';
+  }
   constructor(private readonly root: string, private readonly timeoutMs = 5000, private readonly initialization?: Initialization, private readonly packaged?: PackagedRuntime) {}
 
   start(): Promise<void> {
@@ -37,7 +46,7 @@ export class BackendClient {
     const lines = new JsonLines();
     this.exited = new Promise((resolve) => {
       this.child!.once('close', () => {
-        this.fail(new Error('本地后端连接已关闭'));
+        this.fail(new BackendConnectionError('BACKEND_DISCONNECTED', '本地后端连接已关闭'));
         resolve();
       });
     });
@@ -54,7 +63,7 @@ export class BackendClient {
           if (response.ok) pending.resolve(response.result);
           else pending.reject(new BackendRequestError(response.error.code));
         }
-      } catch { this.fail(new Error('本地后端协议无效或版本不兼容')); }
+      } catch { this.fail(new BackendConnectionError('BACKEND_PROTOCOL', '本地后端协议无效或版本不兼容')); }
     });
     // 持续消费 stderr，避免管道堵塞；不把原始后端内容泄漏到 UI 或日志。
     this.child.stderr.on('data', () => {});
@@ -67,6 +76,7 @@ export class BackendClient {
           data_directory: this.initialization.dataDirectory, credentials: this.initialization.credentials(),
         }));
       }
+      this.connected = true;
     }).catch(() => {
       // 初始化失败后不留下仍运行但永远不可用的子进程，也不切换空白数据库。
       if (!this.failed) this.fail(new Error('本地后端初始化失败，请检查应用数据版本或重启'));
@@ -83,6 +93,10 @@ export class BackendClient {
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
   async chatList() { await this.start(); return chatListSchema.parse(await this.request('chat.list')); }
+  async chatCancel(params: { id: string; request_id: string }) {
+    await this.start();
+    return z.object({ cancelled: z.boolean() }).strict().parse(await this.request('chat.cancel', params));
+  }
   /** 方法名仅供主进程固定业务入口使用；preload 不暴露此分发器。 */
   async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
     await this.start(); return chatSnapshotSchema.parse(await this.request(method, params));
@@ -102,14 +116,14 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object = {}): Promise<unknown> {
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel', params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
     const id = randomUUID();
     return new Promise((resolve, reject) => {
       // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
-      const timer = setTimeout(() => this.fail(new Error('本地后端响应超时')), method.startsWith('chat.') ? 65000 : this.timeoutMs);
+      const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')), method.startsWith('chat.') ? 65000 : this.timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       this.child!.stdin.write(JSON.stringify({ v: VERSION, id, method, params }) + '\n');
     });
@@ -123,12 +137,22 @@ export class BackendClient {
   }
 
   /** 退出先发送 EOF，超时才终止本应用拥有的子进程。 */
-  async stop() {
+  stop(): Promise<void> {
+    // 重连、窗口关闭和凭据失败可能同时收尾；只关闭一次，且必须确认旧进程退出。
+    return this.stopped ??= this.stopOwnedProcess();
+  }
+
+  private async stopOwnedProcess() {
     this.closing = true;
     this.fail(new Error('应用正在退出'));
     this.child?.stdin.end();
+    if (!this.exited) return;
     const timer = setTimeout(() => this.child?.kill(), 1500);
-    await this.exited;
-    clearTimeout(timer);
+    let deadline: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([this.exited, new Promise<never>((_, reject) => {
+        deadline = setTimeout(() => reject(new Error('旧后端尚未确认退出，拒绝启动第二个后端')), 4000);
+      })]);
+    } finally { clearTimeout(timer); clearTimeout(deadline); }
   }
 }

@@ -131,4 +131,33 @@ describe('后端连接生命周期（模拟子进程，无模型）', () => {
     expect(child.kill).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it('关闭收尾幂等；无法确认旧后端退出时有界拒绝而非挂起重连', async () => {
+    const {client,child}=await connected();
+    expect(client.connectionState).toBe('ready');
+    const stopped=client.stop();
+    expect(client.stop()).toBe(stopped);
+    const rejected=expect(stopped).rejects.toThrow('拒绝启动第二个后端');
+    await vi.advanceTimersByTimeAsync(4000);
+    await rejected;
+    expect(child.kill).toHaveBeenCalledOnce();
+    expect(client.connectionState).toBe('disconnected');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('取消只发送固定方法和请求标识，允许与等待中的规划并行', async () => {
+    const {client,requests,reply,child}=await connected();
+    const input={id:'6f1b7524-1eac-4567-a6b5-c3c9f563052c',request_id:'6f1b7524-1eac-4567-a6b5-c3c9f563052c'};
+    const pending=client.chat('chat.send',{...input,text:'synthetic'});
+    const rejected=expect(pending).rejects.toThrow('连接已关闭');
+    await vi.advanceTimersByTimeAsync(0);
+    const cancel=client.chatCancel(input);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requests.at(-1)?.method).toBe('chat.cancel');
+    expect(requests.at(-1)?.params).toEqual(input);
+    reply(requests.at(-1)!,{cancelled:true});
+    expect(await cancel).toEqual({cancelled:true});
+    child.emit('close',1,null);await rejected;
+    expect(client.connectionState).toBe('disconnected');
+  });
 });

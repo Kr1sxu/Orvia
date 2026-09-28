@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ChatMessage, Conversation, ReadCall } from '../main/chat-contracts';
+import { taskLabels } from './chat-state';
 
 export function bytes(value: unknown) {
   const n = Number(value);
@@ -35,22 +36,22 @@ export function ScanCard({message, inspect, disabled}: {message: ChatMessage; in
     <p className="muted">扫描 {String(envelope.scanned_entries ?? '—')} 项 · {String(envelope.scanned_at ?? '')}</p>
     {partial && <p className="warning">扫描预算、输出上限或不可访问项限制了结果，不能视作全部文件。</p>}
     {records(envelope.errors).length > 0 && <p className="warning">不可访问或跳过项：{records(envelope.errors).map(e => String(e.code)).join('、')}</p>}
-    {'entries' in data && <><h4>文件列表 / 搜索结果</h4>{entries.length ? <div className="table-wrap"><table><thead><tr><th>相对路径</th><th>类型</th><th>大小</th><th>操作</th></tr></thead><tbody>{entries.map((entry, i) => <tr key={i}><td>{String(entry.path)}</td><td>{entry.kind === 'directory' ? '目录' : '文件'}</td><td>{entry.kind === 'directory' ? '—' : bytes(entry.size)}</td><td><button disabled={disabled} onClick={() => inspect({tool:'get_file_metadata',arguments:{path:String(entry.path)}})}>属性</button>{entry.kind === 'directory' && <button disabled={disabled} onClick={() => inspect({tool:'list_directory',arguments:{path:String(entry.path),limit:100}})}>查看</button>}</td></tr>)}</tbody></table></div> : <p>没有匹配项目。</p>}</>}
+    {'entries' in data && <details open={entries.length<=10}><summary>文件列表 / 搜索结果（{entries.length} 项）</summary>{entries.length ? <div className="table-wrap" tabIndex={0} aria-label="文件结果表"><table><thead><tr><th>相对路径</th><th>类型</th><th>大小</th><th>操作</th></tr></thead><tbody>{entries.map((entry, i) => <tr key={i}><td>{String(entry.path)}</td><td>{entry.kind === 'directory' ? '目录' : '文件'}</td><td>{entry.kind === 'directory' ? '—' : bytes(entry.size)}</td><td><button disabled={disabled} onClick={() => inspect({tool:'get_file_metadata',arguments:{path:String(entry.path)}})}>属性</button>{entry.kind === 'directory' && <button disabled={disabled} onClick={() => inspect({tool:'list_directory',arguments:{path:String(entry.path),limit:100}})}>查看</button>}</td></tr>)}</tbody></table></div> : <p>没有匹配项目。</p>}</details>}
     {'total_bytes' in data && <><div className="metric"><strong>{bytes(data.total_bytes)}</strong><span>{String(data.file_count)} 个文件 · 逻辑大小，不代表可释放空间</span></div><h4>大文件（按大小排序）</h4>{large.length ? <ul className="files">{large.map((entry,i) => <li key={i}><span>{String(entry.path)}</span><b>{bytes(entry.size)}</b><button disabled={disabled} onClick={() => inspect({tool:'get_file_metadata',arguments:{path:String(entry.path)}})}>属性</button></li>)}</ul> : <p>没有符合阈值的大文件。</p>}<details><summary>按类型与目录统计</summary>{['extensions','groups'].map(key => <ul key={key}>{records(data[key]).map((g,i) => <li key={i}>{String(g.name)} · {bytes(g.bytes)} · {String(g.file_count)} 个文件</li>)}</ul>)}</details></>}
     {'modified_at' in data && <dl><dt>相对路径</dt><dd>{String(data.path)}</dd><dt>类型</dt><dd>{data.kind === 'directory' ? '目录' : '文件'}</dd><dt>大小</dt><dd>{data.kind === 'directory' ? '目录大小请查看空间统计' : bytes(data.size)}</dd><dt>修改时间</dt><dd>{String(data.modified_at)}</dd></dl>}
   </div>;
 }
 
 export function PlanCard({operation, disabled, act}: {operation: NonNullable<Conversation['operation']>; disabled: boolean; act:(kind:'approve'|'resume'|'undo')=>void}) {
-  const labels: Record<string,string> = {planned:'等待审批',awaiting_approval:'等待审批',approved:'已批准',running:'执行中',completed:'已完成',failed:'失败',interrupted:'已中断',undone:'已撤销',partially_undone:'部分撤销'};
-  return <section className="plan-card" aria-label="当前操作计划"><div className="row between"><h3>当前操作计划</h3><span className="badge">{labels[operation.status] ?? operation.status}</span></div>
+  return <section className="plan-card" aria-label="当前操作计划"><div className="row between"><h3>当前操作计划</h3><span className="badge">{taskLabels[operation.status] ?? operation.status}</span></div>
     <p className="muted">版本 {operation.revision.slice(0,12)} · {operation.actions.length} 个动作</p>
     <ol>{operation.actions.map((a,i) => <li key={i}><b>{a.kind === 'mkdir' ? '创建目录' : a.kind === 'rename' ? '重命名' : '移动'}</b> {a.source && <><code>{a.source}</code> → </>}<code>{a.destination}</code></li>)}</ol>
     <p>批准将改变上述文件的位置或名称。请核对源和目标；拒绝覆盖、删除和跨卷移动。文本回复“同意”不会执行。</p>
     {operation.error && <p className="error">{operation.error}</p>}
     <div className="row">{['planned','awaiting_approval'].includes(operation.status) && <button className="primary" disabled={disabled} onClick={() => act('approve')}>批准此版本并执行</button>}
     {operation.status === 'interrupted' && <button disabled={disabled} onClick={() => act('resume')}>核验并恢复此任务</button>}
-    {operation.status === 'completed' && <button disabled={disabled} onClick={() => act('undo')}>撤销最近一次变更</button>}</div>
+    {operation.status === 'completed' && <button disabled={disabled||operation.can_undo===false} onClick={() => act('undo')}>撤销最近一次变更</button>}</div>
+    {operation.status === 'completed'&&<p>{operation.can_undo?'最近一次变更可申请受限撤销，程序将重新核验文件身份。':'当前不可撤销：需当前目录授权且属于最近一次完成的变更。'}</p>}
     {disabled && <p className="muted">执行前必须具备当前会话有效目录授权，且没有正在处理的请求。</p>}
   </section>;
 }

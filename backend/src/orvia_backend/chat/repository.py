@@ -77,7 +77,7 @@ class ChatRepository:
             if existing:
                 if existing[0] != text:
                     raise ToolError("CONFLICT", "消息标识已用于其他内容")
-                if existing[1] != "completed":
+                if existing[1] not in {"completed", "cancelled", "failed"}:
                     raise ToolError("REQUEST_INTERRUPTED", "该消息尚未完成或曾被中断；不会自动重发，请检查现有结果后用新消息继续")
                 return False
             async with db.execute("SELECT COUNT(*) FROM chat_requests WHERE conversation_id = ?", (conversation_id,)) as cursor:
@@ -87,11 +87,11 @@ class ChatRepository:
             await db.execute("INSERT INTO chat_requests(conversation_id,request_id,text,status) VALUES (?, ?, ?, 'pending')", (conversation_id, request_id, text))
             return True
 
-    async def finish(self, conversation_id, request_id):
-        """只有正常落下回复后才完成请求，取消与异常留下 pending 供重启报告。"""
+    async def finish(self, conversation_id, request_id, status="completed"):
+        """请求终态持久化；取消不会在重启后被重放。"""
         async with self.store._lock:
-            await self.store._db().execute("UPDATE chat_requests SET status = 'completed' WHERE conversation_id = ? AND request_id = ?",
-                                          (conversation_id, request_id))
+            await self.store._db().execute("UPDATE chat_requests SET status = ? WHERE conversation_id = ? AND request_id = ?",
+                                          (status, conversation_id, request_id))
 
     @staticmethod
     def _message(role, text, kind, data):
@@ -111,3 +111,17 @@ class ChatRepository:
             async with self.store._db().execute("SELECT COUNT(*) FROM chat_messages WHERE conversation_id = ?", (conversation_id,)) as cursor:
                 count = (await cursor.fetchone())[0]
             return [json.loads(row[0]) for row in reversed(rows)], count
+
+    async def latest_request_status(self, conversation_id):
+        async with self.store._lock:
+            async with self.store._db().execute("SELECT status FROM chat_requests WHERE conversation_id = ? ORDER BY rowid DESC LIMIT 1", (conversation_id,)) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else None
+
+    async def operations(self, conversation_id):
+        """只返回有限任务摘要，不将根路径或文件身份带到渲染进程。"""
+        async with self.store._lock:
+            async with self.store._db().execute("SELECT id,plan_json,status,created_at,updated_at FROM operation_tasks WHERE mission_id = ? ORDER BY created_at DESC,id DESC LIMIT 11", (conversation_id,)) as cursor:
+                rows = await cursor.fetchall()
+        return [{"operation_id": row["id"], "revision": json.loads(row["plan_json"]).get("revision", ""),
+                 "status": row["status"], "created_at": row["created_at"], "updated_at": row["updated_at"], "can_undo": False} for row in rows[:10]], len(rows) > 10

@@ -21,19 +21,68 @@ def read_frame(stream: BinaryIO) -> tuple[bytes, bool]:
 
 
 async def serve(reader: BinaryIO, writer: BinaryIO) -> None:
-    """将阻塞读取移到工作线程，主协程串行调度请求并保持响应顺序。"""
+    """普通请求保序串行；取消/健康检查旁路，最多积压 32 项，按 ID 对应响应。"""
     application = Application()
+    ordinary = asyncio.Lock()
+    pending = set()
+    output_closed = False
+
+    def emit(response):
+        nonlocal output_closed
+        if output_closed:
+            return
+        payload = json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n"
+        try:
+            writer.write(payload.encode("utf-8"))
+            writer.flush()
+        except OSError:
+            # 管道断开只停止输出；不在文件操作中途取消事务或打印异常路径。
+            output_closed = True
+
+    async def handle_safely(line):
+        try:
+            return await application.handle(line)
+        except Exception:
+            # 这是进程协议边界的最终隔离，业务预期错误仍由 Application 精确映射。
+            # 不记录原始异常，以免第三方库将路径、请求体或凭据写入 stderr。
+            try:
+                request = json.loads(line)
+                rid = request.get("id") if isinstance(request, dict) else None
+            except (ValueError, RecursionError):
+                rid = None
+            return error_response(rid if isinstance(rid, str) else None, "INTERNAL_ERROR", "后端处理失败，请检查当前状态后重试")
+
+    async def dispatch(line):
+        async with ordinary:
+            emit(await handle_safely(line))
+
     try:
         while True:
             line, oversized = await asyncio.to_thread(read_frame, reader)
             if oversized:
-                response = error_response(None, "INVALID_REQUEST", "请求行超过 64 KiB")
-            elif not line:
+                emit(error_response(None, "INVALID_REQUEST", "请求行超过 64 KiB"))
+                continue
+            if not line:
+                # EOF 先收尾已经接收的请求，不把正在记账的操作强行取消。
+                if pending:
+                    await asyncio.gather(*pending)
                 return
+            try:
+                request = json.loads(line)
+            except (ValueError, RecursionError):
+                request = {}
+            control = isinstance(request, dict) and request.get("method") in {"health", "chat.cancel"}
+            if control:
+                # 旁路仍经过 Application 的完整协议及参数检查。
+                emit(await handle_safely(line))
+            elif len(pending) >= 32:
+                rid = request.get("id") if isinstance(request, dict) else None
+                emit(error_response(rid if isinstance(rid, str) else None, "SERVER_BUSY", "请求积压，请等待当前操作完成"))
             else:
-                response = await application.handle(line)
-            payload = json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n"
-            writer.write(payload.encode("utf-8"))
-            writer.flush()
+                task = asyncio.create_task(dispatch(line))
+                pending.add(task)
+                task.add_done_callback(pending.discard)
     finally:
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
         await application.close()

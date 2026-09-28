@@ -1,6 +1,7 @@
 """M02 应用服务：可信主进程初始化数据目录和凭据，UI 只能创建/读取草稿。"""
 
 import json
+import errno
 import sqlite3
 from pathlib import Path
 from typing import Annotated
@@ -112,7 +113,7 @@ class Application:
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
         methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
-                    "chat.approve", "chat.resume", "chat.undo"}
+                    "chat.approve", "chat.resume", "chat.undo", "chat.cancel"}
         methods |= {"context.index", "context.search", "context.clear", "context.preferences.set", "context.preferences.get",
                     "context.summary.update", "context.summary.get"}
         if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
@@ -141,14 +142,20 @@ class Application:
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     await store.close()
                     return error_response(request_id, "STORAGE_UNAVAILABLE", "无法打开当前版本的应用数据库")
-                self.store = store
-                await store.recover_operations()
-                self.graph = MissionGraph(store, directory / "checkpoints.sqlite")
-                await self.graph.__aenter__()
+                graph = MissionGraph(store, directory / "checkpoints.sqlite")
+                try:
+                    await store.recover_operations()
+                    await graph.__aenter__()
+                    chat = ChatService(store, self.computer, graph, self.registry)
+                    await chat.open()
+                except (OSError, sqlite3.Error, ValueError, RuntimeError):
+                    # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
+                    await graph.__aexit__(None, None, None)
+                    await store.close()
+                    raise
+                self.store, self.graph, self.chat = store, graph, chat
                 self.registry.replace_credentials(initial.credentials)
                 self.browser.key = initial.credentials.tavily
-                self.chat = ChatService(store, self.computer, self.graph, self.registry)
-                await self.chat.open()
                 result = {"initialized": True}
             elif self.store is None:
                 return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
@@ -241,8 +248,21 @@ class Application:
             return error_response(request_id, error.code, error.message)
         except ValueError:
             return error_response(request_id, "CONFLICT", "请求与已有草稿冲突或配置快照无效")
-        except (sqlite3.Error, OSError):
+        except sqlite3.Error as error:
+            code = getattr(error, "sqlite_errorcode", None)
+            if code is not None:
+                code &= 0xff
+            if code in {sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED}:
+                return error_response(request_id, "STORAGE_BUSY", "应用数据库正在使用，请稍后重试")
+            if code == sqlite3.SQLITE_FULL:
+                return error_response(request_id, "STORAGE_FULL", "应用数据磁盘空间不足，请释放空间后重试")
             return error_response(request_id, "STORAGE_UNAVAILABLE", "应用数据库暂不可用")
+        except OSError as error:
+            if error.errno == errno.ENOSPC:
+                return error_response(request_id, "STORAGE_FULL", "磁盘空间不足，请释放空间后重试")
+            if error.errno in {errno.EACCES, errno.EPERM}:
+                return error_response(request_id, "PERMISSION_DENIED", "当前操作的访问权限不足")
+            return error_response(request_id, "STORAGE_UNAVAILABLE", "应用存储暂不可用")
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:

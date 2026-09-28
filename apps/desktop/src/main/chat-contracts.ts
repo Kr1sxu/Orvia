@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 /** 会话业务契约不包含根路径、命令或模型覆盖字段，跨进程边界拒绝额外参数。 */
 export const chatIdSchema = z.object({ id: z.string().uuid() }).strict();
+export const chatCancelSchema = chatIdSchema.extend({ request_id: z.string().uuid() }).strict();
 export const chatCreateSchema = z.object({ client_request_id: z.string().uuid(), title: z.string().trim().min(1).max(100) }).strict();
 export const chatSendSchema = chatIdSchema.extend({ request_id: z.string().uuid(), text: z.string().trim().min(1).max(2000) }).strict();
 export const chatApprovalSchema = chatIdSchema.extend({ operation_id: z.string().uuid(), revision: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
@@ -18,13 +19,17 @@ export function parseInspect(input: unknown) {
   return { id: envelope.id, ...readCallSchema.parse({ tool: envelope.tool, arguments: envelope.arguments }) };
 }
 export const actionSchema = z.object({ kind: z.enum(['mkdir', 'move', 'rename']), source: z.string().nullable().optional(), destination: z.string(), sequence: z.number().optional() });
-export const operationSchema = z.object({ operation_id: z.string().uuid(), revision: z.string(), status: z.string(), actions: z.array(actionSchema), error: z.string().nullable().optional() });
+export const operationSchema = z.object({ operation_id: z.string().uuid(), revision: z.string(), status: z.string(), actions: z.array(actionSchema), error: z.string().nullable().optional(), can_undo: z.boolean().optional() });
+export const taskStatusSchema = z.enum(['draft','running','awaiting_approval','completed','failed','interrupted','cancelled','undone','partially_undone']);
+export const operationHistorySchema = z.object({operation_id:z.string().uuid(),revision:z.string(),status:z.string(),created_at:z.string(),updated_at:z.string(),can_undo:z.boolean()});
 export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() });
 export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.string(), mission_id: z.string().uuid(), messages: z.array(chatMessageSchema),
   grant: z.object({ root_label: z.string().nullable(), grant_id: z.string().uuid(), calls_remaining: z.number() }).nullable(), operation: operationSchema.nullable(),
   messages_truncated: z.boolean().optional(),
+  status: taskStatusSchema.optional(), operations: z.array(operationHistorySchema).max(10).optional(), operations_truncated: z.boolean().optional(),
 });
-export const chatListSchema = z.object({ conversations: z.array(z.object({ id: z.string().uuid(), title: z.string() })) });
+export const chatListSchema = z.object({ conversations: z.array(z.object({ id: z.string().uuid(), title: z.string(), status: taskStatusSchema.optional() })) });
+export type ConversationSummary = z.infer<typeof chatListSchema>['conversations'][number];
 export type Conversation = z.infer<typeof chatSnapshotSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ReadCall = z.infer<typeof readCallSchema>;

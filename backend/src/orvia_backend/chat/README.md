@@ -1,4 +1,4 @@
-# M10 会话与桌面任务应用服务
+# M10–M11 会话与桌面任务应用服务
 
 本模块把对话、Computer 只读观察、LangGraph 计划、独立审批和动作账本连接起来。没有自动任务、技能广场、插件、Browser 搜索或任意执行入口。
 
@@ -18,7 +18,7 @@
 
 模型收到用户最近有界对话和当前授权的必要文件元数据，不读取文件正文。`propose` 提案允许 `answer/inspect/plan`：只读由 M03 契约与 gateway 执行；计划由 M04/ LangGraph 生成并暂停，聊天文字不能批准。模型文本统一标成建议，不作为完成证据。实际完成由程序核验结果卡片表示。
 
-每次发送最多 3 次模型请求、50 秒、每次 1024 token；单会话最多 100 个发送请求，网关另限制 200 次只读调用。请求标识及 `pending/completed/interrupted` 状态先持久化去重，正常回复落盘后才标记完成；重启为未完成请求追加明确中断消息，不自动重放。相同标识重试未完成请求返回 `REQUEST_INTERRUPTED`，用户检查现有结果后用新消息继续。会话锁串行化计划与审批；新计划使旧审批失效。重启丢失目录授权，恢复与撤销都需重新授权原根并通过动作身份检查。
+每次发送最多 3 次模型请求、模型等待合计预算 50 秒、每次 1024 token；单会话最多 100 个发送请求，网关另限制 200 次只读调用。请求标识及 `pending/completed/failed/cancelled/interrupted` 状态先持久化去重，正常回复落盘后才标记完成；重启为未完成请求追加明确中断消息，不自动重放。相同标识重试未完成请求返回 `REQUEST_INTERRUPTED`，用户检查现有结果后用新消息继续。会话锁串行化计划与审批；新计划使旧审批失效。重启丢失目录授权，恢复与撤销都需重新授权原根并通过动作身份检查。
 
 ## 运行与测试
 
@@ -29,3 +29,18 @@ backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_chat.py -q
 ```
 
 日常测试全部使用临时数据库、合成文件与模型 mock，不读取用户文件、不读取开发凭据、不调用真实模型或 Tavily。覆盖幂等、缺钥、路径越界、模型提案拒绝、会话隔离、审批版本、重启授权、恢复、撤销、结果体积和请求预算。真实模型的自然语言质量仍需单独显式合成验收；本模块不实现目录外操作、删除、任意脚本或浏览器写操作。
+
+
+## M11 取消、历史和故障边界
+
+`chat.cancel({id,request_id})` 返回 `{cancelled:boolean}`。仅会话及请求标识都匹配、且当前正在等待模型时接受取消。取消模型等待后写入取消消息和 `cancelled` 请求终态；相同请求重试返回已有结果，不重新付费调用。计划入库、审批、文件执行和撤销没有取消入口，按钮收到 `false` 时应刷新当前事实。总超时也只包围模型等待，不中断 SQLite 或 LangGraph 的事务步骤。
+
+会话列表和快照增加 `status`：`draft/running/awaiting_approval/completed/failed/interrupted/cancelled/undone/partially_undone`。快照 `operations` 返回最近 10 个任务的 `operation_id/revision/status/created_at/updated_at/can_undo` 摘要，`operations_truncated` 表示还有更早记录；不返回根路径和身份信息。当前 `operation` 增加 `can_undo`，只有最近已完成任务且仍授权原根才显示入口，实际撤销继续由 M04 做身份核验。审批详情保留在当前计划及有限消息中，历史摘要不是可执行的旧审批入口。
+
+stdio 普通请求继续串行，最多积压 32 项；只有经过完整参数校验的健康检查与取消旁路，响应按请求 ID 配对。后端退出后 pending 标为 interrupted，授权失效，绝不重放发送、审批或文件变更。SQLite busy/locked/full 和磁盘权限/空间故障只返回固定 `STORAGE_BUSY/STORAGE_FULL/PERMISSION_DENIED/STORAGE_UNAVAILABLE`，不输出异常路径、SQL、网络地址或凭据。用户需要显式重试，程序不自动重复写操作。
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m11_stability.py backend/tests/test_server.py backend/tests/test_chat.py -q --basetemp=artifacts/test-results/M11/stability-temp --junitxml=artifacts/test-results/M11/backend-stability.xml
+```
+
+M11 故障测试注入网络不可用、超时、数据库忙/空间不足、磁盘满及权限错误，取消测试使用等待事件的模型 mock；无真实模型、Tavily 或用户文件访问。阶段状态不是逐 token 流式响应；原生文件操作与外部进程的路径替换仍受原有系统竞态限制。

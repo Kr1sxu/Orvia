@@ -21,8 +21,11 @@ class Conversation(Params):
     id: UUID
 
 
-class Send(Conversation):
+class Cancel(Conversation):
     request_id: UUID
+
+
+class Send(Cancel):
     text: str = Field(min_length=1, max_length=2000)
 
 

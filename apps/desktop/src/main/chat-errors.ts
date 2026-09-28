@@ -18,6 +18,14 @@ export function chatErrorMessage(code: string): string {
     MODEL_UNAVAILABLE: '固定模型暂不可用，本轮未执行文件动作。',
     BUDGET_EXCEEDED: '已达到本次任务预算，请停止并检查任务结果。',
     INVALID_PARAMS: '请求参数不符合当前业务接口。',
+    STORAGE_BUSY: '本地数据库正在使用中，请稍后刷新；不要重复批准文件动作。',
+    STORAGE_FULL: '本地磁盘空间不足，请释放空间后重连并核对任务状态。',
+    STORAGE_UNAVAILABLE: '本地数据暂不可用，请检查磁盘与权限后重连；不会创建空白替代数据库。',
+    SERVER_BUSY: '请求正在排队，请等待当前任务完成后刷新。',
+    BACKEND_TIMEOUT: '本地服务响应超时，连接已停止。请重新连接并核对任务事实，不要重复审批。',
+    BACKEND_DISCONNECTED: '本地后端已退出。请重新连接，重新授权目录后核对任务状态。',
+    BACKEND_PROTOCOL: '本地通信协议异常，连接已停止。请重新连接；业务请求不会自动重放。',
+    REQUEST_CANCELLED: '本次模型规划已取消；已返回的观察保留，未批准的计划不会执行。',
     UNDO_CONFLICT: '文件已变化，撤销停止；请查看最新账本状态。',
   };
   return messages[code] ?? '操作未完成，请刷新会话查看事实状态；不会自动重放文件动作。';

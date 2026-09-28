@@ -392,3 +392,40 @@ E2E 覆盖独立审批、版本/会话拒绝、自然语言不能审批、重启
 本轮使用固定作者创建本地提交 `feat(M10): add conversational file tasks and versioned approvals`，哈希以最终回执与 git log 为准。提交前显式暂存本模块文件并检查 status、diff、cached diff、空白及敏感信息；最终卫生检查见本节后续记录。Agent 不执行 push，等待用户手动推送；M10 完成后停止。
 
 提交前卫生检查通过：41 个显式暂存文件，禁止路径 0，暂存内容中的真实开发密钥匹配 0；扫描 1280 个本轮产物，真实密钥匹配 0。仅输出三角色凭据存在性，未输出值。结果保存于忽略的 hygiene.json；密钥、数据库、日志、用户文件、测试产物及 LICENSE 均未暂存。最终文档补记不触发代码测试重跑。
+
+## M11 稳定性与对话体验（2026-09-28）
+
+### 起点与实现
+
+用户要求继续开发，并明确手动 push 失败以后再处理。预检为 main 分支、HEAD `6a52336`，工作区干净；本地远端 HEAD 记录为 origin/main。未联网处理 push、未修改 TLS/网络配置；LICENSE 无改动。仅实施 M11，不开始 M12。后端稳定性和 renderer 体验分别委派独立子 Agent，主 Agent 完成主进程整合、验收及本地提交。
+
+- [x] √ 固定 chat.cancel 仅取消匹配会话/请求的模型等待，持久化取消终态；相同请求不重复调用。计划入库、审批执行及撤销不可取消，模型超时不再包围数据库事务。
+- [x] √ 私有 stdio 普通请求保序串行，上限32；健康与取消可旁路。增加固定数据库忙、磁盘满、权限、连接超时/退出错误提示，异常原文不泄漏；初始化失败不发布半就绪后端。
+- [x] √ 手动重新连接：确认旧进程退出后启动同一数据目录的新实例，不重放任务，不恢复授权。忙碌时拒绝重连；窗口关闭有界清理自有后端；保留单实例及重复启动聚焦。
+- [x] √ renderer 重载显示活动规划、支持有效阶段取消；主进程保存活动请求标识，页面不自动再次发送。规划错误后通过明确按钮发起新请求，不自动重试审批/恢复/撤销。
+- [x] √ 对话状态和最近10项操作历史，区分草稿/处理中/待审批/完成/失败/中断/取消/撤销；当前最新操作才可能受限撤销。快速审批返回时同步侧栏状态。
+- [x] √ 历史阅读保持滚动位置、最新消息按钮、长消息/列表折叠、焦点恢复、中文输入法保护、设置焦点循环/Escape、760×560窄窗口布局。
+- [x] √ 根/桌面/chat README、架构和开发清单更新；不增加 Browser 搜索、附件、自动任务或技能广场。
+
+### 分级验证
+
+报告统一为 Git 忽略的 `artifacts/test-results/M11/`。全部业务验证使用合成文件、隔离数据库与模型 mock；没有真实模型、Tavily 或真实用户文件调用。M10 真实 Main 合成验收作为既有结论保留，本轮未重复调用。
+
+| 级别 | 实际命令 | 结果与边界 |
+|---|---|---|
+| L0 | `npm run check`；`npm run build` | 最终通过；build-final.log，包含构建前类型检查；未重新打包 |
+| L1/L2 | 设置 `ORVIA_TEST_RESULTS=artifacts/test-results/M11` 后 `npx vitest run apps/desktop/tests/backend.test.ts apps/desktop/tests/chat.test.ts apps/desktop/tests/m11-contracts.test.ts apps/desktop/tests/m11-ui.test.ts apps/desktop/tests/protocol.test.ts apps/desktop/tests/credential-sync.test.ts tests/integration/m10.test.ts tests/integration/m09-computer-ui.test.ts --reporter=json --outputFile=artifacts/test-results/M11/desktop-final.json` | 29 passed；进程生命周期/凭据同步 mock、真实 Python stdio/SQLite/M03 网关 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m11_stability.py backend/tests/test_server.py backend/tests/test_chat.py backend/tests/test_application.py backend/tests/test_application_actions.py backend/tests/test_agents_graph.py backend/tests/test_m10_action_safety.py backend/tests/test_protocol.py -q --basetemp=artifacts/test-results/M11/backend-final-temp --junitxml=artifacts/test-results/M11/backend-final.xml` | 62 passed；取消去重、历史上限、数据库/磁盘/权限故障注入、网络不可用与模型超时、初始化失败、旧审批及恢复相关回归 |
+| L3 | 设置 `ORVIA_TEST_MODULE=M11`、`ORVIA_TEST_RESULTS=artifacts/test-results/M11` 后 `npx playwright test tests/e2e/m11.spec.ts tests/e2e/m11-ui.spec.ts tests/e2e/m10.spec.ts tests/e2e/m09.spec.ts` | 最终 6 passed、0 flaky（45.7秒）；真实 Electron/Python/SQLite，模型与原生目录选择 mock，合成文件真实读写 |
+
+L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重发；后端进程真实故障终止后手动重连且授权丢弃；窗口关闭确认自有子进程消失，再次启动中断不重放；实际第二实例退出；原 M09/M10 扫描、审批、核验、撤销；滚动保持、折叠、IME、焦点循环及显式规划重试。已检查 reconnected.png、narrow-completed.png、ui-narrow.png。没有执行独立机器/安装包 L4，匹配范围回归已覆盖本次改动。
+
+早期并行开发时类型检查遇到 renderer 尚未完成的 JSX 语法错误，整合后通过。首轮6项 E2E通过，但截图检查发现快速审批后侧栏状态可能滞后；修复为快照同步，并添加状态断言及第二实例验证，最终同范围6项再验通过。已有 LangGraph 弃用提示与 Node NO_COLOR/FORCE_COLOR 提示保留，无未解决测试失败。单元/定向预跑与最终结果重叠，不累加测试数。
+
+### 试用、风险与停止点
+
+项目根 `npm run build` 后 `npm start`。在专用测试目录中观察与规划，模型等待时可“取消规划”；失败后可明确“重新尝试规划”。连接异常时“重新连接”，核对中断事实、重新选择目录，再决定重新提问或对已审批的中断任务进行受限恢复。历史记录不授予访问或重放权限。
+
+取消仅支持模型等待，不是文件动作回滚；收到不可取消说明时等待并查看最终状态。重新尝试规划是新的模型请求，可能产生费用。无 token 流式输出、自动重连、历史分页或托盘；最近消息30条/46 KiB、任务摘要10条的限制保持。真实供应商取消计费、物理磁盘满、真实 ACL 组合与独立 Windows 机器未验收，相关故障通过受控注入验证。M08 历史安装包未重建；外部并发路径替换及不确定文件系统/数据库事务仍按原安全边界保守拒绝恢复。
+
+本轮使用固定作者创建本地提交 `feat(M11): improve conversation stability and recovery`，具体哈希以最终回执和 git log 为准。提交前检查 status、diff、cached diff、空白和敏感信息，显式选择模块文件，卫生检查结果后附。用户手动 push 失败状态保留待处理；Agent 未执行 push。M11 完成后停止，M12 未开始。
