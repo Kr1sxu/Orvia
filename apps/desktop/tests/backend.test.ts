@@ -36,6 +36,21 @@ describe('后端连接生命周期（模拟子进程，无模型）', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.mocked(spawn).mockReset(); });
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
+  it('数据库初始化失败即终止子进程，不留不可用的常驻后端', async () => {
+    const { child, requests, reply } = fakeChild();
+    const client = new BackendClient('C:/synthetic-orvia', 100, { dataDirectory: 'C:/synthetic-data', credentials: () => ({ main: 'synthetic-private-key' }) });
+    const started = client.start();
+    const rejected = expect(started).rejects.toThrow('初始化失败');
+    reply(requests[0], { protocol: 1, service: 'orvia-backend', python: '3.12.10' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requests[1].method).toBe('initialize');
+    child.stdout.write(Buffer.from(JSON.stringify({ v: 1, id: requests[1].id, ok: false, error: { code: 'STORAGE_UNAVAILABLE', message: 'synthetic-private-key' } }) + '\n'));
+    await rejected;
+    expect(child.kill).toHaveBeenCalledOnce();
+    await expect(client.health()).rejects.toThrow('初始化失败');
+    expect(spawn).toHaveBeenCalledOnce();
+  });
+
   it('首次启动前已经停止时拒绝后续请求，不生成孤儿进程', async () => {
     fakeChild();
     const client = new BackendClient('C:/synthetic-orvia', 100);

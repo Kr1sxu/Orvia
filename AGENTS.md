@@ -36,6 +36,8 @@ M01 只验证窗口 → 受限 IPC → Python → stdio JSON Lines → 健康响
 | Browser | mimo-v2.6-flash | https://api.xiaomimimo.com/v1 | MIMO_API_KEY |
 
 每个 Mission 固化三个角色配置，禁止静默更换模型、供应商或 Base URL。M01 不读取 `.env.local`。
+M02 起仅 Electron 主进程读取开发 `.env.local`，经私有初始化管道交给后端内存；发布模式使用 safeStorage，禁止明文回退。显式真实测试脚本可在当前测试进程读取根开发凭据，只发送合成内容，不输出原始请求/响应或凭据。日常测试不触发真实调用。
+M02 草稿只含固定配置与名称；执行状态、审批、操作账本和 LangGraph 仍按后续模块实现。不要把草稿跨重启读取称作执行中任务恢复。
 开发密钥仅存被 Git 忽略的根 `.env.local`；`.env.example` 仅变量名、空值和说明。真实 Key 禁止进入源码、文档、测试、日志、Git、安装包和 subagent 提示词；检查时仅报告变量是否存在，不输出值。必要 Key 缺失不能猜测或填假值。
 真实模型测试仅用合成数据，限制超时、重试与费用；必须区分 mock 与真实调用。未提供 Tavily Key 时，`web_search` 明确返回不可用，禁止伪造结果。
 

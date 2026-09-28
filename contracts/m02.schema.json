@@ -1,0 +1,337 @@
+{
+  "ModelProfile": {
+    "additionalProperties": false,
+    "description": "模型配置只含凭据引用，绝不包含凭据值。",
+    "oneOf": [
+      {
+        "properties": {
+          "role": {
+            "const": "main"
+          },
+          "provider": {
+            "const": "deepseek"
+          },
+          "model": {
+            "const": "deepseek-flash"
+          },
+          "base_url": {
+            "const": "https://api.deepseek.com"
+          },
+          "credential_ref": {
+            "const": "DEEPSEEK_API_KEY"
+          }
+        }
+      },
+      {
+        "properties": {
+          "role": {
+            "const": "computer"
+          },
+          "provider": {
+            "const": "zhipu"
+          },
+          "model": {
+            "const": "glm-5.3-flashx"
+          },
+          "base_url": {
+            "const": "https://open.bigmodel.cn/api/paas/v4"
+          },
+          "credential_ref": {
+            "const": "ZHIPU_API_KEY"
+          }
+        }
+      },
+      {
+        "properties": {
+          "role": {
+            "const": "browser"
+          },
+          "provider": {
+            "const": "mimo"
+          },
+          "model": {
+            "const": "mimo-v2.6-flash"
+          },
+          "base_url": {
+            "const": "https://api.xiaomimimo.com/v1"
+          },
+          "credential_ref": {
+            "const": "MIMO_API_KEY"
+          }
+        }
+      }
+    ],
+    "properties": {
+      "role": {
+        "enum": [
+          "main",
+          "computer",
+          "browser"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
+      "provider": {
+        "title": "Provider",
+        "type": "string"
+      },
+      "model": {
+        "title": "Model",
+        "type": "string"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "credential_ref": {
+        "title": "Credential Ref",
+        "type": "string"
+      },
+      "revision": {
+        "default": 1,
+        "maximum": 1,
+        "minimum": 1,
+        "title": "Revision",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "role",
+      "provider",
+      "model",
+      "base_url",
+      "credential_ref"
+    ],
+    "title": "ModelProfile",
+    "type": "object"
+  },
+  "MissionCreate": {
+    "additionalProperties": false,
+    "description": "使用客户端请求标识保证重试不会重复创建草稿。",
+    "properties": {
+      "client_request_id": {
+        "format": "uuid",
+        "title": "Client Request Id",
+        "type": "string"
+      },
+      "title": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      }
+    },
+    "required": [
+      "client_request_id",
+      "title"
+    ],
+    "title": "MissionCreate",
+    "type": "object"
+  },
+  "Mission": {
+    "$defs": {
+      "ModelProfile": {
+        "additionalProperties": false,
+        "description": "模型配置只含凭据引用，绝不包含凭据值。",
+        "oneOf": [
+          {
+            "properties": {
+              "role": {
+                "const": "main"
+              },
+              "provider": {
+                "const": "deepseek"
+              },
+              "model": {
+                "const": "deepseek-flash"
+              },
+              "base_url": {
+                "const": "https://api.deepseek.com"
+              },
+              "credential_ref": {
+                "const": "DEEPSEEK_API_KEY"
+              }
+            }
+          },
+          {
+            "properties": {
+              "role": {
+                "const": "computer"
+              },
+              "provider": {
+                "const": "zhipu"
+              },
+              "model": {
+                "const": "glm-5.3-flashx"
+              },
+              "base_url": {
+                "const": "https://open.bigmodel.cn/api/paas/v4"
+              },
+              "credential_ref": {
+                "const": "ZHIPU_API_KEY"
+              }
+            }
+          },
+          {
+            "properties": {
+              "role": {
+                "const": "browser"
+              },
+              "provider": {
+                "const": "mimo"
+              },
+              "model": {
+                "const": "mimo-v2.6-flash"
+              },
+              "base_url": {
+                "const": "https://api.xiaomimimo.com/v1"
+              },
+              "credential_ref": {
+                "const": "MIMO_API_KEY"
+              }
+            }
+          }
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "main",
+              "computer",
+              "browser"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "credential_ref": {
+            "title": "Credential Ref",
+            "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "maximum": 1,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "provider",
+          "model",
+          "base_url",
+          "credential_ref"
+        ],
+        "title": "ModelProfile",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "M02 仅有 draft 状态；真实执行状态由后续模块引入。",
+    "properties": {
+      "client_request_id": {
+        "format": "uuid",
+        "title": "Client Request Id",
+        "type": "string"
+      },
+      "title": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      },
+      "id": {
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+      },
+      "status": {
+        "const": "draft",
+        "title": "Status",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "models": {
+        "allOf": [
+          {
+            "contains": {
+              "properties": {
+                "role": {
+                  "const": "main"
+                }
+              },
+              "required": [
+                "role"
+              ],
+              "type": "object"
+            },
+            "maxContains": 1,
+            "minContains": 1
+          },
+          {
+            "contains": {
+              "properties": {
+                "role": {
+                  "const": "computer"
+                }
+              },
+              "required": [
+                "role"
+              ],
+              "type": "object"
+            },
+            "maxContains": 1,
+            "minContains": 1
+          },
+          {
+            "contains": {
+              "properties": {
+                "role": {
+                  "const": "browser"
+                }
+              },
+              "required": [
+                "role"
+              ],
+              "type": "object"
+            },
+            "maxContains": 1,
+            "minContains": 1
+          }
+        ],
+        "items": {
+          "$ref": "#/$defs/ModelProfile"
+        },
+        "maxItems": 3,
+        "minItems": 3,
+        "title": "Models",
+        "type": "array"
+      }
+    },
+    "required": [
+      "client_request_id",
+      "title",
+      "id",
+      "status",
+      "created_at",
+      "models"
+    ],
+    "title": "Mission",
+    "type": "object"
+  }
+}

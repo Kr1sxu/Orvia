@@ -1,0 +1,107 @@
+"""M02 应用服务：可信主进程初始化数据目录和凭据，UI 只能创建/读取草稿。"""
+
+import json
+import sqlite3
+from pathlib import Path
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from .configuration import Credentials, ModelRegistry
+from .domain import MissionCreate
+from .protocol import Session, error_response
+from .storage import Store
+
+
+class Params(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class Initialize(Params):
+    data_directory: str
+    credentials: Credentials
+
+
+class ReplaceCredentials(Params):
+    credentials: Credentials
+
+
+class MissionId(Params):
+    id: Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class Application:
+    """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
+
+    def __init__(self):
+        self.session = Session()
+        self.store: Store | None = None
+        self.registry = ModelRegistry()
+
+    async def handle(self, line: bytes) -> dict:
+        try:
+            request = json.loads(line.decode("utf-8"))
+        except (ValueError, RecursionError):
+            return self.session.handle(line)
+        methods = {"initialize", "credentials.replace", "configuration.status", "missions.create", "missions.list", "missions.get"}
+        if not isinstance(request, dict) or not isinstance(request.get("method"), str) or request["method"] not in methods:
+            return self.session.handle(line)
+        request_id = request.get("id")
+        if not isinstance(request_id, str) or not request_id.strip():
+            return error_response(None, "INVALID_REQUEST", "请求 ID 必须是非空字符串")
+        if type(request.get("v")) is not int or request["v"] != 1:
+            return error_response(request_id, "UNSUPPORTED_VERSION", "仅支持协议版本 1")
+        if set(request) != {"v", "id", "method", "params"} or not isinstance(request["params"], dict):
+            return error_response(request_id, "INVALID_REQUEST", "请求格式无效")
+        if not self.session.ready:
+            return error_response(request_id, "NOT_READY", "请先完成 hello 握手")
+        method, params = request["method"], request["params"]
+        try:
+            if method == "initialize":
+                if self.store is not None:
+                    return error_response(request_id, "ALREADY_INITIALIZED", "不能在连接内替换数据目录")
+                initial = Initialize.model_validate(params)
+                directory = Path(initial.data_directory)
+                if not directory.is_absolute():
+                    return error_response(request_id, "INVALID_PARAMS", "数据目录必须是主进程提供的绝对路径")
+                store = Store(directory / "app.sqlite")
+                try:
+                    await store.open()
+                except (OSError, sqlite3.Error, ValueError, RuntimeError):
+                    await store.close()
+                    return error_response(request_id, "STORAGE_UNAVAILABLE", "无法打开当前版本的应用数据库")
+                self.store = store
+                self.registry.replace_credentials(initial.credentials)
+                result = {"initialized": True}
+            elif self.store is None:
+                return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
+            elif method == "credentials.replace":
+                updated = ReplaceCredentials.model_validate(params)
+                self.registry.replace_credentials(updated.credentials)
+                result = {"updated": True}
+            elif method == "configuration.status":
+                Params.model_validate(params)
+                result = self.registry.status()
+            elif method == "missions.create":
+                mission = await self.store.create_mission(MissionCreate.model_validate(params))
+                result = mission.model_dump(mode="json")
+            elif method == "missions.list":
+                Params.model_validate(params)
+                result = {"missions": [mission.model_dump(mode="json") for mission in await self.store.list_missions()]}
+            else:
+                mission = await self.store.get_mission(MissionId.model_validate(params).id)
+                if mission is None:
+                    return error_response(request_id, "NOT_FOUND", "草稿不存在")
+                result = mission.model_dump(mode="json")
+        except ValidationError:
+            # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
+            return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
+        except ValueError:
+            return error_response(request_id, "CONFLICT", "请求与已有草稿冲突或配置快照无效")
+        except (sqlite3.Error, OSError):
+            return error_response(request_id, "STORAGE_UNAVAILABLE", "应用数据库暂不可用")
+        return {"v": 1, "id": request_id, "ok": True, "result": result}
+
+    async def close(self) -> None:
+        if self.store is not None:
+            await self.store.close()

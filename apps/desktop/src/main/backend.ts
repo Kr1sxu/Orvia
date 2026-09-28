@@ -2,6 +2,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from './protocol';
+import { z } from 'zod';
+import { configurationSchema, missionSchema, missionCreateSchema, type MissionCreate } from './contracts';
+
+type Secrets = Partial<Record<'main' | 'computer' | 'browser', string>>;
+type Initialization = { dataDirectory: string; credentials: () => Secrets };
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout };
 
@@ -13,7 +18,7 @@ export class BackendClient {
   private failed?: Error;
   private closing = false;
   private exited?: Promise<void>;
-  constructor(private readonly root: string, private readonly timeoutMs = 5000) {}
+  constructor(private readonly root: string, private readonly timeoutMs = 5000, private readonly initialization?: Initialization) {}
 
   start(): Promise<void> {
     // 退出可能先于首次健康检查；阻止排队 IPC 在退出期间创建孤儿进程。
@@ -50,9 +55,19 @@ export class BackendClient {
     });
     // 持续消费 stderr，避免管道堵塞；不把原始后端内容泄漏到 UI 或日志。
     this.child.stderr.on('data', () => {});
-    this.ready = this.request('hello').then((value) => {
+    this.ready = this.request('hello').then(async (value) => {
       try { helloSchema.parse(value); }
       catch { const error = new Error('后端协议或 Python 版本不兼容'); this.fail(error); throw error; }
+      if (this.initialization) {
+        // 敏感配置只经私有 stdio 发送，不放进命令行、环境变量或通用日志。
+        z.object({ initialized: z.literal(true) }).strict().parse(await this.request('initialize', {
+          data_directory: this.initialization.dataDirectory, credentials: this.initialization.credentials(),
+        }));
+      }
+    }).catch(() => {
+      // 初始化失败后不留下仍运行但永远不可用的子进程，也不切换空白数据库。
+      if (!this.failed) this.fail(new Error('本地后端初始化失败，请检查应用数据版本或重启'));
+      throw this.failed!;
     });
     return this.ready;
   }
@@ -63,7 +78,14 @@ export class BackendClient {
     return healthSchema.parse(await this.request('health'));
   }
 
-  private request(method: 'hello' | 'health'): Promise<unknown> {
+  async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  async missions() { await this.start(); return z.object({ missions: z.array(missionSchema) }).strict().parse(await this.request('missions.list')); }
+  async createMission(input: MissionCreate) { await this.start(); return missionSchema.parse(await this.request('missions.create', missionCreateSchema.parse(input))); }
+  async getMission(id: string) { await this.start(); return missionSchema.parse(await this.request('missions.get', { id: z.string().uuid().parse(id) })); }
+  /** 凭据变更不改变已保存 Mission 的模型快照。 */
+  async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
+
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace', params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
@@ -71,7 +93,7 @@ export class BackendClient {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => this.fail(new Error('本地后端响应超时')), this.timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
-      this.child!.stdin.write(JSON.stringify({ v: VERSION, id, method, params: {} }) + '\n');
+      this.child!.stdin.write(JSON.stringify({ v: VERSION, id, method, params }) + '\n');
     });
   }
 

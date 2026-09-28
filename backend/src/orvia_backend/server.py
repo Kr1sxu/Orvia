@@ -4,7 +4,8 @@ import asyncio
 import json
 from typing import BinaryIO
 
-from .protocol import MAX_LINE_BYTES, Session, error_response
+from .protocol import MAX_LINE_BYTES, error_response
+from .application import Application
 
 
 def read_frame(stream: BinaryIO) -> tuple[bytes, bool]:
@@ -21,15 +22,18 @@ def read_frame(stream: BinaryIO) -> tuple[bytes, bool]:
 
 async def serve(reader: BinaryIO, writer: BinaryIO) -> None:
     """将阻塞读取移到工作线程，主协程串行调度请求并保持响应顺序。"""
-    session = Session()
-    while True:
-        line, oversized = await asyncio.to_thread(read_frame, reader)
-        if oversized:
-            response = error_response(None, "INVALID_REQUEST", "请求行超过 64 KiB")
-        elif not line:
-            return
-        else:
-            response = session.handle(line)
-        payload = json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n"
-        writer.write(payload.encode("utf-8"))
-        writer.flush()
+    application = Application()
+    try:
+        while True:
+            line, oversized = await asyncio.to_thread(read_frame, reader)
+            if oversized:
+                response = error_response(None, "INVALID_REQUEST", "请求行超过 64 KiB")
+            elif not line:
+                return
+            else:
+                response = await application.handle(line)
+            payload = json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n"
+            writer.write(payload.encode("utf-8"))
+            writer.flush()
+    finally:
+        await application.close()

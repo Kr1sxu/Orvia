@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-09-28）
 
-本轮仅 M01。实现和本机分级验证已完成；代码提交 `d9bab2a` 和失败回执提交 `9b37ac0` 已于 2026-09-28 正常推送至 `origin/main`。此前两次 TLS 连接失败已解除，M01 收尾完成并停止，M02–M08 未开始。
+本轮仅 M02。用户确认 M01 已推送并要求继续；预检确认本地与 origin/main 均为完成回执 `f6b8c76`。M02 实现与功能验证已完成，正在 Git 收尾；M03–M08 未开始。以下保留 M01 历史证据，M02 记录位于文末。
 
 ## 启动预检
 
@@ -74,3 +74,66 @@
 - `git push origin main` 成功，远端从 `8446647` 更新至 `9b37ac0`，包含代码提交与先前失败回执。未 force push，未修改 TLS 配置。
 - 本次仅更新 PROGRESS 与 DEVELOPMENT_PLAN 的收尾状态；L0 使用 `git diff --check` 和暂存差异检查，无 mock、无真实模型调用，无新增测试产物。代码测试复用上述结果，未覆盖风险不变。
 - 预存 LICENSE 删除继续保持未暂存；M02 未开始。
+
+## M02 数据契约、SQLite、凭据与模型配置（2026-09-28）
+
+### 实现与边界
+
+- [x] √ Pydantic 冻结契约、生成 JSON Schema、Zod 校验及 Ajv2020 跨语言对照；固定映射、角色唯一性、额外字段拒绝。
+- [x] √ aiosqlite + SQLite v1 迁移、WAL、事务、幂等草稿创建、重启读取、模型快照不可变、未知数据库版本拒绝。列表最多 20 条。
+- [x] √ 开发主进程只读根 .env.local，发布 CredentialVault 使用 safeStorage 加密原子保存；无明文回退。私有 stdio 注入后端内存，不进入命令行或数据库。
+- [x] √ 六个受限 renderer API，设置状态和草稿 UI。保存草稿只保存名称与模型配置，不触发 Agent、模型或用户文件操作。
+- [x] √ 三个固定模型的真实合成文本与结构化工具调用通过；不静默替换模型/供应商/地址。
+- [x] √ 初始化失败清理后端；凭据落盘后同步失败停止旧后端并提示重启；工具响应结构与深嵌套 JSON 错误脱敏。
+- [x] √ 中文注释及 domain/storage/configuration/credentials/contracts 的独立 README，根和父模块文档同步。
+- [ ] M02 commit 成功。
+- [ ] M02 push 成功。
+- [ ] M02 全部收尾完成并停止。
+
+M02 不创建空壳审批/操作账本/checkpoint，不提前实现 M03–M08。草稿重启持久化不等于执行中任务恢复。完整安装包、发布设置页面全流程、LangGraph 与真实任务在相应后续模块验收。
+
+### 测试记录与复用
+
+统一结果目录：`artifacts/test-results/M02/`，所有报告、截图和测试数据库均 Git 忽略。除显式 live 脚本外，没有真实模型请求；L3 正常启动主进程会读开发 Key 并仅传后端内存，不发网络请求，safeStorage 验证只用合成 Key。
+
+| 级别 | 实际命令 | 最终结果 / 证据 | mock / 真实模型 | 未覆盖风险 |
+|---|---|---|---|---|
+| L0 | `npm run build` | 两套 tsc 和 Vite 通过；build.log | 无 / 否 | 未打包安装 |
+| L0 | `.\.venv\Scripts\uv.exe pip check --python backend\.venv\Scripts\python.exe` | 19 个包兼容 | 无 / 否 | 非漏洞扫描 |
+| L0 | `.\backend\.venv\Scripts\python.exe -`（内存生成三模型 JSON Schema，与 contracts/m02.schema.json 比较） | 无漂移；schema-check.txt | 无 / 否 | 输入规范化由运行时完成 |
+| L0 | `npm audit --json` | 升级 Ajv 后 0 项；npm-audit.json | 无 / 否 | 不保证未知漏洞不存在 |
+| L1/L2 | `.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_domain.py backend/tests/test_storage.py --basetemp=artifacts/test-results/M02/data-temp --junitxml=artifacts/test-results/M02/data-junit.xml` | 20/20；契约、真实 SQLite 迁移/持久化/损坏/快照/列表上限 | 无 / 否 | 不含后续业务表、OS 断电 |
+| L1/L2 | `.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_configuration.py backend/tests/test_application.py --basetemp=artifacts/test-results/M02/app-temp --junitxml=artifacts/test-results/M02/application-junit.xml` | 当时 18/18；其中 application 4 项结论继续有效，configuration 后续扩展见下行 | HTTP mock、应用层真实 SQLite / 否 | 不替代真实模型能力测试 |
+| L1 | `.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_configuration.py --basetemp=artifacts/test-results/M02/configuration-final-temp --junitxml=artifacts/test-results/M02/configuration-final-junit.xml` | 27/27；脱敏、缺 Key、错误/重定向/超时/超大响应、工具结构、深层 JSON | httpx.MockTransport / 否 | 工具业务授权尚未实现 |
+| L1 | `.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_server.py --basetemp=artifacts/test-results/M02/server-temp --junitxml=artifacts/test-results/M02/server-junit.xml` | 4/4；serve 接入 Application 后重验帧恢复和 EOF | 内存流 / 否 | 不代替真实进程 |
+| L1 | `npx vitest run apps/desktop/tests/credentials.test.ts --reporter=json --outputFile=artifacts/test-results/M02/credentials.json` | 15/15；开发只读、发布模式、损坏、原子失败、串行保存 | fake safeStorage + 真实临时文件 / 否 | 系统加密另由 L3 验证 |
+| L0 | `npx tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --skipLibCheck apps/desktop/src/main/credentials/index.ts` | 独立凭据模块类型检查通过；整体 build 再次覆盖 | 无 / 否 | 不证明业务正确 |
+| L2 | `npx vitest run tests/integration/m02.test.ts --reporter=json --outputFile=artifacts/test-results/M02/integration.json` | 初版 7/7；后续增加 Unicode/default revision，最终 8 项见下文 | 无，真实 Python/SQLite / 否 | 不是所有模型输出语义的证明 |
+| L1/L2 | `npx vitest run tests/integration/m02.test.ts tests/integration/backend.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/protocol.test.ts --reporter=json --outputFile=artifacts/test-results/M02/bridge-regression.json` | 当时 20/20；保留 M01 协议/权限4项与真实管道3项，其余采用更新结果 | 生命周期模拟，管道/DB真实 / 否 | 未重跑无关 M01 Python 协议单测 |
+| L1/L2 | `npx vitest run apps/desktop/tests/backend.test.ts apps/desktop/tests/credential-sync.test.ts tests/integration/m02.test.ts --reporter=json --outputFile=artifacts/test-results/M02/final-targeted.json` | 当时 16/17；同步2项、跨语言8项通过，生命周期1项失败后单独修复重验 | 生命周期/同步模拟，其余真实 / 否 | 此失败报告保留，不伪装全通过 |
+| L1 | `npx vitest run apps/desktop/tests/backend.test.ts --reporter=json --outputFile=artifacts/test-results/M02/lifecycle-final.json` | 最终 7/7；含初始化失败终止与先退出后请求 | fake 子进程/时间 / 否 | OS kill 失败且无 close 的极端退出未覆盖 |
+| L3 | `npm run test:e2e` | 最终 2/2；真实窗口/IPC/Python/SQLite/重启及 Windows safeStorage，e2e.json、e2e.log、settings-and-draft.png（已视觉检查） | 无通信/加密 mock / 否 | safeStorage 调用生产模块，完整打包界面未验收 |
+
+最终有效自动化用例 **96 项**：domain/storage20、configuration27、application4、server4、credentials15、生命周期7、凭据同步2、跨语言/存储8、M01相关真实管道3、协议/权限4、E2E2。只根据改动范围运行 L0–L3，未运行 L4，也没有重复无关已通过测试。
+
+### 真实模型调用与费用边界（L2，非 mock）
+
+1. `.\backend\.venv\Scripts\python.exe -X utf8 backend\tests\live_model_preflight.py --run-live`：Main 成功；Computer HTTP 200 但 64 输出 token 内无正文，脚本停止，Browser 未调用。退出码 1，保留 live-preflight-initial.json；不将 HTTP 200 单独记为完整文本能力通过。
+2. `.\backend\.venv\Scripts\python.exe -X utf8 backend\tests\live_model_preflight.py --run-live --role computer --role browser --max-tokens 256`：只重测未通过/未执行角色，两个均成功；Computer 返回推理内容和正文，finish_reason=stop。live-preflight.json，exit 0。模型/URL 未改。
+3. `.\backend\.venv\Scripts\python.exe -X utf8 backend\tests\live_model_capabilities.py --run-live`：使用实际 ModelClient，三个角色均返回合法 report_probe 工具提议和合成参数；未执行任何工具。每次最多 512 输出 token；live-capabilities.json，exit 0。
+
+总计 **7 次真实请求**，供应商 usage 合计 **1194 token**（含首次不足额度请求）；每个请求零自动重试、20 秒网络超时、响应上限 64 KiB。只传固定合成提示词和虚构工具定义，未发送草稿、路径、用户文件或秘密。价格以供应商账单为准，本次不臆造人民币费用。已通过的真实调用不因后续纯校验加固再次调用。
+
+### 失败、修复与最小重跑
+
+- 新增 Ajv 8.17.1 时审计提示 1 项 moderate，升级固定为 8.20.0 后 0 项；依赖变化仅重验相关跨语言测试。初始审计保留 npm-audit-initial.json。
+- 审查发现凭据已落盘但后端同步失败状态不明确，增加显式部分成功提示并关闭旧后端，测试模拟失败而不使用真实 Key。
+- 初始化失败统一清理时，一项已有不兼容握手测试发现重复 kill；加上已失败状态判断后只重跑生命周期文件（7/7）。相关功能集成与 E2E 根据接口变化重跑；未再次跑无关数据库测试或付费调用。
+- 模型适配对无效 tool_calls 与深层 JSON 的响应边界已收紧，增加参数化用例后只重跑 test_configuration.py。此前真实三模型返回均满足新契约，复用真实能力结论。
+- UTF-16 与 Python Unicode 长度差异已修正，跨语言增加 200 个 emoji 边界和 revision 默认值用例。发布 Key 输入在发起 IPC 后清空，失败响应不带原始内容。
+
+### M02 Git 收尾
+
+预检 fetch 与 ls-remote 确认远端默认 main、HEAD f6b8c76，与本地一致。预存 LICENSE 删除保留且不纳入本轮。提交/推送在实际执行后分别记录，本节不会提前声称模块完成。
+
+提交前检查：已显式暂存本模块 48 个文件，检查 git status、git diff、git diff --cached 及 diff --check；预存 LICENSE 删除不在索引。暂存文件与本地 221 个测试产物逐字节比较开发 Key，匹配 0；禁止路径 0；JSON 与 Markdown 本地链接通过。报告 staged-hygiene.json 只含安全计数。真实 Key、测试报告、数据库和日志未进入提交。

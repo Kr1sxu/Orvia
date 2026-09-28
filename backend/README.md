@@ -1,4 +1,4 @@
-# Orvia Python 后端（M01）
+# Orvia Python 后端（M01–M02）
 
 ## 用途和目录结构
 
@@ -7,6 +7,10 @@
 - `src/orvia_backend/__main__.py`：进程入口。
 - `src/orvia_backend/protocol.py`：请求校验与单连接握手状态。
 - `src/orvia_backend/server.py`：有界读取、异步调度、响应输出。
+- `src/orvia_backend/application.py`：可信初始化、配置状态和草稿接口。
+- `src/orvia_backend/domain/`：Pydantic 数据契约与导出 Schema。
+- `src/orvia_backend/storage/`：SQLite 迁移、事务、幂等与模型快照。
+- `src/orvia_backend/configuration/`：内存凭据、固定配置与模型适配。三个子模块均有独立 README。
 - `tests/`：协议和流读取单元测试。
 - `pyproject.toml`：Python 包、版本约束和测试配置。
 
@@ -24,12 +28,15 @@ EOF 时最后一个没有换行的完整 JSON 也可处理，随后干净退出�
 - 错误码：`INVALID_REQUEST`、`UNSUPPORTED_VERSION`、`METHOD_NOT_FOUND`、`NOT_READY`。
 
 `Session.handle(bytes)` 处理单帧，`serve(BinaryIO, BinaryIO)` 服务连接。
+M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initialize({data_directory,credentials})`，一次连接仅初始化一次。`credentials.replace` 更新内存 Key；二者不对渲染进程公开。
+初始化后 `configuration.status({})` 仅返回无 Key 配置和存在性；`missions.create({client_request_id,title})` 保存草稿；`missions.list({})` 返回最新 20 条；`missions.get({id})` 返回指定草稿。无 SQL 或文件工具入口。
+错误增加 `NOT_INITIALIZED`、`ALREADY_INITIALIZED`、`INVALID_PARAMS`、`CONFLICT`、`NOT_FOUND`、`STORAGE_UNAVAILABLE`。接口错误只含固定说明，不序列化 Pydantic 输入或供应商原始错误。
 阻塞读取通过 `asyncio.to_thread` 与主协程分离；单连接依次处理，不并行执行请求。
 
 ## 依赖与配置
 
-要求 Python 3.12；运行时只用标准库。使用 uv 管理环境，pytest 为开发依赖，hatchling 为构建依赖。
-M01 不读取 `.env.local`，无需模型密钥；后续模块再引入持久化、凭据和 Agent。
+要求 Python 3.12；运行时依赖 Pydantic、aiosqlite、httpx，版本在 uv.lock 固定。pytest 为开发依赖，hatchling 为构建依赖。
+正常后端进程不读取 `.env.local`，Key 由可信 Electron 私有管道注入内存。数据目录由主进程提供，数据库只存草稿与无密钥配置。M02 还没有 LangGraph、文件工具或网页工具。
 
 ## 运行方式与示例
 
@@ -58,6 +65,6 @@ M01 不读取 `.env.local`，无需模型密钥；后续模块再引入持久化
 
 ## 权限边界与已知限制
 
-仅支持两个固定方法，不提供 shell、用户文件读写、数据库、网络、模型或桌面控制接口。
+只开放健康检查、初始化、配置和草稿方法，不提供 shell、用户文件整理、任意 SQL、任意模型提示词或桌面控制接口。模型适配只由受控后端代码与显式测试调用，渲染端没有模型执行入口。
 这不是操作系统级沙箱；应由可信 Electron 主进程启动，禁止把 stdio 直接暴露给不可信远程端。
-M01 无任务恢复、审批、取消、进度事件和文件工具。父进程负责超时、关闭 stdin 和必要时终止进程；本服务在 EOF 后退出。
+M02 只验证草稿跨重启持久化；不是执行中任务恢复，后者属于 M04/M05。无审批、取消、进度事件和文件工具。父进程负责超时和进程清理，EOF 关闭数据库连接后退出。
