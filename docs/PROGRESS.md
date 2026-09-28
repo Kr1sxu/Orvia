@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-09-28）
 
-本轮仅 M02。用户确认 M01 已推送并要求继续；预检确认本地与 origin/main 均为完成回执 `f6b8c76`。M02 实现与功能验证已完成，正在 Git 收尾；M03–M08 未开始。以下保留 M01 历史证据，M02 记录位于文末。
+本轮仅 M02。用户确认 M01 已推送并要求继续；预检确认本地与 origin/main 均为完成回执 `f6b8c76`。M02 实现与功能验证已完成，代码提交 `6f2986a` 成功；push 因 GitHub TLS 握手失败受阻，保留本地提交并停止，M03–M08 未开始。以下保留 M01 历史证据，M02 记录位于文末。
 
 ## 启动预检
 
@@ -86,7 +86,7 @@
 - [x] √ 三个固定模型的真实合成文本与结构化工具调用通过；不静默替换模型/供应商/地址。
 - [x] √ 初始化失败清理后端；凭据落盘后同步失败停止旧后端并提示重启；工具响应结构与深嵌套 JSON 错误脱敏。
 - [x] √ 中文注释及 domain/storage/configuration/credentials/contracts 的独立 README，根和父模块文档同步。
-- [ ] M02 commit 成功。
+- [x] √ M02 commit 成功（`6f2986a`）。
 - [ ] M02 push 成功。
 - [ ] M02 全部收尾完成并停止。
 
@@ -137,3 +137,9 @@ M02 不创建空壳审批/操作账本/checkpoint，不提前实现 M03–M08。
 预检 fetch 与 ls-remote 确认远端默认 main、HEAD f6b8c76，与本地一致。预存 LICENSE 删除保留且不纳入本轮。提交/推送在实际执行后分别记录，本节不会提前声称模块完成。
 
 提交前检查：已显式暂存本模块 48 个文件，检查 git status、git diff、git diff --cached 及 diff --check；预存 LICENSE 删除不在索引。暂存文件与本地 221 个测试产物逐字节比较开发 Key，匹配 0；禁止路径 0；JSON 与 Markdown 本地链接通过。报告 staged-hygiene.json 只含安全计数。真实 Key、测试报告、数据库和日志未进入提交。
+
+- 提交成功：`git -c user.name='踪显' -c user.email='18532112451@163.com' commit -m "feat(M02): persist mission profiles and protect model credentials"`，生成 `6f2986a`，48 个文件，作者身份已核对。
+- 推送失败：`git push origin main` 返回 `OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443`，exit 1。
+- 有限替代尝试：`git -c http.sslBackend=schannel push origin main` 使用 Git for Windows 系统 TLS 后端，仍返回 `schannel: failed to receive handshake, SSL/TLS connection failed`，exit 1。仅该命令指定后端，没有更改全局配置、关闭证书校验或 force push。
+- 保留实现提交，本次失败记录另作文档提交；当前不能勾选 push 或整个 M02 完成。后续网络恢复可正常推送这些本地提交，不重写历史。未开始 M03，未发布 Release。
+- 本次收尾只有文档变化，L0 暂存差异/空白检查通过，复用上述测试结论，不再运行代码测试或付费模型调用。
