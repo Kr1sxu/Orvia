@@ -42,7 +42,7 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
       <div className="row"><button disabled={busy || !key || !settings?.encryption_available} onClick={() => void change(false)}>加密保存</button><button disabled={busy || !settings?.encryption_available} onClick={() => void change(true)}>移除凭据</button></div>
       {!settings?.encryption_available && <p className="error">系统安全存储不可用，不能保存凭据。</p>}
     </div>}
-    <p>{settings?.search_available ? 'Tavily 已配置；对话搜索尚未开放。' : '未配置 Tavily，搜索不可用。'}</p>
+    <p>{settings?.search_available ? 'Tavily 已配置；在对话输入框选择搜索网页。' : '未配置 Tavily，搜索不可用；仍可读取已知公开网页。'}</p>
     <p role="status">{notice}</p>
     <button disabled={busy} onClick={() => void reload().catch(() => setNotice('连接检查失败，请重新启动应用。'))}>重新检查连接</button>
   </section></div>;

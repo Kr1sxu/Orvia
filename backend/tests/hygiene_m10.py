@@ -53,5 +53,5 @@ def main(module="M10"):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--module', choices=('M10','M11'), default='M10')
+    parser.add_argument('--module', choices=('M10','M11','M12'), default='M10')
     raise SystemExit(main(parser.parse_args().module))

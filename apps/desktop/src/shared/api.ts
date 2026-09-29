@@ -1,5 +1,5 @@
 import type { Configuration, Mission, MissionCreate, GrantStatus, ScanEnvelope } from '../main/contracts';
-import type { Conversation, ConversationSummary, ReadCall, ChatApproval } from '../main/chat-contracts';
+import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence } from '../main/chat-contracts';
 export type { GrantStatus, ScanEnvelope } from '../main/contracts';
 /** 渲染端只能请求有限业务接口，没有通用 IPC、后端初始化或凭据读取入口。 */
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
@@ -19,6 +19,10 @@ declare global { interface Window { orvia: {
   chatSend: (input: {id: string; request_id: string; text: string}) => Promise<Reply<Conversation>>;
   chatChooseDirectory: (input: {id: string}) => Promise<Reply<{cancelled: boolean; conversation?: Conversation}>>;
   chatInspect: (input: ReadCall & {id: string}) => Promise<Reply<Conversation>>;
+  chatBrowserSearch: (input: {id: string; request_id: string; query: string; max_results?: number}) => Promise<Reply<Conversation>>;
+  chatBrowserRead: (input: {id: string; request_id: string; url: string; mode?: 'auto'|'http'|'playwright'}) => Promise<Reply<Conversation>>;
+  chatBrowserAsk: (input: {id:string;request_id:string;query:string}) => Promise<Reply<Conversation>>;
+  chatBrowserSource: (input: {id:string;evidence_id:string}) => Promise<Reply<BrowserEvidence>>;
   chatApprove: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatResume: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatUndo: (input: ChatApproval) => Promise<Reply<Conversation>>;

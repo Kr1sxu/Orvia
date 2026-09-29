@@ -34,7 +34,13 @@ class SearchRequest(BaseModel):
 
 def evidence(url=None, *, mode=None, content="", truncated=False, error=None):
     return {"source_url": url, "accessed_at": datetime.now(UTC).isoformat(), "mode": mode,
-            "content": content[:MAX_TEXT], "truncated": truncated or len(content) > MAX_TEXT, "error": error}
+            "title": "", "content": content[:MAX_TEXT], "truncated": truncated or len(content) > MAX_TEXT, "error": error}
+
+
+def page_title(markup):
+    """提取短标题只用于文本展示，不接受 HTML 渲染。"""
+    metadata = trafilatura.extract_metadata(markup)
+    return (metadata.title or "")[:200] if metadata else ""
 
 
 class BrowserService:
@@ -121,7 +127,11 @@ class BrowserService:
                 if mode == "auto" and not content.strip() and media != "text/plain":
                     used = "playwright"
                     return await self._render(current)
-                return evidence(current, mode="http", content=content.strip())
+                result = evidence(current, mode="http", content=content.strip())
+                result["title"] = page_title(text) if media != "text/plain" else ""
+                if not content.strip():
+                    result["error"] = {"code": "EMPTY_CONTENT", "message": "页面没有可读取正文"}
+                return result
         except BrowserError as error:
             return evidence(current, mode=used, truncated=error.code == "RESPONSE_TOO_LARGE", error={"code": error.code, "message": error.message})
         except (TimeoutError, OSError, httpx.HTTPError):
@@ -188,12 +198,14 @@ class BrowserService:
                 # 固定读取表达式，无调用方脚本入口；在浏览器内截断，避免传回无限 DOM 正文。
                 rendered = await page.evaluate("""() => {
                     const text = document.body?.innerText || '';
-                    return {text: text.slice(0, 8000), truncated: text.length > 8000};
+                    return {text: text.slice(0, 8000), title: (document.title || '').slice(0, 200), truncated: text.length > 8000};
                 }""")
                 # JavaScript 按 UTF-16 截断；单独携带截断位，并净化边界孤立代理项，
                 # 避免 emoji 被截成半个字符时破坏 UTF-8 stdio 帧。
                 content = rendered["text"].encode("utf-8", errors="replace").decode("utf-8").strip()
                 result = evidence(final_url, mode="playwright", content=content, truncated=rendered["truncated"])
+                # 动态标题也先在页面内限长，避免把无限脚本生成文本跨进程传回。
+                result["title"] = rendered["title"].encode("utf-8", errors="replace").decode("utf-8")
                 if not content.strip():
                     result["error"] = {"code": "EMPTY_CONTENT", "message": "页面没有可读取正文，可能需要交互"}
                 if failures:

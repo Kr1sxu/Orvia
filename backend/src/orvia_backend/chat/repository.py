@@ -35,7 +35,7 @@ class ChatRepository:
                 async with db.execute("SELECT conversation_id,request_id FROM chat_requests WHERE status = 'pending'") as cursor:
                     interrupted = await cursor.fetchall()
                 for row in interrupted:
-                    message = self._message("system", "上次消息处理被中断；未自动重发模型。请先查看现有计划与结果，再用新消息继续。",
+                    message = self._message("system", "上次消息处理被中断；未自动重发模型或网页请求。请先查看已保存来源、计划与结果，再用新消息继续。",
                                             "error", {"code": "REQUEST_INTERRUPTED", "request_id": row[1]})
                     await db.execute("INSERT INTO chat_messages(conversation_id,message_json) VALUES (?, ?)",
                                      (row[0], json.dumps(message, ensure_ascii=False)))

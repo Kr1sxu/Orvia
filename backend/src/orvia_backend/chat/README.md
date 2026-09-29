@@ -1,6 +1,6 @@
-# M10–M11 会话与桌面任务应用服务
+# M10–M12 会话与桌面任务应用服务
 
-本模块把对话、Computer 只读观察、LangGraph 计划、独立审批和动作账本连接起来。没有自动任务、技能广场、插件、Browser 搜索或任意执行入口。
+本模块把对话、Computer 只读观察、LangGraph 计划、独立审批和动作账本连接起来。M12 增加只读 Browser 来源流程；没有自动任务、技能广场、插件或任意执行入口。
 
 ## 结构与公共接口
 
@@ -14,7 +14,7 @@
 
 ## 模型与权限
 
-会话 Mission 固化三个角色配置；M10 规划只调用该 Mission 的固定 Main 模型。Computer 是受限程序工具执行器，本轮不调用其模型，Browser 不参与。缺失 Main 凭据时给出明确错误，禁止回退供应商。凭据由既有 Electron 私有初始化传入内存，本模块不读取环境文件。
+会话 Mission 固化三个角色配置；M10 规划只调用该 Mission 的固定 Main 模型。Computer 是受限程序工具执行器，本轮不调用其模型，Browser 在 M12 提供只读网络工具，来源追问使用本地检索，不调用 Browser 模型。缺失 Main 凭据时给出明确错误，禁止回退供应商。凭据由既有 Electron 私有初始化传入内存，本模块不读取环境文件。
 
 模型收到用户最近有界对话和当前授权的必要文件元数据，不读取文件正文。`propose` 提案允许 `answer/inspect/plan`：只读由 M03 契约与 gateway 执行；计划由 M04/ LangGraph 生成并暂停，聊天文字不能批准。模型文本统一标成建议，不作为完成证据。实际完成由程序核验结果卡片表示。
 
@@ -44,3 +44,15 @@ backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m11_stabil
 ```
 
 M11 故障测试注入网络不可用、超时、数据库忙/空间不足、磁盘满及权限错误，取消测试使用等待事件的模型 mock；无真实模型、Tavily 或用户文件访问。阶段状态不是逐 token 流式响应；原生文件操作与外部进程的路径替换仍受原有系统竞态限制。
+
+## M12 来源请求与恢复
+
+`chat.browser.search/read/ask` 分别校验 BrowserSearch/BrowserRead/BrowserAsk，均绑定会话 UUID 和 request_id；source 详情接口校验会话 UUID 和64位十六进制 evidence_id。它们复用同一会话锁和100次请求预算，创建 pending 占位后再联网，终态 completed/failed。相同请求不能改变方法或参数；中断请求需新标识，重启不重放网络请求。
+
+消息新增 source_request 与 source，两者均不作为 Main 文件规划的指令历史。source 只携带最多5个证据短摘录，正文独立持久化并通过 `chat.browser.source` 获取；snapshot.sources 是最近20个证据版本且预算12 KiB，sources_truncated 明示省略。仍先保留当前事实，整份快照46 KiB。网页不能扩大目录授权、生成文件动作或审批。
+
+`browser/evidence.py` 保存不可变版本和 M06 索引，details 按会话重新检查归属。ask 只返回当前会话命中的最多5个原文片段，包含引用 ID、URL、标题、访问时间及块号；不会把搜索摘要说成已读取全文，也不将检索命中说成模型结论。无命中明确提示，无模型/搜索凭据也可本地检索。
+
+来源保存和 FTS 写入是分别提交的事务；存储异常会保留 pending/中断事实和已保存证据，不伪造索引成功。用户可从来源目录读取证据，明确重新读取相同来源会修复该版本的索引；没有自动网络重试或数据库恢复式联网。
+
+运行/测试沿用服务入口；`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m12_browser_chat.py -q` 使用合成网络、临时 DB，覆盖去重/版本、隔离、重启、请求幂等、错误、预算和中断；报告路径须指定 M12。模块不含全文导出、文档附件或 Browser 生成式问答。

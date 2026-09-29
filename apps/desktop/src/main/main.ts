@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
-import { chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, parseInspect } from './chat-contracts';
+import { chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
 import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
@@ -105,6 +105,10 @@ app.whenReady().then(async () => {
     try { return await backend.chat('chat.send', request); } finally { activeSend = undefined; }
   }));
   handle('orvia:chat-inspect', 1, input => chatAction(() => backend.chat('chat.inspect', parseInspect(input))));
+  handle('orvia:chat-browser-search', 1, input => chatAction(() => { const request = chatBrowserSearchSchema.parse(input); return backend.chat('chat.browser.search', request); }));
+  handle('orvia:chat-browser-read', 1, input => chatAction(() => { const request = chatBrowserReadSchema.parse(input); return backend.chat('chat.browser.read', request); }));
+  handle('orvia:chat-browser-ask', 1, input => chatAction(() => backend.chat('chat.browser.ask',chatBrowserAskSchema.parse(input))));
+  handle('orvia:chat-browser-source', 1, input => chatAction(() => backend.chatSource(chatBrowserSourceSchema.parse(input))));
   handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
   handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));
   handle('orvia:chat-undo', 1, input => chatAction(() => backend.chat('chat.undo', chatApprovalSchema.parse(input))));

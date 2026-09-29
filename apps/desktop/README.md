@@ -1,4 +1,4 @@
-# Electron 桌面模块（M11）
+# Electron 桌面模块（M12）
 
 用途：以对话完成授权目录观察、计划审批、执行核验与受限撤销。新建/历史会话在侧栏，中央消息流展示事实卡片，底部输入框持续提问，设置保留固定模型与凭据管理。不提供自动任务、技能广场、团队管理等入口。
 
@@ -8,7 +8,7 @@
 - `src/main/backend.ts`：私有 Python stdio 客户端；`chat-contracts.ts` 校验会话输入/快照，`chat-errors.ts` 提供固定中文错误。
 - `src/main/credentials/`：开发凭据加载、发布 safeStorage 与后端同步，详见该目录 README。
 - `src/main/preload.ts`：固定 contextBridge 函数；`src/shared/api.ts` 定义类型。
-- `src/renderer/main.tsx`：欢迎页、会话、输入与异步状态；`ChatCards.tsx` 展示工具与计划证据；`SettingsPanel.tsx` 管理凭据。
+- `src/renderer/main.tsx`：欢迎页、会话、输入与异步状态；`ChatCards.tsx` 展示工具与计划证据，`SourceCards.tsx` 展示纯文本网页来源、引用与长文详情；`SettingsPanel.tsx` 管理凭据。
 
 ## 输入输出与公共接口
 
@@ -59,3 +59,21 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 私有 UTF-8 JSON Lines 每行64 KiB；会话请求65秒客户端超时，对应模型50秒总预算，最多三次请求，每次1024输出token；其他开发请求仍5秒，发布20秒。当前展示请求阶段，无伪造百分比或token流式输出。关闭中断不自动重放；历史快照不是执行恢复。
 
 历史只显示最近30条并按46 KiB裁剪，较早记录仍保存，当前无分页。只读卡片8 KiB，截断明确提示。没有托盘、自动重连、通用取消或自动任务。M08安装包未随本轮重建。旧无身份快照计划拒绝审批；部分撤销/不确定中断需人工核对，不承诺任意回滚。外部进程并发文件竞态不能由路径检查完全消除。
+
+## M12 会话来源
+
+输入框的“需求类型”选择文件任务、搜索网页、读取网页或询问已有来源；新会话可直接搜索/读取，无需选择目录。搜索提示是否配置 Tavily，设置同步展示状态。来源卡片可展开、查看持久化证据或显式读取搜索结果网页；会话来源目录支持重开证据，长正文按需展开。URL/HTML/标题都是纯文本，没有远程导航或 HTML 渲染。
+
+新增固定接口：
+- `chatBrowserSearch({id,request_id,query,max_results?})`，最多500字/5条。
+- `chatBrowserRead({id,request_id,url,mode?})`，最多2048字 URL，默认 auto。
+- `chatBrowserAsk({id,request_id,query})`，最多200字关键词，本地 M06 检索，不调用模型或联网。
+- `chatBrowserSource({id,evidence_id})`，仅返回该会话保存的一个证据；其余新增接口返回会话快照。
+
+主进程仍校验调用者、frame、参数数量及 strict 契约，所有操作共享串行忙碌锁。源详情最多8000个 Unicode 码点，TS 与 Python 不以不同的 UTF-16 长度误拒 emoji。Browser 请求不设模型取消按钮；网络本身有10/20秒预算，无自动重放。renderer 不能选择网络请求方法、Cookie、Header、脚本、主机策略或绝对文件根。
+
+试用：`npm run build` 后 `npm start`，选择“搜索网页”提交关键词，展开摘要并显式读取，点击“查看证据”；选择“询问已有来源”输入正文关键词。已知 URL 读取不需要 Tavily；无 Key 的搜索会返回可见错误。真实请求会把本次查询发到 Tavily 或访问所填网站，不自动发送目录元数据。
+
+测试：`npx vitest run apps/desktop/tests/m12-contracts.test.ts tests/integration/m12.test.ts`；构建后设置 `ORVIA_TEST_MODULE=M12` 运行 `npx playwright test tests/e2e/m12.spec.ts`。报告、截图、合成数据位于忽略的 `artifacts/test-results/M12/`。测试启动器只在 tests/e2e 替换 DNS/HTTP 与凭据，不调用模型。历史 M10 整理流程回归通过。
+
+限制：来源追问仅关键词检索、无生成式网页总结；来源目录最近20项/12 KiB，消息仍最近30条/46 KiB，无分页、附件、导出或引用事实自动核验。不重新打包，不加入自动任务和技能广场。

@@ -113,6 +113,7 @@ class Application:
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
         methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
+                    "chat.browser.search", "chat.browser.read", "chat.browser.ask", "chat.browser.source",
                     "chat.approve", "chat.resume", "chat.undo", "chat.cancel"}
         methods |= {"context.index", "context.search", "context.clear", "context.preferences.set", "context.preferences.get",
                     "context.summary.update", "context.summary.get"}
@@ -146,7 +147,7 @@ class Application:
                 try:
                     await store.recover_operations()
                     await graph.__aenter__()
-                    chat = ChatService(store, self.computer, graph, self.registry)
+                    chat = ChatService(store, self.computer, graph, self.registry, self.browser)
                     await chat.open()
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。

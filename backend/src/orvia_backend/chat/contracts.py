@@ -41,6 +41,26 @@ class Inspect(Conversation):
     arguments: dict
 
 
+class BrowserSearch(Cancel):
+    """会话内只读搜索；搜索结果由 Browser 校验 URL 后返回。"""
+    query: str = Field(min_length=1, max_length=500)
+    max_results: int = Field(default=5, ge=1, le=5, strict=True)
+
+
+class BrowserRead(Cancel):
+    """会话内读取公开 URL，不接受脚本、Cookie 或上传参数。"""
+    url: str = Field(min_length=1, max_length=2048)
+    mode: Literal["auto", "http", "playwright"] = "auto"
+
+
+class BrowserAsk(Cancel):
+    query: str = Field(min_length=1, max_length=200)
+
+
+class BrowserSource(Conversation):
+    evidence_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class Approval(Conversation):
     operation_id: UUID
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")

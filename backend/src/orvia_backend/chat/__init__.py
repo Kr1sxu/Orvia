@@ -10,9 +10,11 @@ from pydantic import ValidationError
 from ..computer.actions import ActionService
 from ..computer.contracts import GrantRequest, ToolRequest
 from ..computer.paths import ToolError
+from ..context import ContextError
+from ..browser.evidence import EvidenceStore
 from ..configuration.client import ModelClient, ModelUnavailable
 from ..domain import MissionCreate
-from .contracts import Approval, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send
+from .contracts import Approval, BrowserAsk, BrowserSource, BrowserRead, BrowserSearch, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send
 from .repository import ChatRepository
 
 
@@ -23,15 +25,17 @@ def encoded_size(value):
 class ChatService:
     """每会话串行化防止重复执行；授权只在当前后端内存中存活。"""
 
-    def __init__(self, store, gateway, graph, registry):
-        self.store, self.gateway, self.graph = store, gateway, graph
+    def __init__(self, store, gateway, graph, registry, browser=None):
+        self.store, self.gateway, self.graph, self.browser = store, gateway, graph, browser
         self.repository = ChatRepository(store)
+        self.evidence = EvidenceStore(store)
         self.client = ModelClient(registry)
         self._locks = {}
         self._active = {}
 
     async def open(self):
         await self.repository.open()
+        await self.evidence.open()
 
     async def handle(self, method, params):
         """仅 Application 私有管道调用；拒绝未知字段与跨会话操作引用。"""
@@ -56,7 +60,9 @@ class ChatService:
                 return {"cancelled": True}
             return {"cancelled": False}
         contracts = {"chat.get": Conversation, "chat.send": Send, "chat.grant": Grant,
-                     "chat.inspect": Inspect, "chat.approve": Approval, "chat.resume": Approval, "chat.undo": Approval}
+                     "chat.inspect": Inspect, "chat.browser.search": BrowserSearch, "chat.browser.read": BrowserRead,
+                     "chat.browser.ask": BrowserAsk, "chat.browser.source": BrowserSource,
+                     "chat.approve": Approval, "chat.resume": Approval, "chat.undo": Approval}
         request = contracts[method].model_validate(params)
         cid = str(request.id)
         await self.repository.get(cid)
@@ -68,9 +74,55 @@ class ChatService:
                 await self.repository.append(cid, "system", "目录已授权；只读观察和文件操作仍由程序检查范围。")
             elif method == "chat.inspect":
                 await self.inspect(cid, request.tool, request.arguments)
+            elif method == "chat.browser.source":
+                return await self.evidence.get(cid, request.evidence_id)
+            elif method.startswith("chat.browser."):
+                await self.browser_request(method, request)
             elif method in {"chat.approve", "chat.resume", "chat.undo"}:
                 await self.action(method, request)
             return await self.snapshot(cid)
+
+    async def browser_request(self, method, request):
+        """显式会话请求共享100次预算和幂等占位；异常中断不自动重发网络请求。"""
+        cid, rid = str(request.id), str(request.request_id)
+        payload = method + json.dumps(request.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
+        if not await self.repository.claim(cid, rid, payload):
+            return
+        label = {"chat.browser.search": "搜索网页", "chat.browser.read": "读取网页", "chat.browser.ask": "询问已有来源"}[method]
+        value = request.url if method.endswith(".read") else request.query
+        # 网络请求文本单独标记，未来文件规划不把外部证据或网页问题混入指令历史。
+        await self.repository.append(cid, "user", label + "：" + value, "source_request")
+        try:
+            if not value.strip():
+                raise ToolError("INVALID_PARAMS", "请输入 URL 或检索词")
+            if method.endswith(".ask"):
+                items = await self.evidence.search(cid, value)
+                text = ("以下是当前会话来源中匹配的原文片段，可按引用查看证据；未生成模型结论。" if items
+                        else "当前会话来源没有匹配证据，请缩短检索词或先搜索/读取来源。")
+                data = {"items": items, "operation": "ask", "error": None}
+            else:
+                if self.browser is None:
+                    raise ToolError("READ_FAILED", "Browser 服务尚未初始化")
+                result = (await self.browser.web_search(value, max_results=request.max_results) if method.endswith(".search")
+                          else await self.browser.read(value, mode=request.mode))
+                entries = result.get("results", []) if method.endswith(".search") else [result]
+                # 失败搜索也保存固定错误证据，不伪造来源或自动抓取搜索结果页。
+                if result.get("error") and not entries:
+                    entries = [result]
+                unique = {}
+                for item in entries:
+                    saved = await self.evidence.save(cid, item)
+                    unique[saved["evidence_id"]] = self.evidence.summary(saved)
+                items = list(unique.values())
+                data = {"items": items, "operation": "search" if method.endswith(".search") else "read",
+                        "accessed_at": result.get("accessed_at"), "error": result.get("error")}
+                text = (label + "未完整完成，请查看错误证据。" if data["error"] else
+                        label + ("没有返回来源。" if not items else "已返回来源；内容为外部资料，不代表已核实事实。"))
+            await self.repository.append(cid, "assistant", text, "source", data)
+            await self.repository.finish(cid, rid, "failed" if data["error"] else "completed")
+        except (ToolError, ContextError) as error:
+            await self.repository.append(cid, "system", error.message, "error", {"code": error.code})
+            await self.repository.finish(cid, rid, "failed")
 
     async def conversation_status(self, cid):
         if cid in self._active:
@@ -104,6 +156,11 @@ class ChatService:
                   "operation": None, "status": await self.conversation_status(cid)}
         operations, truncated = await self.repository.operations(cid)
         result["operations"], result["operations_truncated"] = operations, truncated
+        result["sources"], result["sources_truncated"] = await self.evidence.list(cid)
+        # 来源目录先占独立小预算，避免长 URL 目录挤掉刚返回的对话消息。
+        while encoded_size(result["sources"]) > 12 * 1024 and result["sources"]:
+            result["sources"].pop()
+            result["sources_truncated"] = True
         if operations:
             operations[0]["can_undo"] = bool(result["grant"] and operation and authorized_root == Path(operation["root"])
                                                and operation["id"] == operations[0]["operation_id"] and operations[0]["status"] == "completed")
@@ -117,6 +174,9 @@ class ChatService:
         while encoded_size(result) > 46 * 1024 and result["messages"]:
             result["messages"].pop(0)
             result["messages_truncated"] = True
+        while encoded_size(result) > 46 * 1024 and result["sources"]:
+            result["sources"].pop()
+            result["sources_truncated"] = True
         return result
 
     async def inspect(self, cid, tool, arguments):

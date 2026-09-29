@@ -429,3 +429,54 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 取消仅支持模型等待，不是文件动作回滚；收到不可取消说明时等待并查看最终状态。重新尝试规划是新的模型请求，可能产生费用。无 token 流式输出、自动重连、历史分页或托盘；最近消息30条/46 KiB、任务摘要10条的限制保持。真实供应商取消计费、物理磁盘满、真实 ACL 组合与独立 Windows 机器未验收，相关故障通过受控注入验证。M08 历史安装包未重建；外部并发路径替换及不确定文件系统/数据库事务仍按原安全边界保守拒绝恢复。
 
 本轮使用固定作者创建本地提交 `feat(M11): improve conversation stability and recovery`，具体哈希以最终回执和 git log 为准。提交前检查 status、diff、cached diff、空白和敏感信息，显式选择模块文件，卫生检查结果后附。用户手动 push 失败状态保留待处理；Agent 未执行 push。M11 完成后停止，M12 未开始。
+
+
+## M12 Browser 搜索、来源与证据工作流（2026-09-29）
+
+### 预检与范围
+
+用户确认已手动 push 并授权继续。预检 main/HEAD/origin/main 同为 `b7f9980`，远端为 https://github.com/Kr1sxu/Orvia，默认分支 main；M11 已同步，历史失败记录保留为历史事实。开始时工作区干净，LICENSE 无本轮改动。完成中文模块/目标/文件/验证/停止点说明后只实施 M12，M13/M14 未开始。
+
+开发中出现用户/外部工具生成的未跟踪 `.zcodeignore`。曾错误尝试清理，现已按读取内容恢复并保留，不纳入本模块提交。Agent 不处理 push，不修改网络或 TLS 配置。
+
+### 实现与边界
+
+- [x] √ 同一对话输入框提供文件任务、搜索网页、读取网页、询问已有来源；直接创建网页会话不要求目录授权。Tavily 状态、缺凭据、空结果、拒绝、失败和截断明确显示。
+- [x] √ 固定 `chat.browser.search/read/ask/source` 与 preload 窄接口。主进程校验来源/frame/参数数目/strict 契约和串行锁；renderer 仍无 Node、通用 IPC、直接联网、路径、脚本或 Cookie 能力。
+- [x] √ 复用 M07 SafeHTTP/BrowserService，URL、DNS 固定 IP、重定向、资源类型、限时和字节预算保持；HTTP 优先、动态 Playwright 只读。标题与正文在动态页面内先限长，React 仅渲染文本。
+- [x] √ 新增 EvidenceStore，app.sqlite 内保存任务隔离的不可变来源版本、URL、访问时间、标题、模式、正文、错误和 SHA256。相同版本去重；搜索摘要和正文分别保存，新内容保留旧引用。去重版本保留首次访问时间，新请求事件记录本次时间。
+- [x] √ M06 FTS 索引使用 browser:<evidence_id>，来源追问返回当前会话最多5条匹配原文和引用，支持证据详情反查；无匹配明确返回空结果。它是关键词检索，不是生成式总结/任意语义问答，也不调用 Browser 模型。
+- [x] √ 搜索/读取/追问复用100次会话请求预算、请求占位、去重和中断状态；相同 request_id 不重放网络，重启不恢复目录权限。source/source_request 不进入 Main 文件规划上下文；没有网页驱动的文件操作或审批。
+- [x] √ 消息最近30条/46 KiB，来源目录最多20项且先限制为12 KiB，卡片预览180字符，详情最多8000码点，长文折叠；修正 TS/Python 对 emoji 计数差异。
+- [x] √ 更新根、桌面、chat、Browser README、架构、开发计划和进度。没有自动任务、技能广场、登录、附件、导出、页面写操作或安装包发布。
+
+### 分级测试与证据
+
+全部产物在 Git 忽略的 `artifacts/test-results/M12/`。测试使用合成网络响应、假凭据和临时数据库；真实组件为 Electron 窗口、Python 私有 stdio、SQLite/FTS、M07 网关及配套 Chromium。无真实模型、Tavily、互联网网页或用户文件读取。M10 文件回归仅修改专用合成目录。
+
+| 级别 | 实际命令 | 结果 |
+|---|---|---|
+| L0 | `npm run check`；`backend/.venv/Scripts/python.exe -m compileall -q backend/src`；`npm run build` | 通过；最终构建含类型检查，build-final.log |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m12_browser_chat.py backend/tests/test_browser.py backend/tests/test_chat.py backend/tests/test_m11_stability.py -q --basetemp=artifacts/test-results/M12/pytest --junitxml=artifacts/test-results/M12/backend.xml` | 首轮72 passed；mock DNS/HTTP、真实 SQLite/FTS，会话/文件边界回归 |
+| L1/L2 增补 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m12_browser_chat.py -q --basetemp=artifacts/test-results/M12/pytest-final2 --junitxml=artifacts/test-results/M12/backend-m12-final.xml` | 最终9 passed，与首轮8项重叠；增加磁盘故障后证据保留/重启/拒绝重放 |
+| L1/L2 | 设置 `ORVIA_TEST_RESULTS=artifacts/test-results/M12`，`npx vitest run apps/desktop/tests/m12-contracts.test.ts apps/desktop/tests/chat.test.ts apps/desktop/tests/m11-contracts.test.ts tests/integration/m12.test.ts tests/integration/m10.test.ts --reporter=json --outputFile=artifacts/test-results/M12/desktop.json` | 13 passed；真实 Python/stdio 契约、无 Key 拒绝、持久化和跨会话隔离 |
+| L1 Unicode 修复 | `npx vitest run apps/desktop/tests/m12-contracts.test.ts --reporter=json --outputFile=artifacts/test-results/M12/unicode-contracts.json` | 3 passed，与上述集合重叠；8000个 emoji 合法，8001个拒绝 |
+| L3 | 设置 `ORVIA_TEST_MODULE=M12`、`ORVIA_TEST_RESULTS=artifacts/test-results/M12`，`npx playwright test tests/e2e/m12.spec.ts tests/e2e/m10.spec.ts` | 初轮3通过/1失败：M10两项与 M12正常流程通过；M12长正文详情失败，原因见下 |
+| L3 定向修复 | 同样环境，`npx playwright test tests/e2e/m12.spec.ts -g '缺搜索凭据'` | 1 passed；Unicode 边界修复后验证，6.9秒 |
+| L3 最终 UI | 同样环境，`npx playwright test tests/e2e/m12.spec.ts` | 2 passed，13.0秒；长文折叠/来源目录预算调整后，正常和错误流程均通过 |
+| L2/L3 动态读取 | 设置 `ORVIA_BROWSER_TEST=1`，`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_browser_engine.py -q --basetemp=artifacts/test-results/M12/chromium-final-temp --junitxml=artifacts/test-results/M12/chromium.xml` | 4 passed（5.59秒）；动态标题页面内限长后定向通过，真实引擎、mock DNS/HTTP |
+
+以上重跑不重复累加：Python业务去重73项，配套Chromium4项，Vitest13项，Electron4个不同流程。最初搭建的2项来源测试暴露摘要索引被同URL正文覆盖，已改为不可变版本独立索引并用9项测试替换。初轮 TypeScript 发现 unknown 条件渲染，已转显式 Boolean；长正文详情失败来自 TS UTF-16 与 Python 码点计数不一致，修复并加入 emoji 断言。最终无待修复测试失败，既有 LangGraph 弃用提示和 Node 颜色环境提示不影响结果。E2E JSON 随定向运行覆盖，原始批次结果和差异记录在 verification.md，不能把最后定向报告当成四项全跑。已查看 sources-narrow.png、isolated-empty.png、truncated-evidence.png；无横向溢出，长文按需展开。未做独立机器/安装包 L4。
+
+### 试用与限制
+
+项目根 `npm run build` 后 `npm start`。对话输入框选择“读取网页”，输入公开 URL 并发送；或配置 Tavily 后选择“搜索网页”，展开摘要，点击“读取此网页”后“查看证据”。选择“询问已有来源”输入简短关键词，查看原文引用与访问时间；重启后从历史会话继续查阅。网络访问由这次用户动作发起，不需要本地目录授权。
+
+本轮不是模型网页总结，问句长或词形不匹配时可能无结果；来源没有自动事实核验，历史版本与搜索摘要均按类型和时间标记。来源目录/消息有界无分页，旧证据可经关键词检索返回；无搜索/读取取消、自动重试或后台任务。来源与 FTS 分别提交，存储中断可留下来源但索引未完成，读取现有证据不丢失，显式重读相同版本重建索引；不会自动联网修复。未验证真实 Tavily 服务和互联网兼容性，未重建 M08 安装器，固定角色模型配置不变。
+
+本轮固定作者本地提交主题为 `feat(M12): add conversation browser sources and evidence`，哈希以 git log 和交付回执为准。提交前显式选择 M12 文件、检查 status/diff/cached diff 与敏感信息，产物不入 Git。Agent 未 push；本轮完成后等待用户手动 push，M13 未开始。
+
+
+提交前差异检查还修正两处对话边界：来源请求中断不显示更早文件需求的“重试规划”，点击来源卡片读取网页不清空未发送草稿。加入保留草稿 E2E 断言后，重新构建通过；同样 M12 环境下 `npx playwright test tests/e2e/m12.spec.ts -g '搜索、引用'` 定向1 passed（9.0秒）。报告 e2e.json 为该最后定向结果，不累加流程数。M12两项流程、M10两项流程均已有通过证据。无待运行后台测试。
+
+提交前卫生检查通过：30 个模块文件显式暂存，禁止路径 0，暂存真实密钥匹配 0，706 个本轮产物中真实密钥匹配 0。仅报告凭据存在性，Tavily 当前未配置；未输出凭据值。LICENSE、.zcodeignore、数据库、日志、用户文件和测试产物均未纳入索引。git diff --cached --check 通过；报告 hygiene.json 被 Git 忽略。
