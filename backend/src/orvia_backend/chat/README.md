@@ -1,4 +1,10 @@
-# M10–M12 会话与桌面任务应用服务
+# M10–M13 会话与桌面任务应用服务
+
+## M13 文档请求
+
+新增 `chat.document.attach/source/ask/preview/export`，完整契约、预算和示例见 `../documents/README.md`。ChatService持有DocumentStore，复用会话锁、100次请求预算、幂等占位和重启中断记录。新消息种类document_request/document/export均不会进入Main的text指令历史；附件正文与网页一样不能授权、审批或成为模型文件规划指令。
+
+attach的单文件path与export的目标path只来自可信主进程原生选择器，请求摘要用于幂等且不将绝对路径写入数据库。目录授权不变，附件读取不自动创建文件计划。导出先预览、主进程一次性匹配、再保存框确认，后端重新核对revision并独占新建，不覆盖、不重放；成功/拒绝都记录在同会话。snapshot.documents最多20个短摘要/8 KiB，整体仍46 KiB，完整有界文本按来源详情获取。
 
 本模块把对话、Computer 只读观察、LangGraph 计划、独立审批和动作账本连接起来。M12 增加只读 Browser 来源流程；没有自动任务、技能广场、插件或任意执行入口。
 

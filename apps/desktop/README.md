@@ -1,4 +1,4 @@
-# Electron 桌面模块（M12）
+# Electron 桌面模块（M13）
 
 用途：以对话完成授权目录观察、计划审批、执行核验与受限撤销。新建/历史会话在侧栏，中央消息流展示事实卡片，底部输入框持续提问，设置保留固定模型与凭据管理。不提供自动任务、技能广场、团队管理等入口。
 
@@ -77,3 +77,16 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 测试：`npx vitest run apps/desktop/tests/m12-contracts.test.ts tests/integration/m12.test.ts`；构建后设置 `ORVIA_TEST_MODULE=M12` 运行 `npx playwright test tests/e2e/m12.spec.ts`。报告、截图、合成数据位于忽略的 `artifacts/test-results/M12/`。测试启动器只在 tests/e2e 替换 DNS/HTTP 与凭据，不调用模型。历史 M10 整理流程回归通过。
 
 限制：来源追问仅关键词检索、无生成式网页总结；来源目录最近20项/12 KiB，消息仍最近30条/46 KiB，无分页、附件、导出或引用事实自动核验。不重新打包，不加入自动任务和技能广场。
+
+
+## M13 文档内容、引用与导出
+
+输入框“添加附件”通过主进程原生选择器读取单个 PDF、DOCX、PPTX、PNG/JPG/JPEG（最多10 MiB）；不授予其父目录访问权。`DocumentCards.tsx` 展示格式、读取时间、文件/内容版本、页或段定位、OCR 方法/置信度、缺失和截断。正文始终是纯文本，不解释其中的指令、HTML 或链接。
+
+固定 preload 接口：`chatDocumentAttach({id,request_id})` 返回取消标识或新快照；`chatDocumentAsk({id,request_id,query})` 按最多200字关键词在当前会话本地检索；`chatDocumentSource({id,evidence_id})` 读取最多50单元/8000码点证据（总页数可更大，缺失清单最多50项，其余通过截断标志说明）；`chatDocumentPreview({id,evidence_id,format})` 返回 Markdown/JSON 原文摘录、引用覆盖和不可变版本；`chatDocumentExport({id,evidence_id,format,revision,request_id})` 必须经主进程保存确认后写入。主进程仅允许最近一次实际返回的预览身份继续导出，尝试保存后或重连即清除；取消后再次导出需要重新预览。renderer 从不提供或获得附件绝对路径。后端继续通过 Computer gateway 执行路径检查与受限新建，拒绝已有目标，不把保存确认为覆盖或目录权限。
+
+试用：构建启动 → 添加合成附件 → 展开文档卡片 → 查看文档证据 → 选择“询问文档”输入原文关键词 → 预览 Markdown/JSON → 核对引用、缺失/截断 → 选择新文件路径并确认导出。取消选择器不读取/写入；重新打开历史会话可查阅已保存证据。异步文档和预览按会话身份隔离，切换会话不会显示旧结果。
+
+本轮不调用模型、Tavily 或上传正文；文档追问是关键词检索，导出是一个已保存证据的原文摘录，不是生成式总结或排版文档。解析失败、OCR 不可用和缺页必须显式显示；不承诺无损版式或完整 OCR。快照文档目录最多20项/8 KiB，内容上限与解析细节以 backend 文档模块 README 为准。安装包未重建。
+
+验证：L0 `npm run check`、`npm run build`；L1 `npx vitest run apps/desktop/tests/m13-contracts.test.ts apps/desktop/tests/m12-contracts.test.ts apps/desktop/tests/chat.test.ts`。L2/L3 集成命令及结果见 `docs/PROGRESS.md`。仅合成数据/mock，所有结果产物位于忽略的 `artifacts/test-results/M13/`。

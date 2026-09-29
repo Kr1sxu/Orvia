@@ -8,6 +8,11 @@ from .server import serve
 
 def main() -> None:
     """由 Electron 启动；不加载凭据、不访问用户文件，也不调用模型。"""
+    if len(sys.argv) == 3 and sys.argv[1] == "--document-worker":
+        # 冻结后仍启动固定解析入口，子进程只接收内存附件字节，不开放脚本执行。
+        from .documents.worker import main as document_main
+        document_main()
+        return
     try:
         asyncio.run(serve(sys.stdin.buffer, sys.stdout.buffer))
     except BrokenPipeError:

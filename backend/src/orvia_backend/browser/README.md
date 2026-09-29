@@ -93,3 +93,6 @@ Remove-Item Env:ORVIA_BROWSER_TEST
 新增验证：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m12_browser_chat.py backend/tests/test_browser.py -q`。真实 Chromium 合成验证设置 ORVIA_BROWSER_TEST=1 后运行 test_browser_engine.py；全部 DNS/HTTP 为替身，无真实网络/模型调用。Electron 流程见 tests/e2e/m12.spec.ts，产物仅保存 artifacts/test-results/M12/。
 
 边界沿用 M07：只允许公开 URL、同源重定向、标准端口、固定 DNS IP、安全资源类型和有界正文；无 Cookie 复用、登录、表单、上传或网页写操作。标题作为转义文本展示。检索为词匹配而非语义问答，旧版本会参与检索，引用时间需用户核对；来源保存/索引间失败可保留已保存证据，显式重读才能重建对应索引。M12 不重新打包、不增加附件/导出或定时任务。
+# M13 复用说明
+
+`EvidenceStore` 增加程序内部限定的browser/document存储类型及 `save_version`，供M13文档共用不可变版本、首次时间和会话归属检查；默认browser表、哈希标识及已有证据格式保持兼容。文档不伪装为网页，不改变Browser网络权限或M12只读流程；M13回归已覆盖原来源版本/隔离/重启。文档接口见 `../documents/README.md`。

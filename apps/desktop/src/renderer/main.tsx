@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { Conversation, ReadCall, BrowserEvidence } from '../main/chat-contracts';
+import type { Conversation, ReadCall, BrowserEvidence, DocumentEvidence, DocumentPreview } from '../main/chat-contracts';
 import type { Reply, Settings } from '../shared/api';
 import { SettingsPanel } from './SettingsPanel';
 import { PlanCard, ScanCard, EvidenceCard } from './ChatCards';
 import { SourceCard, SourceDetail } from './SourceCards';
+import { DocumentCard, DocumentDetail, ExportPreview, ExportCard } from './DocumentCards';
 import { nearBottom, submitsMessage, taskLabels } from './chat-state';
 import './style.css';
 
@@ -13,8 +14,10 @@ function App() {
   const [conversation, setConversation] = useState<Conversation>();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
-  const [intent,setIntent] = useState<'files'|'search'|'read'|'ask'>('files');
+  const [intent,setIntent] = useState<'files'|'search'|'read'|'ask'|'document'>('files');
   const [source,setSource] = useState<{cid:string;value:BrowserEvidence}>();
+  const [document,setDocument] = useState<{cid:string;value:DocumentEvidence}>();
+  const [preview,setPreview] = useState<{cid:string;value:DocumentPreview}>();
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('');
   const [notice, setNotice] = useState('');
@@ -114,10 +117,11 @@ function App() {
     if (!accept(reply)) return undefined;
     return reply.ok ? reply.result.id : undefined;
   }
-  function newChat() { if (working.current || remoteBusy) return; activeId.current=undefined; setConversation(undefined);setText('');setQuery('');setNotice('');setSource(undefined);setIntent('files');webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);input.current?.focus(); }
-  async function open(id:string) { await run('正在读取历史会话…',async () => {activeId.current=id;setConversation(undefined);setText('');setQuery('');setSource(undefined);webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);accept(await window.orvia.chatGet({id}),id);}); }
+  function newChat() { if (working.current || remoteBusy) return; activeId.current=undefined; setConversation(undefined);setText('');setQuery('');setNotice('');setSource(undefined);setDocument(undefined);setPreview(undefined);setIntent('files');webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);input.current?.focus(); }
+  async function open(id:string) { await run('正在读取历史会话…',async () => {activeId.current=id;setConversation(undefined);setText('');setQuery('');setSource(undefined);setDocument(undefined);setPreview(undefined);webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);accept(await window.orvia.chatGet({id}),id);}); }
   async function send(retryText?: string) {
-    if(!retryText&&intent!=='files'){await sendWeb(intent,text);return;}
+    if(!retryText&&intent==='document'){await askDocument(text);return;}
+    if(!retryText&&intent!=='files'&&intent!=='document'){await sendWeb(intent,text);return;}
     const value = (retryText ?? text).trim(); if (!value || value.length>2000 || composing.current || working.current) return;
     await run('Main 正在理解需求与收集证据…',async () => {
       const id = activeId.current ?? await create(value); if (!id) return;
@@ -159,6 +163,52 @@ function App() {
     const id=activeId.current;if(!id)return;
     await run('正在读取已保存证据…',async()=>{const reply=await window.orvia.chatBrowserSource({id,evidence_id});if(reply.ok&&activeId.current===id)setSource({cid:id,value:reply.result});else if(!reply.ok)setNotice(reply.message);});
   }
+  async function attachDocument() {
+    await run('等待选择附件并提取内容…',async()=>{
+      const id=activeId.current??await create('文档内容处理');if(!id)return;
+      const reply=await window.orvia.chatDocumentAttach({id,request_id:crypto.randomUUID()});
+      if(!reply.ok){setNotice(reply.message);return;}
+      if(reply.result.cancelled)setNotice('已取消附件选择；没有读取文档。');
+      else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);
+      await refreshList();
+    });
+  }
+  async function askDocument(raw:string) {
+    const query=raw.trim();if(!query||query.length>200||composing.current)return;
+    await run('正在本地检索文档引用…',async()=>{
+      const id=activeId.current;if(!id){setNotice('请先添加文档附件。');return;}
+      if(webSubmission.current?.id!==id||webSubmission.current.value!==query||webSubmission.current.intent!=='document')webSubmission.current={id,value:query,intent:'document',request_id:crypto.randomUUID()};
+      const reply=await window.orvia.chatDocumentAsk({id,query,request_id:webSubmission.current.request_id});
+      if(accept(reply,id)){setText('');webSubmission.current=undefined;}await refreshList();
+    });
+  }
+  async function showDocument(evidence_id:string) {
+    const id=activeId.current;if(!id)return;
+    await run('正在读取文档证据…',async()=>{
+      const reply=await window.orvia.chatDocumentSource({id,evidence_id});
+      if(reply.ok&&activeId.current===id){setDocument({cid:id,value:reply.result});setPreview(undefined);}
+      else if(!reply.ok)setNotice(reply.message);
+    });
+  }
+  async function previewDocument(format:'md'|'json') {
+    const id=activeId.current;if(!id||document?.cid!==id)return;
+    const evidence_id=document.value.evidence_id;
+    await run('正在生成只读导出预览…',async()=>{
+      const reply=await window.orvia.chatDocumentPreview({id,evidence_id,format});
+      if(reply.ok&&activeId.current===id)setPreview({cid:id,value:reply.result});else if(!reply.ok)setNotice(reply.message);
+    });
+  }
+  async function exportDocument() {
+    const id=activeId.current;if(!id||preview?.cid!==id)return;
+    const {evidence_id,format,revision}=preview.value;
+    await run('等待确认保存位置并写入导出…',async()=>{
+      const reply=await window.orvia.chatDocumentExport({id,evidence_id,format,revision,request_id:crypto.randomUUID()});
+      setPreview(undefined);
+      if(!reply.ok){setNotice(reply.message+' 再次导出请重新预览。');return;}
+      if(reply.result.cancelled)setNotice('已取消保存，未写入导出文件；再次导出请重新预览。');
+      else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);
+    });
+  }
   async function act(kind:'approve'|'resume'|'undo') {
     const op=conversation?.operation,id=activeId.current;if(!op||!id)return;
     await run(kind==='approve'?'正在审批、执行并核验此版本…':kind==='resume'?'正在核验中断任务…':'正在核验并撤销最近变更…',async()=>{
@@ -170,7 +220,7 @@ function App() {
     });
   }
   const locked=busy||remoteBusy;
-  const inputLimit={files:2000,search:500,read:2048,ask:200}[intent];
+  const inputLimit={files:2000,search:500,read:2048,ask:200,document:200}[intent];
   const disabled=locked||!conversation?.grant||!online;
   const lastMessage=conversation?.messages.at(-1);
   const lastUser=conversation?.messages.slice().reverse().find(message=>message.role==='user');
@@ -189,11 +239,16 @@ function App() {
         {conversation?.messages_truncated&&<p className="muted">为限制通信大小，当前仅显示最近消息；更早记录保留在本地。</p>}
         {conversation?.messages.map(message=><article key={message.id} className={'message '+message.role}><span className="speaker">{message.role==='user'?'你':message.role==='system'?'本地任务状态':'序航'}</span><div className={'bubble '+(message.kind==='error'?'error':'')}>{message.text.length>700?<details className="long-message"><summary>{message.text.slice(0,160)}…（展开全文）</summary><p className="message-text">{message.text}</p></details>:<p className="message-text">{message.text}</p>}
           {message.kind==='scan'&&<ScanCard message={message} disabled={disabled} inspect={call=>void inspect(call)}/>}
+          {message.kind==='document'&&message.data&&<DocumentCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
+          {message.kind==='export'&&message.data&&<ExportCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='source'&&message.data&&<SourceCard message={message} disabled={locked||!online} show={id=>void showSource(id)} read={url=>void sendWeb('read',url,false)}/>} {(message.kind==='plan'||message.kind==='result')&&message.data&&<EvidenceCard message={message}/>}
         </div></article>)}
         {pendingUser&&<article className="message user"><span className="speaker">你 · 正在处理</span><div className="bubble"><p>{pendingUser}</p></div></article>}
         {!!conversation?.sources?.length&&<details className="saved-sources"><summary>会话来源（最近 {conversation.sources.length} 项）</summary><ul>{conversation.sources.map(s=><li key={s.evidence_id}><button disabled={locked||!online} onClick={()=>void showSource(s.evidence_id)}>{s.title||s.source_url||'错误证据'} · {s.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.sources_truncated&&<p>仅展示最近来源，较早记录仍可通过会话检索找到。</p>}<button disabled={locked} onClick={()=>{setIntent('ask');setText('');input.current?.focus();}}>询问已有来源</button></details>}
         {source?.cid===conversation?.id&&source&&<section className="source-detail" aria-label="证据详情"><div className="row between"><h3>证据详情</h3><button onClick={()=>setSource(undefined)}>关闭证据</button></div><SourceDetail source={source.value}/></section>}
+        {!!conversation?.documents?.length&&<details className="saved-sources"><summary>会话文档（最近 {conversation.documents.length} 项）</summary><ul>{conversation.documents.map(item=><li key={item.evidence_id}><button disabled={locked||!online} onClick={()=>void showDocument(item.evidence_id)}>{item.title} · {item.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.documents_truncated&&<p>文档目录已截断，较早文档可通过关键词检索。</p>}<button disabled={locked} onClick={()=>{setIntent('document');setText('');input.current?.focus();}}>询问文档</button></details>}
+        {document&&document.cid===conversation?.id&&<section className="source-detail" aria-label="文档证据详情"><div className="row between"><h3>文档证据详情</h3><button onClick={()=>{setDocument(undefined);setPreview(undefined);}}>关闭文档证据</button></div><DocumentDetail source={document.value}/><div className="row"><button disabled={locked||!online} onClick={()=>void previewDocument('md')}>预览 Markdown 导出</button><button disabled={locked||!online} onClick={()=>void previewDocument('json')}>预览 JSON 导出</button></div></section>}
+        {preview&&preview.cid===conversation?.id&&<ExportPreview preview={preview.value} disabled={locked||!online} save={()=>void exportDocument()}/>}
         {conversation?.operation&&<PlanCard operation={conversation.operation} disabled={disabled} act={kind=>void act(kind)}/>}
         {!!conversation?.operations?.length&&<details className="operation-history"><summary>任务操作历史（最近 {conversation.operations.length} 项）</summary><ol>{conversation.operations.map(op=><li key={op.operation_id}><span>{taskLabels[op.status] ?? op.status}</span><code>版本 {op.revision.slice(0,12)}</code><time>{op.updated_at}</time>{op.can_undo&&<span>可受限撤销</span>}</li>)}</ol>{conversation.operations_truncated&&<p className="muted">仅显示最近操作；历史记录不构成执行或撤销授权。</p>}</details>}
         {phase&&<p role="status" className="progress"><span className="spinner"/>{phase}</p>}
@@ -208,10 +263,10 @@ function App() {
         {retryable&&<div className="row cancellation"><span>上次规划未完成。主动重试会发起新的模型请求。</span><button disabled={locked||!online} onClick={()=>{submission.current=undefined;setText(retryText!);void send(retryText);}}>重新尝试规划</button></div>}
         {conversation&&<div className="directory-bar"><span>{conversation.grant ? '已授权：'+conversation.grant.root_label+' · 剩余 '+conversation.grant.calls_remaining+' 次只读调用' : '当前未授权目录；历史记录不会恢复目录权限。'}</span><button disabled={locked} onClick={()=>void run('刷新任务事实…',async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);})}>刷新状态</button></div>}
         {conversation?.grant&&<div className="tools-row"><button disabled={disabled} onClick={()=>void inspect({tool:'list_directory',arguments:{path:'.',limit:100}})}>目录列表</button><button disabled={disabled} onClick={()=>void inspect({tool:'analyze_directory_space',arguments:{path:'.',top_n:10,min_size:0}})}>空间与大文件</button><input aria-label="文件名搜索" maxLength={100} value={query} onChange={e=>setQuery(e.target.value)} placeholder="文件名" disabled={locked}/><button disabled={disabled||!query.trim()} onClick={()=>void inspect({tool:'search_files',arguments:{path:'.',query:query.trim(),recursive:true,limit:100}})}>搜索</button></div>}
-        <form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><label className="intent-label">本次需求<select aria-label="需求类型" disabled={locked} value={intent} onChange={e=>{setIntent(e.target.value as typeof intent);}}><option value="files">文件任务</option><option value="search">搜索网页</option><option value="read">读取网页</option><option value="ask">询问已有来源</option></select></label>
-          <textarea ref={input} aria-label="输入需求" aria-describedby="composer-hint" placeholder={intent==='files'?'描述你想整理的文件…':intent==='read'?'输入一个公开网页 URL，例如 https://example.com/':intent==='ask'?'输入要查找的关键词，例如：许可 条件。仅检索本会话已保存来源。':'输入搜索词；发送后交给 Tavily 搜索'} maxLength={inputLimit} value={text} disabled={locked} onChange={e=>setText(e.target.value)} onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;}} onKeyDown={e=>{if(submitsMessage(e.key,e.shiftKey,e.nativeEvent.isComposing||composing.current,e.keyCode)){e.preventDefault();void send();}}}/>
-          <div className="row between"><button type="button" disabled={locked||!online} onClick={()=>void choose()}>＋ 选择目录</button><div className="row"><span className="muted">{text.length}/{inputLimit}</span><button className="send primary" aria-label="发送" disabled={locked||!text.trim()||text.length>inputLimit||!online}>↑</button></div></div>
-        </form><p id="composer-hint" className="privacy">Enter 发送 · Shift+Enter 换行。{intent==='files'?'必要对话和目录元数据交给固定 Main 模型，文件修改须单独审批。':intent==='search'?(settings?.search_available?'Tavily 已配置；只发送本次搜索词，不自动读取结果网页。':'未配置 Tavily，搜索不可用；可选择读取已知公开网页。'):intent==='read'?'只访问你提交的公开 URL，保存正文与来源；不需要目录授权或搜索凭据。':'本地检索当前会话来源，返回原文引用；不联网、不生成模型结论。'}</p>
+        <form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><label className="intent-label">本次需求<select aria-label="需求类型" disabled={locked} value={intent} onChange={e=>{setIntent(e.target.value as typeof intent);}}><option value="files">文件任务</option><option value="search">搜索网页</option><option value="read">读取网页</option><option value="ask">询问已有来源</option><option value="document">询问文档</option></select></label>
+          <textarea ref={input} aria-label="输入需求" aria-describedby="composer-hint" placeholder={intent==='document'?'输入关键词，在本会话附件中检索原文引用；不生成模型总结。':intent==='files'?'描述你想整理的文件…':intent==='read'?'输入一个公开网页 URL，例如 https://example.com/':intent==='ask'?'输入要查找的关键词，例如：许可 条件。仅检索本会话已保存来源。':'输入搜索词；发送后交给 Tavily 搜索'} maxLength={inputLimit} value={text} disabled={locked} onChange={e=>setText(e.target.value)} onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;}} onKeyDown={e=>{if(submitsMessage(e.key,e.shiftKey,e.nativeEvent.isComposing||composing.current,e.keyCode)){e.preventDefault();void send();}}}/>
+          <div className="row between"><div className="row"><button type="button" disabled={locked||!online} onClick={()=>void choose()}>＋ 选择目录</button><button type="button" disabled={locked||!online} onClick={()=>void attachDocument()}>＋ 添加附件</button></div><div className="row"><span className="muted">{text.length}/{inputLimit}</span><button className="send primary" aria-label="发送" disabled={locked||!text.trim()||text.length>inputLimit||!online}>↑</button></div></div>
+        </form><p id="composer-hint" className="privacy">Enter 发送 · Shift+Enter 换行。{intent==='document'?'附件仅在本机提取与检索，不上传模型；导出须预览后独立确认。':intent==='files'?'必要对话和目录元数据交给固定 Main 模型，文件修改须单独审批。':intent==='search'?(settings?.search_available?'Tavily 已配置；只发送本次搜索词，不自动读取结果网页。':'未配置 Tavily，搜索不可用；可选择读取已知公开网页。'):intent==='read'?'只访问你提交的公开 URL，保存正文与来源；不需要目录授权或搜索凭据。':'本地检索当前会话来源，返回原文引用；不联网、不生成模型结论。'}</p>
       </section>
     </main>{showSettings&&<SettingsPanel settings={settings} reload={reloadSettings} close={()=>setShowSettings(false)}/>}
   </div>;

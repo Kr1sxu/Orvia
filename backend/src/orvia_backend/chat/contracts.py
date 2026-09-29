@@ -61,6 +61,22 @@ class BrowserSource(Conversation):
     evidence_id: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class DocumentAttach(Cancel):
+    """绝对文件路径仅由主进程原生选择器提供，不向 renderer 开放。"""
+    path: str = Field(min_length=1, max_length=1000)
+
+
+class DocumentPreview(BrowserSource):
+    format: Literal["md", "json"]
+
+
+class DocumentExport(DocumentPreview):
+    """用户预览确定的内容版本与保存框确定的新路径缺一不可。"""
+    request_id: UUID
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    path: str = Field(min_length=1, max_length=1000)
+
+
 class Approval(Conversation):
     operation_id: UUID
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")

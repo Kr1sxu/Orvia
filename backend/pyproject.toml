@@ -17,6 +17,10 @@ dependencies = [
     "trafilatura>=2,<3",
     "psutil>=7.0,<8",
     "pydantic>=2.12,<3",
+    "pypdfium2==4.30.0",
+    "rapidocr-onnxruntime==1.4.4",
+    "defusedxml==0.7.1",
+    "pillow==11.3.0",
 ]
 
 [dependency-groups]

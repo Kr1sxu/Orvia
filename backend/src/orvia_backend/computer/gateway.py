@@ -1,12 +1,14 @@
 """只读工具权限网关：权限来自主进程授权记录，不信任模型自述的角色或范围。"""
 
 import json
+import os
+from pathlib import Path
 from dataclasses import dataclass
 from uuid import uuid4
 
 from .contracts import GrantRequest, ToolRequest
 from .files import FileTools
-from .paths import PathPolicy, ToolError
+from .paths import PathPolicy, ToolError, sensitive
 from .system import SystemTools
 
 
@@ -61,6 +63,55 @@ class ComputerGateway:
         if grant is None or grant.root is None:
             raise ToolError("PERMISSION_DENIED", "请重新选择并授权本地目录")
         return grant.root.resolve(".", "directory")
+
+    @staticmethod
+    def selected_file(role: str, path: str) -> tuple[PathPolicy, str]:
+        """仅可信主进程原生选择器调用，授权只覆盖该文件，不修改目录 grant。"""
+        if role != "computer":
+            raise ToolError("ROLE_DENIED", "此角色不能访问本地附件或导出")
+        selected = Path(path)
+        if not selected.is_absolute() or any(sensitive(part) for part in selected.parts):
+            raise ToolError("path_denied", "所选文件不允许访问")
+        return PathPolicy(str(selected.parent)), selected.name
+
+    def read_attachment(self, role: str, path: str) -> tuple[bytes, str]:
+        """限定单次读取、大小与句柄身份；不扫描父目录，不保留访问 token。"""
+        policy, name = self.selected_file(role, path)
+        target = policy.resolve(name, "file")
+        if target.suffix.lower() not in {".pdf", ".docx", ".pptx", ".png", ".jpg", ".jpeg"}:
+            raise ToolError("DOCUMENT_FORMAT", "仅支持 PDF、DOCX、PPTX、PNG 和 JPEG")
+        with target.open("rb") as stream:
+            before = policy.validate_open_file(stream.fileno(), target)
+            if before.st_size > 10 * 1024 * 1024:
+                raise ToolError("DOCUMENT_LIMIT", "附件超过 10 MiB 上限")
+            data = stream.read(10 * 1024 * 1024 + 1)
+            policy.resolve(name, "file")
+            after = policy.validate_open_file(stream.fileno(), target)
+            if len(data) > 10 * 1024 * 1024 or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                raise ToolError("file_changed", "读取期间附件已变化，请重新选择")
+        return data, name
+
+    def export_document(self, role: str, path: str, data: bytes, format: str) -> str:
+        """选择保存位置即对预览版本的一次写授权；O_EXCL 拒绝竞态覆盖。"""
+        policy, name = self.selected_file(role, path)
+        if Path(name).suffix.lower() != {"md": ".md", "json": ".json"}[format] or len(data) > 60 * 1024:
+            raise ToolError("EXPORT_INVALID", "导出扩展名或内容预算不符合要求")
+        target = policy.new_file(name)
+        try:
+            with target.open("x+b") as stream:
+                policy.resolve(name, "file")
+                policy.validate_open_file(stream.fileno(), target)
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+                policy.resolve(name, "file")
+                info = policy.validate_open_file(stream.fileno(), target)
+                stream.seek(0)
+                if info.st_size != len(data) or stream.read(len(data) + 1) != data:
+                    raise ToolError("EXPORT_FAILED", "导出文件核验失败，请检查目标")
+        except FileExistsError as exc:
+            raise ToolError("EXPORT_EXISTS", "目标已存在，请选择新的文件名") from exc
+        return name
 
     def execute(self, role: str, request: ToolRequest) -> dict:
         """role 由内部调度代码传入，不在工具参数中接收，Main/Browser 无本地权限。"""

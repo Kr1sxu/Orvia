@@ -1,5 +1,7 @@
 # 跨进程与端到端测试
 
+M13：`integration/m13-fixtures.ts`只生成无敏感DOCX/PNG；`integration/m13.test.ts`验证真实Python/stdio附件、索引、引用、导出与重启。`e2e/m13.spec.ts`通过测试专用启动器模拟原生选择器，真实运行Electron、后端、SQLite、解析和本地OCR，凭据来源替换为空，不读取开发Key，不调用云模型/Tavily。报告环境为`ORVIA_TEST_MODULE=M13`与`ORVIA_TEST_RESULTS=artifacts/test-results/M13`；精确命令及定向重跑见PROGRESS。该测试不代表系统原生对话框视觉或发布包已验收。
+
 用途：验证桌面与真实 Python 的通信及实际用户窗口流程。
 
 目录：`integration/` 使用 Vitest 启动 Python；`e2e/` 使用 Playwright 启动 Electron；桌面单元测试另在 `apps/desktop/tests/`，后端单元测试在 `backend/tests/`。

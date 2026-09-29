@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
-import { chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
+import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
 import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
@@ -39,6 +39,7 @@ app.whenReady().then(async () => {
   let chatBusy = false;
   let reconnecting = false;
   let ordinaryRequests = 0;
+  let documentPreviewAuthorization: {id:string;evidence_id:string;format:string;revision:string} | undefined;
   let activeSend: { id: string; request_id: string } | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
@@ -80,6 +81,7 @@ app.whenReady().then(async () => {
       await backend.stop();
       if (quitting) throw new Error('应用正在退出');
       activeComputerGrants.clear();
+      documentPreviewAuthorization=undefined;
       backend = createBackend();
       await backend.start();
       return {connected: true};
@@ -109,6 +111,38 @@ app.whenReady().then(async () => {
   handle('orvia:chat-browser-read', 1, input => chatAction(() => { const request = chatBrowserReadSchema.parse(input); return backend.chat('chat.browser.read', request); }));
   handle('orvia:chat-browser-ask', 1, input => chatAction(() => backend.chat('chat.browser.ask',chatBrowserAskSchema.parse(input))));
   handle('orvia:chat-browser-source', 1, input => chatAction(() => backend.chatSource(chatBrowserSourceSchema.parse(input))));
+  handle('orvia:chat-document-source',1,input=>chatAction(()=>backend.chatDocumentSource(chatDocumentSourceSchema.parse(input))));
+  handle('orvia:chat-document-preview',1,input=>chatAction(async()=>{
+    documentPreviewAuthorization=undefined;
+    const request=chatDocumentPreviewSchema.parse(input);
+    const preview=await backend.chatDocumentPreview(request);
+    // 主进程记录实际返回的预览身份；renderer 自造版本不能跳过预览直接保存。
+    documentPreviewAuthorization={...request,revision:preview.revision};
+    return preview;
+  }));
+  handle('orvia:chat-document-ask',1,input=>chatAction(()=>backend.chat('chat.document.ask',chatDocumentAskSchema.parse(input))));
+  handle('orvia:chat-document-attach',1,input=>chatAction(async()=>{
+    const request=chatDocumentAttachSchema.parse(input);
+    await backend.chat('chat.get',{id:request.id});
+    const selection=await dialog.showOpenDialog(window!,{title:'添加一个本地文档（最多10 MiB）',buttonLabel:'读取此附件',properties:['openFile'],filters:[{name:'文档与图片',extensions:['pdf','docx','pptx','png','jpg','jpeg']}]});
+    if(selection.canceled||selection.filePaths.length!==1)return {cancelled:true};
+    // 单文件读取不授予父目录权限；Python 经 Computer gateway 再校验路径及大小。
+    const conversation=await backend.chat('chat.document.attach',{...request,path:selection.filePaths[0]});
+    return {cancelled:false,conversation};
+  }));
+  handle('orvia:chat-document-export',1,input=>chatAction(async()=>{
+    const request=chatDocumentExportSchema.parse(input);
+    const authorization=documentPreviewAuthorization;
+    documentPreviewAuthorization=undefined;
+    if(!authorization||authorization.id!==request.id||authorization.evidence_id!==request.evidence_id||authorization.format!==request.format||authorization.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    const preview=await backend.chatDocumentPreview({id:request.id,evidence_id:request.evidence_id,format:request.format});
+    if(preview.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    // 原生保存确认仅授权当前证据版本这一次新建写入，绝不转成目录授权或覆盖许可。
+    const selection=await dialog.showSaveDialog(window!,{title:'确认保存已预览的引用文档（不覆盖已有文件）',buttonLabel:'确认导出',defaultPath:path.basename(preview.filename),filters:[{name:request.format==='md'?'Markdown':'JSON',extensions:[request.format]}]});
+    if(selection.canceled||!selection.filePath)return {cancelled:true};
+    const conversation=await backend.chat('chat.document.export',{...request,path:selection.filePath});
+    return {cancelled:false,conversation};
+  }));
   handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
   handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));
   handle('orvia:chat-undo', 1, input => chatAction(() => backend.chat('chat.undo', chatApprovalSchema.parse(input))));

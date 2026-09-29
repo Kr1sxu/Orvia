@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {BackendClient} from '../../apps/desktop/src/main/backend';
 
 it('M12 真实 Python/stdio 无 Key、拒绝 URL、引用隔离与重启持久化，无联网',async()=>{
-  const results=path.resolve('artifacts/test-results/M12');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M12');await mkdir(results,{recursive:true});
   const work=await mkdtemp(path.join(results,'stdio-'));
   const make=()=>new BackendClient(process.cwd(),5000,{dataDirectory:work,credentials:()=>({})});
   const backend=make();let id='',evidence_id='';

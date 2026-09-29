@@ -1,6 +1,10 @@
 # 开发进度与验证证据
 
-## 当前状态（2026-09-28）
+## 当前状态（2026-09-29，M13）
+
+M01–M13已完成当前模块范围的实现与对应验证；M13本地提交见本轮交付回执，等待用户手动push，Agent不push。预检main、origin/main与远端默认main均为M12提交 `0cffa15f3840a92cd9fd3668b2b9bc63d10f322c`，确认用户已同步M12。未跟踪 `.zcodeignore` 保留，不提交；LICENSE未触碰。M14未开始，M08安装包仍为历史版本。M13详细证据见本文末节。
+
+## 历史状态（2026-09-28）
 
 M01–M06 已完成并由用户手动 push；本轮从 `db08c59` 开发 M07。M07 已实现并完成下述合成验证，本地提交以包含本节的 `feat(M07): add restricted browser search and page reading` 为准；用户手动 push 待执行，Agent 不 push。预存 LICENSE 删除仍未暂存；M08 未开始。历史推送失败记录原样保留。
 
@@ -480,3 +484,51 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 提交前差异检查还修正两处对话边界：来源请求中断不显示更早文件需求的“重试规划”，点击来源卡片读取网页不清空未发送草稿。加入保留草稿 E2E 断言后，重新构建通过；同样 M12 环境下 `npx playwright test tests/e2e/m12.spec.ts -g '搜索、引用'` 定向1 passed（9.0秒）。报告 e2e.json 为该最后定向结果，不累加流程数。M12两项流程、M10两项流程均已有通过证据。无待运行后台测试。
 
 提交前卫生检查通过：30 个模块文件显式暂存，禁止路径 0，暂存真实密钥匹配 0，706 个本轮产物中真实密钥匹配 0。仅报告凭据存在性，Tavily 当前未配置；未输出凭据值。LICENSE、.zcodeignore、数据库、日志、用户文件和测试产物均未纳入索引。git diff --cached --check 通过；报告 hygiene.json 被 Git 忽略。
+
+## M13 文档内容处理、引用与导出（2026-09-29）
+
+### 预检与实现
+
+`git status --short`仅有未跟踪`.zcodeignore`；main与origin/main同为`0cffa15`。`git ls-remote --symref origin HEAD refs/heads/main`确认远端默认main也为同一M12提交，用户手动push已生效。全程不触碰LICENSE，不暂存`.zcodeignore`，不push、不修改TLS/网络配置、不重写历史。读取AGENTS、根/架构/计划/进度与相关模块README后按M13范围实施，M14未开始。
+
+- [x] √ 对话显式单附件选择、解析状态、原文引用、详情、导出预览与核验卡片。renderer隔离不变，主进程严格参数/来源检查及原生选择器授权，不开放任意路径/IPC。
+- [x] √ PDF文本、无文本层扫描PDF与PNG/JPEG离线OCR、DOCX段落、PPTX实际幻灯片顺序；10 MiB/50单元/8000码点、44 KiB序列化预算，45秒固定解析子进程。无原文副本/解压临时目录，异常子进程回收；Office宏/加密/外部关系与ZIP/XML不安全输入拒绝。
+- [x] √ 复用Computer gateway/PathPolicy的路径与句柄校验，单文件读取不建立父目录grant；Application/ChatService继续负责会话锁、100次预算和幂等。请求日志只存摘要，不存绝对附件/导出路径。
+- [x] √ 复用M12不可变版本、归属与首次时间，独立document表与文件/内容SHA256；M06按文档版本/单元索引。OCR分数、普通文本无分数、缺失与截断分开记录，Word用段落不虚构页码。附件/网页不进入Main文件规划历史，不改变三个固定模型配置。
+- [x] √ 单文档Markdown/JSON引用原文导出，覆盖指已提取非空单元都有引用，不是事实正确率或全文覆盖率；主进程最近预览一次性校验，原生保存框明确确认，后端再验证revision/路径，以独占新建、fsync与读回核验拒绝覆盖。导出不属于M04整理撤销，不生成Office/PDF成品。
+- [x] √ 新增文档模块中文README、更新根/桌面/后端/Computer/Chat/Browser/Context/测试说明、架构和清单；仅在允许测试目录放测试，合成文档/报告归档M13。
+
+本轮将解析器及桌面边界委派给独立子Agent，文件所有权分开；主Agent实现安全网关/存储/应用、整合验证与提交。子Agent未收到或读取真实Key。主Agent存在性预检结果为三模型Key存在，Tavily不存在，仅记录布尔值；M13不需要这些凭据，不构成阻塞。
+
+### 分级验证与证据
+
+以下均为合成文档/临时数据库。云端模型、Tavily、真实互联网调用为0；RapidOCR实际本地ONNX推理不是三角色供应商调用。系统原生选择器在E2E启动器中mock，产品无测试授权后门。精确命令均在项目根运行，报告均Git忽略。
+
+| 级别 | 实际命令 | 结果与证据 |
+|---|---|---|
+| L0 | `.venv/Scripts/uv.exe lock --project backend --check`；`npm run check`；`npm run build`；`git diff --check` | 通过；新增依赖已锁定安装；构建包含最终导出卡片与255字符文件名契约。无安装器构建 |
+| L1 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_m13_parser.py -q --junitxml=artifacts/test-results/M13/parser.xml` | 18 passed；真实PDF文本、PNG/JPG/扫描PDF离线OCR、Office顺序/段落、截断/缺失、ZIP/XML、真实子进程/超时；逃逸字节预算和spawn异常使用mock。合成内容主要在内存中 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_m13_documents.py backend/tests/test_m12_browser_chat.py -q --basetemp artifacts/test-results/M13/backend-temp --junitxml artifacts/test-results/M13/backend.xml` | 首轮15 passed/1 failed；唯一失败为测试自身app.gateway属性误用，不是产品失败 |
+| L1/L2 定向 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m13_documents.py::test_mock_parser_failure_partial_metadata_and_main_history_boundary -q --basetemp artifacts/test-results/M13/backend-retry-temp --junitxml artifacts/test-results/M13/backend-retry.xml` | 修正为app.chat.gateway后1 passed；OCR元数据与Main隔离mock |
+| L2 新增边界 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m13_documents.py::test_attachment_idempotency_shared_budget_and_interrupted_claim -q --basetemp artifacts/test-results/M13/backend-budget-temp --junitxml artifacts/test-results/M13/backend-budget.xml` | 1 passed；附件同请求幂等、参数冲突、共享预算、持久化中断不重放。上述去重M13 9项、M12 8项全部有通过证据 |
+| L1 Computer回归 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_computer_gateway.py backend/tests/test_computer_files.py -q --basetemp=artifacts/test-results/M13/computer-temp --junitxml=artifacts/test-results/M13/computer.xml` | 4 passed/1 skipped，符号链接真实创建受Windows权限限制；M13父重解析拒绝另外用mock覆盖 |
+| L1 | `npx vitest run apps/desktop/tests/m13-contracts.test.ts apps/desktop/tests/m12-contracts.test.ts apps/desktop/tests/chat.test.ts` | 12 passed；文档路径/字段白名单、Unicode/方法/引用、纯文本渲染与既有契约回归 |
+| L1/L2 | `npx vitest run tests/integration/m13.test.ts apps/desktop/tests/m13-contracts.test.ts tests/integration/m12.test.ts --reporter=json --outputFile=artifacts/test-results/M13/desktop-integration.json` | 6 passed；真实Python/stdio、SQLite/FTS、导出字节/拒覆盖/隔离/重启，与M12无Key及拒绝URL回归 |
+| L3 | 设置`ORVIA_TEST_MODULE=M13`、`ORVIA_TEST_RESULTS=artifacts/test-results/M13`后，`npx playwright test tests/e2e/m13.spec.ts tests/e2e/m12.spec.ts tests/e2e/m10.spec.ts` | 首轮5 passed/1 failed；M10两项、M12两项、M13真实OCR均通过；失败为测试将无附件新对话的提示误写成空结果卡片。首轮报告保留e2e-initial.json |
+| L3 定向 | 同环境，`npx playwright test tests/e2e/m13.spec.ts -g '选择附件'` | 修正测试预期后1 passed；新增导出卡片与主进程未预览拒绝断言后再定向1 passed（10.4秒）。验证选择/引用/预览/新建/拒覆盖/重启/隔离/760px窗口，报告e2e.json为最后定向结果 |
+| L1/L2 导出卡片 | `npx vitest run apps/desktop/tests/m13-contracts.test.ts tests/integration/m13.test.ts --reporter=json --outputFile=artifacts/test-results/M13/export-final.json` | 5 passed；新增导出消息契约后真实stdio验证 |
+| L1 最终边界 | `npx vitest run apps/desktop/tests/m13-contracts.test.ts --reporter=json --outputFile=artifacts/test-results/M13/export-contract-final.json` | 5 passed；额外覆盖合法255字符文件名不会在新建后被TS响应拒绝、无引用假成功消息拒绝及导出卡片渲染 |
+
+重复执行不累加：Python去重39项通过/1项跳过；Vitest去重15项通过；Electron去重6项通过。初期PDF文本测试暴露pdfium对象不支持所用context-manager形式，已使用closing修正后18项验证通过；无待修复失败。未做L4全量/独立Windows/发布包验证，因为本轮不涉及发布验收。已查看document-export-narrow.png与ocr-evidence.png，窄窗口无横向溢出、输入区可用，OCR与置信度可见；导出卡片另有DOM/契约断言。
+
+旧M12测试脚本有固定输出路径，首轮回归曾写入M12目录并刷新同名三张回归截图；已修正为读取ORVIA_TEST_RESULTS，本轮新生成profile/stdio目录及截图副本归档 `artifacts/test-results/M13/m12-regression/`，历史其他证据保留。该调整只影响测试产物路径，无用户文件访问。
+
+### 试用、风险与提交状态
+
+先 `.venv/Scripts/uv.exe sync --project backend --locked`，再 `npm run build`、`npm start`。选择“＋ 添加附件”提供人工合成PDF/DOCX/PPTX/图像，展开“查看文档证据”；“询问文档”输入简短关键词；预览Markdown/JSON、核对缺失/截断/覆盖后选择新路径确认。历史会话可重新查看已保存内容，原文件/目录权限不会恢复。导出卡片显示当时文件名、内容哈希及引用，不监测外部修改；取消或再次保存需重新预览。
+
+限制：本轮只有原文提取和关键词检索，没有模型总结、多附件/网页合并报告、Office/PDF成品、完整标书；旧DOC/PPT、宏/加密/含外部关系的Office拒绝。OCR可能误识，混合PDF页内图片不额外OCR，复杂表格/公式/布局不保真；Word按段落而非物理页。数据保留本地DB/FTS，无自动历史删除；子进程只在内存处理原始字节。路径校验不是OS沙箱，不能消除所有外部进程竞态。中断导出可能留下部分新文件，程序不会覆盖重试；需人工核对。M08安装包未更新，新增依赖冻结/独立机器验收留M14。
+
+提交前敏感信息检查确认源码与M13产物无真实Key匹配，仅输出计数；`.env.local`、数据库、日志、用户文件和测试产物均不纳入Git。固定作者“踪显 <18532112451@163.com>”，本地提交主题 `feat(M13): add local document citations and safe exports`，哈希以交付回执/git log为准。显式暂存本轮文件并检查status/diff/cached diff；Agent未push，本轮完成后立即停止，等待用户手动push与后续指令。
+
+最终暂存43个模块文件，禁止路径0、暂存真实密钥匹配0，扫描571个本轮产物密钥匹配0；`git diff --cached --check`通过，未暂存差异为空，工作区保留未跟踪`.zcodeignore`。敏感检查报告为忽略的 `artifacts/test-results/M13/hygiene.json`。本地提交与手动push状态分开记录，不把未推送写为已同步。

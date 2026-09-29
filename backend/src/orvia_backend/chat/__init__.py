@@ -12,9 +12,11 @@ from ..computer.contracts import GrantRequest, ToolRequest
 from ..computer.paths import ToolError
 from ..context import ContextError
 from ..browser.evidence import EvidenceStore
+from ..documents.service import DocumentStore
+from ..documents.parser import extract_document
 from ..configuration.client import ModelClient, ModelUnavailable
 from ..domain import MissionCreate
-from .contracts import Approval, BrowserAsk, BrowserSource, BrowserRead, BrowserSearch, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send
+from .contracts import Approval, BrowserAsk, BrowserSource, BrowserRead, BrowserSearch, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send, DocumentAttach, DocumentPreview, DocumentExport
 from .repository import ChatRepository
 
 
@@ -29,6 +31,7 @@ class ChatService:
         self.store, self.gateway, self.graph, self.browser = store, gateway, graph, browser
         self.repository = ChatRepository(store)
         self.evidence = EvidenceStore(store)
+        self.documents = DocumentStore(store)
         self.client = ModelClient(registry)
         self._locks = {}
         self._active = {}
@@ -36,6 +39,7 @@ class ChatService:
     async def open(self):
         await self.repository.open()
         await self.evidence.open()
+        await self.documents.open()
 
     async def handle(self, method, params):
         """仅 Application 私有管道调用；拒绝未知字段与跨会话操作引用。"""
@@ -62,6 +66,9 @@ class ChatService:
         contracts = {"chat.get": Conversation, "chat.send": Send, "chat.grant": Grant,
                      "chat.inspect": Inspect, "chat.browser.search": BrowserSearch, "chat.browser.read": BrowserRead,
                      "chat.browser.ask": BrowserAsk, "chat.browser.source": BrowserSource,
+                     "chat.document.attach": DocumentAttach, "chat.document.source": BrowserSource,
+                     "chat.document.ask": BrowserAsk, "chat.document.preview": DocumentPreview,
+                     "chat.document.export": DocumentExport,
                      "chat.approve": Approval, "chat.resume": Approval, "chat.undo": Approval}
         request = contracts[method].model_validate(params)
         cid = str(request.id)
@@ -78,9 +85,52 @@ class ChatService:
                 return await self.evidence.get(cid, request.evidence_id)
             elif method.startswith("chat.browser."):
                 await self.browser_request(method, request)
+            elif method == "chat.document.source":
+                return await self.documents.get(cid, request.evidence_id)
+            elif method == "chat.document.preview":
+                return await self.documents.preview(cid, request.evidence_id, request.format)
+            elif method.startswith("chat.document."):
+                await self.document_request(method, request)
             elif method in {"chat.approve", "chat.resume", "chat.undo"}:
                 await self.action(method, request)
             return await self.snapshot(cid)
+
+    async def document_request(self, method, request):
+        """附件与导出使用独立事件，不会进入 Main 指令历史或文件动作审批链。"""
+        cid, rid = str(request.id), str(request.request_id)
+        # 幂等日志只保存请求摘要，用户选择的绝对路径不写入会话或数据库。
+        import hashlib
+        payload = hashlib.sha256((method + json.dumps(request.model_dump(mode="json"), sort_keys=True)).encode()).hexdigest()
+        if not await self.repository.claim(cid, rid, payload):
+            return
+        await self.repository.append(cid, "user", {"chat.document.attach": "显式选择附件进行本地解析。",
+            "chat.document.ask": "检索当前会话附件原文。", "chat.document.export": "保存已预览的文档引用结果。"}[method], "document_request")
+        try:
+            if method.endswith(".attach"):
+                data, name = self.gateway.read_attachment("computer", request.path)
+                parsed = await extract_document(data, Path(name).suffix.lower())
+                value = await self.documents.save(cid, name, data, parsed)
+                error = value["error"]
+                await self.repository.append(cid, "assistant", "附件解析已返回；请检查提取方式、截断和缺失单元。原文是不可信资料。", "document",
+                                             {"items": [self.documents.summary(value)], "operation": "attach", "error": error})
+            elif method.endswith(".ask"):
+                items = await self.documents.search(cid, request.query)
+                error = None
+                await self.repository.append(cid, "assistant", "附件关键词检索原文引用；未生成模型总结。" if items else "当前会话附件没有匹配原文。", "document",
+                                             {"items": items, "operation": "ask", "error": None})
+            else:
+                preview = await self.documents.preview(cid, request.evidence_id, request.format)
+                if preview["revision"] != request.revision:
+                    raise ToolError("STALE_PLAN", "导出预览版本不匹配，请重新预览")
+                name = self.gateway.export_document("computer", request.path, preview["content"].encode("utf-8"), request.format)
+                error = None
+                await self.repository.append(cid, "system", "已创建新导出文件并核验；不会覆盖已有文件。", "export",
+                    {"filename": name, "evidence_id": request.evidence_id, "revision": request.revision,
+                     "format": request.format, "coverage": preview["coverage"], "truncated": preview["truncated"], "missing_units": preview["missing_units"]})
+            await self.repository.finish(cid, rid, "failed" if error else "completed")
+        except (ToolError, ContextError) as error:
+            await self.repository.append(cid, "system", error.message, "error", {"code": error.code})
+            await self.repository.finish(cid, rid, "failed")
 
     async def browser_request(self, method, request):
         """显式会话请求共享100次预算和幂等占位；异常中断不自动重发网络请求。"""
@@ -157,6 +207,10 @@ class ChatService:
         operations, truncated = await self.repository.operations(cid)
         result["operations"], result["operations_truncated"] = operations, truncated
         result["sources"], result["sources_truncated"] = await self.evidence.list(cid)
+        result["documents"], result["documents_truncated"] = await self.documents.list(cid)
+        while encoded_size(result["documents"]) > 8 * 1024 and result["documents"]:
+            result["documents"].pop()
+            result["documents_truncated"] = True
         # 来源目录先占独立小预算，避免长 URL 目录挤掉刚返回的对话消息。
         while encoded_size(result["sources"]) > 12 * 1024 and result["sources"]:
             result["sources"].pop()
@@ -177,6 +231,9 @@ class ChatService:
         while encoded_size(result) > 46 * 1024 and result["sources"]:
             result["sources"].pop()
             result["sources_truncated"] = True
+        while encoded_size(result) > 46 * 1024 and result["documents"]:
+            result["documents"].pop()
+            result["documents_truncated"] = True
         return result
 
     async def inspect(self, cid, tool, arguments):

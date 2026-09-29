@@ -3,7 +3,7 @@ import {mkdir,mkdtemp} from 'node:fs/promises';
 import path from 'node:path';
 
 async function fixture(missing=false){
-  const results=path.resolve('artifacts/test-results/M12');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M12');await mkdir(results,{recursive:true});
   const profile=await mkdtemp(path.join(results,'e2e-profile-'));
   const env={...process.env,ORVIA_DEV_DATA_DIR:profile,ORVIA_M12_NO_SEARCH:missing?'1':'0'};
   delete (env as NodeJS.ProcessEnv).ELECTRON_RUN_AS_NODE;

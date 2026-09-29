@@ -116,6 +116,18 @@ class PathPolicy:
             raise ToolError("file_changed", "文件身份在读取期间发生变化。")
         return info
 
+    def new_file(self, name: str) -> Path:
+        """原生保存框授予单个新文件权限；只复用已校验父目录，拒绝覆盖和 ADS。"""
+        supplied = Path(name)
+        if (not name or name in {".", ".."} or supplied.name != name or supplied.is_reserved()
+                or any(char in name for char in ':\\/\x00') or name.endswith((' ', '.')) or sensitive(name)):
+            raise ToolError("path_denied", "导出文件名无效")
+        parent = self.resolve(".", "directory")
+        target = parent / name
+        if target.exists() or target.is_symlink():
+            raise ToolError("EXPORT_EXISTS", "目标已存在，请选择新的文件名")
+        return target
+
 
 def safe_stat(path: Path) -> os.stat_result:
     """只返回已经通过路径策略的普通文件或目录状态。"""
