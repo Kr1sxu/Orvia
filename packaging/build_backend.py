@@ -10,7 +10,7 @@ import sys
 import playwright
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / 'artifacts/test-results/M08/build'
+BUILD = ROOT / 'artifacts/test-results/M14/build'
 
 
 def main():
@@ -39,7 +39,9 @@ def main():
                     '--distpath', str(BUILD / 'python'), '--workpath', str(BUILD / 'pyinstaller-work'),
                     str(ROOT / 'packaging/orvia-backend.spec')], cwd=ROOT, check=True)
     manifest = {'python': sys.version.split()[0], 'playwright': importlib.metadata.version('playwright'),
-                'pyinstaller': importlib.metadata.version('pyinstaller'), 'browsers': versions}
+                'pyinstaller': importlib.metadata.version('pyinstaller'), 'browsers': versions, 'app_version': '0.2.0-rc.1', 'signed': False,
+                'documents': {name: importlib.metadata.version(name) for name in
+                              ('pypdfium2', 'rapidocr-onnxruntime', 'onnxruntime', 'pillow', 'defusedxml')}}
     (BUILD / 'runtime-manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     print('后端与浏览器资源已生成；尚未代表安装包验收通过。')
 

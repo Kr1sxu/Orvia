@@ -4,7 +4,7 @@ import path from 'node:path';
 import {documentFixtures} from '../integration/m13-fixtures';
 
 async function fixture(image=false){
-  const results=path.resolve('artifacts/test-results/M13');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M13');await mkdir(results,{recursive:true});
   const work=await mkdtemp(path.join(results,'e2e-'));documentFixtures(work);
   const output=path.join(work,'result.md');
   const env={...process.env,ORVIA_DEV_DATA_DIR:path.join(work,'profile'),ORVIA_M13_INPUT:path.join(work,image?'synthetic.png':'synthetic.docx'),ORVIA_M13_OUTPUT:output};

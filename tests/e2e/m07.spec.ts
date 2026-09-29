@@ -14,7 +14,7 @@ test('M07 真实 Electron Tavily 加密、私有管道同步与三模型边界�
     const page = await app.firstWindow();
     await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: '⚙ 设置' }).click();
-    await expect(page.getByText('未配置 Tavily，搜索不可用。', { exact: true })).toBeVisible();
+    await expect(page.getByText('未配置 Tavily，搜索不可用；仍可读取已知公开网页。', { exact: true })).toBeVisible();
     const result = await app.evaluate(async ({ safeStorage }, args) => {
       const requireModule = process.getBuiltinModule('module').createRequire(args.vaultModule);
       // safeStorage 必须使用原始 CredentialVault，不能沿用无凭据启动器的替身。

@@ -1,11 +1,11 @@
 const path = require('node:path');
 const root = __dirname;
-const build = path.join(root, 'artifacts/test-results/M08/build');
+const build = path.join(root, 'artifacts/test-results/M14/build');
 
 // 白名单仅发布编译后的桌面代码与明确生成的资源，禁止将仓库根作为 files 通配目录。
 module.exports = {
   appId: 'cn.orvia.desktop', productName: 'Orvia',
-  directories: { app: 'apps/desktop', output: 'artifacts/test-results/M08/release' },
+  directories: { app: 'apps/desktop', output: 'artifacts/test-results/M14/release' },
   files: ['dist/main/**/*', 'dist/renderer/**/*', 'package.json'],
   extraResources: [
     { from: path.join(build, 'python/orvia-backend'), to: 'backend', filter: ['**/*'] },

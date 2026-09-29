@@ -76,3 +76,7 @@ M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initiali
 M04 已验证动作计划、审批、核验、恢复和受限撤销；M06 增加显式提交文本的上下文索引和偏好。仍无通用删除、覆盖、任意脚本或 renderer 写操作 UI。父进程负责超时和进程清理，EOF 关闭数据库连接后退出。
 
 M07 增加 browser.read / browser.search，须存在的 mission_id；来源与正文证据不自动落盘。Tavily 仅以内存 SecretStr 持有，不作为模型配置。Browser 策略、Chromium 依赖和合成试用见 `src/orvia_backend/browser/README.md`。
+
+## M14 本机打包验证
+
+最新未签名候选版为0.2.0-rc.1，包含对话及文档能力；上文“安装包未重建”描述保留为历史模块状态。PDF/OCR冻结资源、安装包流程、升级/卸载的命令与边界见根目录 packaging/README.md、docs/PROGRESS.md。测试产物统一为 artifacts/test-results/M14/。真实本地组件测试不等于云模型/Tavily验证；生产签名和独立Windows验收经用户确认暂缓。

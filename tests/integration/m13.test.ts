@@ -6,7 +6,7 @@ import {BackendClient} from '../../apps/desktop/src/main/backend';
 import {documentFixtures} from './m13-fixtures';
 
 it('M13 真实 stdio 附件、引用、导出与隔离重启；无云端调用',async()=>{
-  const results=path.resolve('artifacts/test-results/M13');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M13');await mkdir(results,{recursive:true});
   const work=await mkdtemp(path.join(results,'stdio-'));documentFixtures(work);
   const make=()=>new BackendClient(process.cwd(),10000,{dataDirectory:path.join(work,'profile'),credentials:()=>({})});
   const backend=make();let id='',eid='';

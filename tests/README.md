@@ -15,3 +15,7 @@ M13：`integration/m13-fixtures.ts`只生成无敏感DOCX/PNG；`integration/m13
 权限边界：仅启动自有 Electron/Python 进程，不处理真实用户资料。L2 使用合成 Key；L3 运行开发主进程会读取根 `.env.local`，只显示存在性并在内存注入后端，不调用模型；真实 safeStorage 测试只使用合成 Key。生成文件在被忽略的 `artifacts/test-results/M02/`，此前 M01 证据保留。
 
 已知限制：M02 不验收安装包、Agent、文件审批或系统级安全隔离。发布凭据模块使用真实 safeStorage，但完整打包程序的设置流程留 M08；单元失败分支使用 fake safeStorage。真实模型脚本位于 `backend/tests/`，必须显式启用，且与这里的默认测试分开记录。
+
+## M14 本机打包验证
+
+最新未签名候选版为0.2.0-rc.1，包含对话及文档能力；上文“安装包未重建”描述保留为历史模块状态。PDF/OCR冻结资源、安装包流程、升级/卸载的命令与边界见根目录 packaging/README.md、docs/PROGRESS.md。测试产物统一为 artifacts/test-results/M14/。真实本地组件测试不等于云模型/Tavily验证；生产签名和独立Windows验收经用户确认暂缓。

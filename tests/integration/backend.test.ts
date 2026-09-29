@@ -43,7 +43,10 @@ describe('真实 Python 3.12 进程', () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       child.stdin.end(Buffer.concat([hello.subarray(split), Buffer.from(frame('中文检查', 'health') + frame('unknown', 'delete'))]));
       const [code] = await closed;
-      expect(code).toBe(0); expect(stderr).toBe('');
+      expect(code).toBe(0);
+      // 允许已知依赖弃用提示；协议错误/其它诊断仍使测试失败。
+      const diagnostics = stderr.replace(/^.*LangChainPendingDeprecationWarning: The default value of `allowed_objects`.*\r?\n\s+from langgraph\.checkpoint\.serde\.jsonplus import JsonPlusSerializer\r?\n/gm, '');
+      expect(diagnostics).toBe('');
       const responses = stdout.trim().split('\n').map((line) => responseSchema.parse(JSON.parse(line)));
       expect(responses).toHaveLength(6);
       expect(responses[0]).toMatchObject({ ok: false, error: { code: 'NOT_READY' } });

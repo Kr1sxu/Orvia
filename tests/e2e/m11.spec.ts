@@ -4,7 +4,7 @@ import {mkdir,mkdtemp,writeFile,readFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 
 async function fixture() {
- const results=path.resolve('artifacts/test-results/M11');await mkdir(results,{recursive:true});
+ const results=path.resolve(process.env.ORVIA_TEST_RESULTS ?? 'artifacts/test-results/M11');await mkdir(results,{recursive:true});
  const profile=await mkdtemp(path.join(results,'profile-'));
  const root=await mkdtemp(path.join(results,'files-'));await writeFile(path.join(root,'sample.txt'),'synthetic');
  const env={...process.env,ORVIA_DEV_DATA_DIR:profile};delete env.ELECTRON_RUN_AS_NODE;

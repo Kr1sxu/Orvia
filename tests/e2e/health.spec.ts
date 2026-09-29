@@ -27,7 +27,9 @@ test('真实窗口 → 受限 IPC → Python → 健康响应与退出清理', a
     await page.getByRole('button', { name: '重新检查连接' }).click();
     await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => ({ keys: Object.keys(window.orvia), require: typeof (window as any).require, process: typeof (window as any).process })))
-      .toEqual({ keys: ['chatList', 'chatCreate', 'chatGet', 'chatSend', 'chatChooseDirectory', 'chatInspect',
+      .toEqual({ keys: ['connectionStatus', 'reconnect', 'chatCancel', 'chatList', 'chatCreate', 'chatGet', 'chatSend', 'chatChooseDirectory', 'chatInspect',
+        'chatBrowserSearch', 'chatBrowserRead', 'chatBrowserAsk', 'chatBrowserSource',
+        'chatDocumentAttach', 'chatDocumentAsk', 'chatDocumentSource', 'chatDocumentPreview', 'chatDocumentExport',
         'chatApprove', 'chatResume', 'chatUndo', 'health', 'settings', 'missions', 'createMission',
         'saveCredential', 'removeCredential', 'chooseDirectory', 'computerStatus', 'computerScan'],
         require: 'undefined', process: 'undefined' });

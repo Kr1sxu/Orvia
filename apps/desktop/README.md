@@ -90,3 +90,7 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 本轮不调用模型、Tavily 或上传正文；文档追问是关键词检索，导出是一个已保存证据的原文摘录，不是生成式总结或排版文档。解析失败、OCR 不可用和缺页必须显式显示；不承诺无损版式或完整 OCR。快照文档目录最多20项/8 KiB，内容上限与解析细节以 backend 文档模块 README 为准。安装包未重建。
 
 验证：L0 `npm run check`、`npm run build`；L1 `npx vitest run apps/desktop/tests/m13-contracts.test.ts apps/desktop/tests/m12-contracts.test.ts apps/desktop/tests/chat.test.ts`。L2/L3 集成命令及结果见 `docs/PROGRESS.md`。仅合成数据/mock，所有结果产物位于忽略的 `artifacts/test-results/M13/`。
+
+## M14 本机打包验证
+
+最新未签名候选版为0.2.0-rc.1，包含对话及文档能力；上文“安装包未重建”描述保留为历史模块状态。PDF/OCR冻结资源、安装包流程、升级/卸载的命令与边界见根目录 packaging/README.md、docs/PROGRESS.md。测试产物统一为 artifacts/test-results/M14/。真实本地组件测试不等于云模型/Tavily验证；生产签名和独立Windows验收经用户确认暂缓。

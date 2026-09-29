@@ -532,3 +532,54 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 提交前敏感信息检查确认源码与M13产物无真实Key匹配，仅输出计数；`.env.local`、数据库、日志、用户文件和测试产物均不纳入Git。固定作者“踪显 <18532112451@163.com>”，本地提交主题 `feat(M13): add local document citations and safe exports`，哈希以交付回执/git log为准。显式暂存本轮文件并检查status/diff/cached diff；Agent未push，本轮完成后立即停止，等待用户手动push与后续指令。
 
 最终暂存43个模块文件，禁止路径0、暂存真实密钥匹配0，扫描571个本轮产物密钥匹配0；`git diff --cached --check`通过，未暂存差异为空，工作区保留未跟踪`.zcodeignore`。敏感检查报告为忽略的 `artifacts/test-results/M13/hygiene.json`。本地提交与手动push状态分开记录，不把未推送写为已同步。
+
+## M14 本机未签名候选版（2026-09-29）
+
+### 授权、预检和停止范围
+
+用户在了解生产签名和独立 Windows 环境后明确要求“先不做这两项工作，继续开发”。本轮交付本机未签名候选版，M14完整发布验收仍未完成；不发布Release，不push，不开始新模块。预检工作区仅`.zcodeignore`，main与origin/main均为`18749cc`；实时`git ls-remote --symref origin HEAD refs/heads/main`因SSL_ERROR_SYSCALL失败，未改TLS或网络配置，不能宣称实时远端同步。LICENSE和`.zcodeignore`均保留且不纳入提交。
+
+### 实现与产物
+
+- [x] √ Electron/后端版本更新为0.2.0-rc.1 / Python规范版本0.2.0rc1；锁文件保持依赖一致。新增CHANGELOG，未签名状态与安装、升级、卸载数据策略有中文说明。
+- [x] √ 构建输出切换M14，补齐PyInstaller PDF原生库、RapidOCR权重/字典、ONNX Runtime资源及manifest版本。复用M13已有固定冻结worker入口，无重复实现，不改变权限或三个固定模型。
+- [x] √ 本地NSIS安装器与目录包包含最新对话及文档流程；实际Authenticode状态NotSigned，未签名安装包不冒充正式发行。M08历史包保留。
+- [x] √ 新增冻结解析/升级数据/发布包E2E/受限安装脚本；安装脚本验证隔离目标、重解析点、注册表、EXE与安装器哈希，不递归删除，不接管个人已有安装。
+- [x] √ M08旧包真实安装到M14隔离目录，生成旧合成草稿；升级0.2.0-rc.1后读取旧数据、确认固定配置，并执行新会话附件/FTS；升级后的安装版4条流程通过。
+- [x] √ 静默卸载成功，安装EXE和注册项移除；隔离合成app.sqlite卸载前后SHA256相同。没有读取/删除默认个人userData；保留数据不代表已清除隐私。
+
+独立任务仅拥有m14.spec.ts和m14-install.ps1两个互不重叠文件；主Agent负责打包、整合、实际测试与提交。无凭据传递给子Agent。产物均在Git忽略的`artifacts/test-results/M14/`。
+
+### 分级验证（命令在项目根执行）
+
+| 级别 | 实际命令/设置 | 结果 |
+|---|---|---|
+| L0 | `.venv/Scripts/uv.exe lock --project backend`；`sync --project backend --locked --group packaging`；`lock --project backend --check`；`npm run check`；`python -X utf8 -m compileall -q backend/src packaging backend/tests/test_m14_frozen.py backend/tests/m14_package_audit.py`；`git diff --check` | 通过，版本与锁一致，Python使用backend/.venv/Scripts/python.exe |
+| L0/L4 构建 | `npm run package:win` | 通过，含类型/前端构建、PyInstaller及NSIS；package.log；约329.4MiB未签名测试包 |
+| L1/L2/L4 | `ORVIA_BROWSER_TEST=1`，`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests -q --basetemp=artifacts/test-results/M14/pytest --junitxml=artifacts/test-results/M14/backend.xml` | 202 passed/6 skipped；4条真实配套Chromium合成响应测试已启用，5项冻结测试随后单独运行，另1项符号链接权限跳过 |
+| L2/L4 冻结 | `ORVIA_FROZEN_BACKEND=<M14/build/python/orvia-backend/orvia-backend.exe绝对路径>`，`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_frozen.py backend/tests/test_m14_frozen.py -q --basetemp=artifacts/test-results/M14/frozen-temp --junitxml=artifacts/test-results/M14/frozen.xml` | 5 passed；真实冻结PDF/DOCX/PPTX/OCR、FTS/审批/撤销/重启；PATH仅System32 |
+| L1/L2/L4 | `ORVIA_TEST_RESULTS=artifacts/test-results/M14`，`npx vitest run apps/desktop/tests tests/integration --reporter=json --outputFile=artifacts/test-results/M14/vitest.json` | 首轮68 passed/1 failed；历史协议测试将已知LangGraph弃用提示当失败。仅允许该具体提示，其余stderr仍拒绝 |
+| L2定向 | 同环境，`npx vitest run tests/integration/backend.test.ts --reporter=json --outputFile=artifacts/test-results/M14/vitest-retry.json` | 3 passed，含上述唯一失败项，其余重复不累加 |
+| L3/L4源码 | 设置`ORVIA_TEST_MODULE=M14`和`ORVIA_TEST_RESULTS=artifacts/test-results/M14`，`npx playwright test --ignore-snapshots` | 初轮11 passed/2 failed/4 skipped；旧M08发布测试及尚未指定包的M14三项跳过。13个源码流程中失败为M07旧提示文案和M13 OCR场景启动超过默认5秒 |
+| L3定向 | 同环境，`npx playwright test tests/e2e/m07.spec.ts tests/e2e/m13.spec.ts -g 'M07\|本地真实 OCR'` | 2 passed；修正文案后重跑，OCR无需产品修改即通过。初轮及重跑JSON分别保存e2e-development-initial.json / e2e-development-retry.json |
+| L4 安装升级 | `powershell -NoProfile -File tests/integration/m14-install.ps1 -Stage InstallLegacy`；`-Stage VerifyPending`；`-Stage Upgrade` | 旧包安装成功但首轮注册表断言失败，保留pending；按下述修正并核对哈希后恢复记录；真实Upgrade成功，installation.json保留两代记录 |
+| L2升级数据 | 升级前`ORVIA_UPGRADE_STAGE=seed`，升级后`verify`，各运行`npx vitest run tests/integration/m14-upgrade.test.ts --reporter=json --outputFile=artifacts/test-results/M14/upgrade-<阶段>-test.json` | 两阶段各1 passed/1按阶段跳过。加强固定模型models字段断言后仅重跑verify通过；不会将两端不存在的profiles字段相等作为证据 |
+| L3/L4安装版 | 指定`ORVIA_PACKAGED_EXE=<M14/install-smoke/Orvia.exe绝对路径>`和上述M14报告环境，`npx playwright test tests/e2e/m14.spec.ts` | 4 passed，42.4秒；真实包safeStorage、导出拒覆盖/历史隔离、OCR、Chromium data页、扫描/权限重启失效、无Key/私有URL拒绝。e2e-installed.json |
+| L4卸载及拒绝 | 已安装时`-Stage Install`返回拒绝覆盖（预期失败）；`-Stage Uninstall` | 卸载exit0，EXE及注册表已移除；独立合成profile哈希未变，uninstallation.json / uninstall-data.json |
+| L0卫生 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/m14_package_audit.py`；`Get-AuthenticodeSignature <安装器>` | 只报告计数与SHA256；最终结果见后附。签名NotSigned，无真实云端调用 |
+
+最终去重：Python207项通过/1项跳过；既有Vitest69项通过，加升级两个阶段为71项；源码Electron13条、安装版4条共17条通过。旧M08面板发布用例由M14实际安装版用例替代，未伪称旧用例通过。全量期间测试产物目录已统一M14，更新health旧IPC白名单断言至当前固定接口。没有为文档改动重复全量执行。
+
+安装验收脚本初次在Windows PowerShell5因无UTF8 BOM解析中文失败，未运行安装；加BOM后成功执行旧包安装。其后发现NSIS实际DisplayName带版本、未提供InstallLocation，改为严格比对固定卸载器路径、参数、版本和注册表身份；再次发现无值注册项不带PSChildName，改用枚举项身份。VerifyPending仅核验已有现场，不重新安装或伪造已丢失的旧退出码。首次卫生扫描与仍在关闭的Electron测试并行，DIPS-wal消失导致扫描失败；最终在全部测试/卸载结束后重跑，不忽略扫描错误。
+
+已查看安装版文档导出截图；真实UI无新增排除入口。原生选择器在测试主进程mock，模型/HTTP/DNS在既有源码测试mock；真实组件为Electron、Windows safeStorage、冻结Python、SQLite/FTS、Chromium及本地OCR。真实云模型、Tavily和公网业务调用0；包构建并不代表生产签名或独立Windows验收。合成夹具由开发工具预生成，但发布进程使用隔离cwd、系统PATH和自带资源。
+
+### 试用与限制
+
+最新测试安装器：`artifacts/test-results/M14/release/Orvia-0.2.0-rc.1-win-x64-setup.exe`，旁边SHA256SUMS.txt核对校验和；也可运行`win-unpacked/Orvia.exe`。进入对话选择合成目录或“添加附件”，查看来源、询问文档关键词、预览后确认新文件导出。未签名包Windows可能提示未知发布者；本轮不指导关闭防护。卸载默认保留用户数据。
+
+本轮没有真实云服务端到端测试，安装版完整Main模型规划审批未真实调用；已验证源码mock规划UI和冻结后端实际审批执行。多用户真实账户、ACL/磁盘满/断网组合、杀毒误报认证未全部实测，相关故障由既有单元注入及文档处理说明覆盖；不承诺全Windows兼容。M13关键词检索/OCR误差、输出预算、导出不覆盖、历史权限失效等限制不变。生产证书签名、独立无开发环境Windows验收由用户明确暂缓，M14完整清单保持未完成；不发布Release或自动更新。
+
+本轮固定作者创建正常本地提交，主题`build(M14): package unsigned conversation release candidate`，哈希以最终回执为准。提交前显式暂存模块文件，检查status/diff/cached diff与敏感信息，不包含LICENSE、.zcodeignore、安装包、日志、数据库或测试产物。完成本轮授权部分后停止，等待用户手动push。
+
+最终卫生检查：显式暂存31个模块文件，禁止暂存路径0、暂存真实密钥匹配0；目录包3096个文件中禁止文件0/密钥匹配0，另外4415个本轮产物密钥匹配0。报告hygiene.json及SHA256SUMS.txt均被Git忽略。安装器SHA256为`e5e5667239170aab2246a3e2ba4dc55fa276055b4690c7fe50996e4f0cc858cc`。已查看安装版导出及OCR截图，OCR原文/98%置信度显示正常；导出拒覆盖提示保留。`git diff --cached --check`通过，未暂存改动为空，仅保留`.zcodeignore`。
