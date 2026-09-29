@@ -1,5 +1,5 @@
 import type { Configuration, Mission, MissionCreate, GrantStatus, ScanEnvelope } from '../main/contracts';
-import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource, PublicationPreview } from '../main/chat-contracts';
+import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource, PublicationPreview, DevelopmentContext, DevelopmentDraft, CleanupPlan } from '../main/chat-contracts';
 export type { GrantStatus, ScanEnvelope } from '../main/contracts';
 /** 渲染端只能请求有限业务接口，没有通用 IPC、后端初始化或凭据读取入口。 */
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
@@ -32,6 +32,14 @@ declare global { interface Window { orvia: {
   chatSynthesisGenerate: (input:{id:string;mode:'summary'|'answer';question:string;sources:SynthesisSource[];revision:string;request_id:string})=>Promise<Reply<{cancelled:boolean;conversation?:Conversation}>>;
   chatPublicationPreview: (input:{id:string;message_id:string;format:'docx'|'pptx'|'pdf';title:string;answer:string;claim_texts:string[]})=>Promise<Reply<PublicationPreview>>;
   chatPublicationSave: (input:{id:string;message_id:string;format:'docx'|'pptx'|'pdf';title:string;answer:string;claim_texts:string[];revision:string;request_id:string})=>Promise<Reply<{cancelled:boolean;conversation?:Conversation}>>;
+  developmentContext: (input:{id:string;requirement:string;paths:string[];sources:SynthesisSource[];result_message_id:string|null})=>Promise<Reply<DevelopmentContext>>;
+  developmentGenerate: (input:{id:string;requirement:string;paths:string[];sources:SynthesisSource[];result_message_id:string|null;kind:'code'|'prototype';stack:'react-vite'|'web-native';context_revision:string;request_id:string})=>Promise<Reply<{cancelled:boolean;draft?:DevelopmentDraft}>>;
+  developmentDraft: (input:{id:string;draft_id:string})=>Promise<Reply<DevelopmentDraft>>;
+  developmentApply: (input:{id:string;draft_id:string;revision:string;index:number})=>Promise<Reply<{cancelled:boolean;result?:{path:string;bytes:number;verified:true;draft_id:string;remaining:number};draft?:DevelopmentDraft}>>;
+  cleanupScan: (input:{id:string})=>Promise<Reply<CleanupPlan>>;
+  cleanupPlan: (input:{id:string;plan_id:string})=>Promise<Reply<CleanupPlan>>;
+  cleanupExecute: (input:{id:string;plan_id:string;revision:string;indices:number[]})=>Promise<Reply<{cancelled:boolean;plan?:CleanupPlan}>>;
+  cleanupRestore: (input:{id:string;plan_id:string;index:number})=>Promise<Reply<{cancelled:boolean;plan?:CleanupPlan}>>;
   chatApprove: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatResume: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatUndo: (input: ChatApproval) => Promise<Reply<Conversation>>;

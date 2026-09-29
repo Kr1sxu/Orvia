@@ -115,6 +115,8 @@ class Application:
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
         methods |= {"chat.publication.preview", "chat.publication.save"}
+        methods |= {"chat.development.context", "chat.development.generate", "chat.development.draft", "chat.development.apply"}
+        methods |= {"chat.cleanup.scan", "chat.cleanup.plan", "chat.cleanup.execute", "chat.cleanup.restore"}
         methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
                     "chat.browser.search", "chat.browser.read", "chat.browser.ask", "chat.browser.source",
                     "chat.approve", "chat.resume", "chat.undo", "chat.cancel"}

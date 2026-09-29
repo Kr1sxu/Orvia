@@ -108,6 +108,43 @@ class PublicationSave(PublicationPreview):
     path: str = Field(min_length=1, max_length=1000)
 
 
+class DevelopmentContext(Conversation):
+    """仅预览显式选择的代码文件；目录 grant 不自动上传整个项目。"""
+    requirement: str = Field(min_length=1, max_length=1200)
+    paths: list[str] = Field(default_factory=list, max_length=3)
+    sources: list[SynthesisSource] = Field(default_factory=list, max_length=2)
+    result_message_id: UUID | None = None
+
+
+class DevelopmentGenerate(DevelopmentContext):
+    request_id: UUID
+    kind: Literal["code", "prototype"]
+    stack: Literal["react-vite", "web-native"]
+    context_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class DevelopmentDraft(Conversation):
+    draft_id: UUID
+
+
+class DevelopmentApply(DevelopmentDraft):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    index: int = Field(ge=0, le=11, strict=True)
+
+
+class CleanupPlan(Conversation):
+    plan_id: UUID
+
+
+class CleanupExecute(CleanupPlan):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    indices: list[int] = Field(min_length=1, max_length=50)
+
+
+class CleanupRestore(CleanupPlan):
+    index: int = Field(ge=0, le=49, strict=True)
+
+
 class Approval(Conversation):
     operation_id: UUID
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")

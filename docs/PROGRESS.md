@@ -2,7 +2,7 @@
 
 ## 当前状态（2026-09-29，M15）
 
-M15 源码已实现有界文档摘要与多来源回答、显式正文发送预览/确认及可回查引用；L0–L3 mock/真实组件测试和固定 Main 真实合成调用已通过。最新安装包仍是 M14 未签名 0.2.0-rc.1，不包含 M15；M14 生产签名和独立 Windows 验收仍暂缓。M16–M20 未开始。M15 详细范围、命令和风险见本文末节。本地提交与用户手动 push 状态独立记录；Agent 不 push。
+M15 有界文档摘要与多来源回答、M16 带引用简报、M17 代码生成/网页原型/旧临时文件隔离首批源码均已实现和验证，详见本文后续分节。最新安装包仍是 M14 未签名 0.2.0-rc.1，不包含 M15–M17；M14 生产签名和独立 Windows 验收仍暂缓。M18–M20 未开始。本地提交与用户手动 push 状态独立记录；Agent 不 push。
 
 ## 历史状态（2026-09-29，M13）
 
@@ -660,3 +660,38 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 暂存卫生：显式暂存42个 M16 文件，禁止暂存路径0、暂存真实密钥匹配0；扫描3108个本轮产物，真实密钥匹配0。报告`artifacts/test-results/M16/hygiene.json`被 Git 忽略。`git diff --cached --check`通过；本轮文件之外保留未跟踪`.zcodeignore`。
 
 用户询问为何未做真实模型测试后，补充上表真实 Main→M16 集成验证。原提交`84527f5c15cbae6f4766567d269600e717393149`不改写；补测脚本与文档另作正常本地提交。补充提交暂存4文件，禁止路径0、真实密钥匹配0；扫描3110个本轮产物，真实密钥匹配0，报告为忽略的`artifacts/test-results/M16/hygiene-live-addendum.json`。未再次构建安装包、未运行无关全量测试，不 push。
+
+## M17 代码生成、网页原型、旧临时文件隔离（2026-09-29）
+
+### 预检、授权与交付
+
+项目目录 `D:\Users\18532\Desktop\LXH\Project\Orvia`，分支 `main`，预检本地 `fcdcd00`，实时 `git fetch origin` 与 `git ls-remote --symref origin HEAD refs/heads/main` 证实远端默认 `main` 为 `73a6d3f`，本地领先 1 个提交；用户是否曾手动 push 以此实时结果为准。工作区仅有未跟踪 `.zcodeignore`，保留且不纳入提交；LICENSE 不恢复、不修改。已阅读 AGENTS、根 README、架构、两份开发清单、进度、涉及模块 README 及代码。未使用 subagent，未读取 LXH 用户资料。
+
+用户确认五项首批范围：TS/React/Vite＋原生 HTML/CSS/JS、每次最多12文本文件/64 KiB；可逐项审批修改已授权项目；可交互网页及内置受限预览；仅当前用户 Temp 顶层超过30天的 `.tmp/.log`；同卷隔离、30天受限恢复。三项均已实现，无 M18–M20 功能。
+
+- [x] √ 代码：显式选择项目内最多3个 UTF-8 文件（各8 KiB）、最多2个当前会话 M12/M13 来源片段或一条 M15/M16 已保存结果；复用 M06 检索与证据归属。显示实际拟发送内容，需求和选择绑定版本，原生确认后固定 Computer 返回 JSON 草稿。每文件显示完整源码和差异，逐文件原生批准；后端重核授权根、基线身份/哈希并读回，不覆盖预览后变更。生成成功不等于静态检查或运行通过。
+- [x] √ 原型：1–4 页结构化文案，固定生成可编辑 HTML/CSS/JS；React 受限预览导航和表单反馈，不执行生成代码。mock 明确标注，未接真实业务、依赖安装、服务启动或部署。
+- [x] √ 清理：Windows 当前账户 Temp 顶层限量扫描，显示文件名、大小、时间和风险；原生框绑定选中项及计划版本。执行前再检查身份/年龄/占用，逐项同卷隔离并哈希核验，失败/中断保留状态且不重放；30天内按账本受限恢复，冲突拒绝覆盖。候选大小、已隔离量和实际释放量分别显示，释放量为0；无永久删除、系统目录或注册表接口。
+
+### 分级验证（项目根执行）
+
+常规测试用合成项目、合成 Local/Temp、临时 SQLite 和 mock Computer/原生对话框；文件副本、报告、截图均在 Git 忽略的 `artifacts/test-results/M17/`。真实调用另行显式运行，仅发送人工编写的合成需求及合成 `App.tsx`；不发送 LXH 文件正文。模型固定 `glm-5.3-flashx` / `https://open.bigmodel.cn/api/paas/v4`，每次最多4096输出 token、HTTP20秒/总等待30秒、零自动重试，2次请求（代码1、原型1），密钥只在测试进程读取根 `.env.local`；报告不含密钥及原始请求/响应。
+
+| 级别 | 实际命令 | 结果与证据 |
+|---|---|---|
+| L0 | `npm run check`；`backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend`；`npm run build` | 全部通过；TypeScript、Python 语法和 Vite 构建通过；无模型调用 |
+| L1/L2 定向及相邻回归 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m17_services.py backend/tests/test_m17_chat.py backend/tests/test_m15_synthesis.py backend/tests/test_m16_publication.py backend/tests/test_m13_documents.py -q --basetemp=artifacts/test-results/M17/backend-regression-temp --junitxml=artifacts/test-results/M17/backend-regression.xml`；新增边界后只跑 `backend/tests/test_m17_services.py::test_cleanup_skips_link_and_busy_candidate`；最终 `backend/tests/test_m17_services.py backend/tests/test_m17_chat.py` | 相邻回归19 passed，新增硬链接/占用拒绝1 passed，最终 M17 7 passed；真实 SQLite、网关、证据引用、冲突、隔离恢复，模型 mock。既有库弃用提示不影响结果 |
+| L1 桌面契约 | `npx vitest run apps/desktop/tests/m17-contracts.test.ts apps/desktop/tests/chat-contracts.test.ts --reporter=json --outputFile=artifacts/test-results/M17/vitest-regression.json` | 通过；严格 IPC 契约和卡片，无云端调用 |
+| L3 Electron 流程 | 设置 `ORVIA_TEST_MODULE=M17`、`ORVIA_TEST_RESULTS=artifacts/test-results/M17`；`npx playwright test tests/e2e/m17.spec.ts`，补 800×600/必填后只重跑 `-g '代码逐项'` | 最终成功/取消两条通过；真实 Electron→Python、逐文件应用、原型交互、隔离恢复、绕过预览拒绝；Computer 与原生对话框 mock。截图 `m17-prototype-800x600.png`、`m17-workspace.png` |
+| L4 定向旧动作边界 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m10_action_safety.py backend/tests/test_computer_actions.py backend/tests/test_application_actions.py -q --basetemp=artifacts/test-results/M17/backend-action-regression-temp --junitxml=artifacts/test-results/M17/backend-action-regression.xml` | 16 passed；既有路径网关、审批动作、应用协议回归；合成文件，无真实清理或模型调用 |
+| 真实合成 Computer | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_m17_development.py --run-live` | 2次真实请求通过，代码和原型各形成有效草稿，写入0；初次脚本参数把生成字段传给预览，0次云调用即失败；仅修复脚本并复测。摘要 `live-development.json` |
+
+没有因 M17 改动重新冻结或重建安装包；M20 完成后按 V2 待办统一重建并核对。L4 为旧文件动作边界定向回归，不等于全量发布验收。真实调用证明供应商当前能返回受限草稿，不证明模型生成代码正确、安全或可运行。外部进程可在检查与文件系统操作之间竞态，特殊权限/ACL、满盘或真实用户 Temp 大规模样本未作默认破坏性测试；不把隔离等同腾出磁盘空间。
+
+### 试用与同步
+
+按根 README 启动最新开发版，新建会话并选择自建合成项目目录；展开代码/原型面板，填写需求及显式上下文，逐字核对上云预览和原生确认，再审查完整差异/源码并逐文件写入。原型可在内置组件点击导航、试填表单；如需运行生成网页，请在自己审查后另行处理，本模块不执行。系统清理面板应先审查每个候选的大小/风险，只批准明确可隔离的项目，必要时在期限内恢复。真实 Temp 未被本轮测试清理。
+
+固定作者“踪显 <18532112451@163.com>”创建正常本地 M17 提交，具体哈希见 `git log` 和交付回执；Agent 不 push。M14 安装包仍不含 M15–M17，生产签名和独立 Windows 验收继续暂缓；M18–M20 不在本轮。
+
+提交卫生：显式暂存36个 M17 文件，`git status`、`git diff`、`git diff --cached --stat/--check` 已核对；禁入路径0、暂存文件与根开发 Key 精确匹配0、私钥块标记0。`.env.local`、`.zcodeignore`、LICENSE、数据库、日志、用户文件和 `artifacts/test-results/M17/` 均未暂存。提交前再次 `git ls-remote --symref origin HEAD refs/heads/main` 显示远端 `main` 仍为 `73a6d3f`；本地已有未推送的 `fcdcd00`，M17 提交会继续增加本地领先数，push 仍由用户手动完成。

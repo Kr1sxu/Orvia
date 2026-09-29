@@ -28,6 +28,19 @@ export function chatErrorMessage(code: string): string {
     BACKEND_PROTOCOL: '本地通信协议异常，连接已停止。请重新连接；业务请求不会自动重放。',
     REQUEST_CANCELLED: '本次模型规划已取消；已返回的观察保留，未批准的计划不会执行。',
     UNDO_CONFLICT: '文件已变化，撤销停止；请查看最新账本状态。',
+    CODE_CHANGED: '项目文件在预览后变化，拒绝覆盖；请重新生成并核对差异。',
+    CODE_PATH_DENIED: '生成路径不在授权项目和允许的文本文件范围。',
+    CODE_LIMIT: '生成或上下文超出首批文件与大小预算。',
+    CODE_FORMAT: '文件类型不属于所选语言/框架，或不是 UTF-8 文本。',
+    CODE_ALREADY_APPLIED: '此代码文件已应用；不会重复写入。',
+    CODE_ALREADY_GENERATED: '此生成请求已处理；请查看会话中保存的草稿。',
+    INVALID_GENERATION: '固定 Computer 模型输出不符合受限草稿结构；未写入文件。',
+    CLEANUP_UNAVAILABLE: '当前用户临时目录或同卷隔离区不可安全访问。',
+    CLEANUP_DENIED: '文件不在清理白名单、过新、占用或不是普通文件。',
+    CLEANUP_CHANGED: '临时文件在扫描后变化，已跳过；请重新扫描。',
+    RESTORE_CONFLICT: '原位置已有文件，拒绝覆盖恢复。',
+    RESTORE_CHANGED: '隔离文件身份或内容已变化，拒绝恢复。',
+    RESTORE_EXPIRED: '受限恢复期限已过；隔离文件未自动永久删除。',
   };
   return messages[code] ?? '操作未完成，请刷新会话查看事实状态；不会自动重放文件动作。';
 }

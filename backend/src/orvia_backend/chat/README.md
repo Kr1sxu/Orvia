@@ -1,4 +1,8 @@
-# M10–M16 会话与桌面任务应用服务
+# M10–M17 会话与桌面任务应用服务
+
+## M17 代码草稿、原型和清理接口
+
+新增固定 `chat.development.context/generate/draft/apply` 与 `chat.cleanup.scan/plan/execute/restore`，共用会话身份、SQLite 串行锁和消息历史。代码上下文可显式选择当前授权根内文件、M12/M13 不可变来源片段及一条 M15/M16 已保存结果；需求与选择绑定 revision，固定 Computer 只产出待审批草稿。写入由 main 原生确认每个文件，后端再次核对草稿和现场。清理扫描不要求项目目录授权，但只由当前 Windows 账户已知 Temp 根确定，执行前按扫描版本和逐项身份复核，同卷隔离后可在 30 天内受限恢复。生成代码不进入 Main 文件规划，不执行；外部资料不授予权限。完整契约、预算、运行、测试及限制见 `../development/README.md` 和 `../cleanup/README.md`。
 
 ## M16 已保存回答的成品接口
 

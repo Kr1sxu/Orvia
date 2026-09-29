@@ -31,8 +31,8 @@ class ModelClient:
 
     async def complete(self, profile: ModelProfile, messages: list[dict], *, max_tokens: int = 256,
                        tools: list[dict] | None = None) -> Completion:
-        if not 1 <= max_tokens <= 1024:
-            raise ValueError("输出预算必须介于 1 和 1024 token")
+        if not 1 <= max_tokens <= 4096:
+            raise ValueError("输出预算必须介于 1 和 4096 token")
         try:
             key = self.registry.key_for(profile)
         except ValueError:

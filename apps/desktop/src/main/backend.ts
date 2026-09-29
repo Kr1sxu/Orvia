@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { backendLaunch, type PackagedRuntime } from './runtime';
 import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
-import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema } from './chat-contracts';
+import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema, developmentContextSchema, developmentDraftSchema, cleanupPlanSchema } from './chat-contracts';
 
 /** 仅传递后端固定错误码；正文可能含输入或供应商回显，禁止转发。 */
 export class BackendRequestError extends Error {
@@ -113,6 +113,14 @@ export class BackendClient {
   async chatPublicationPreview(params:object) {
     await this.start();return publicationPreviewSchema.parse(await this.request('chat.publication.preview',params));
   }
+  async developmentContext(params:object) { await this.start();return developmentContextSchema.parse(await this.request('chat.development.context',params)); }
+  async developmentGenerate(params:object) { await this.start();return developmentDraftSchema.parse(await this.request('chat.development.generate',params)); }
+  async developmentDraft(params:object) { await this.start();return developmentDraftSchema.parse(await this.request('chat.development.draft',params)); }
+  async developmentApply(params:object) { await this.start();return z.object({path:z.string(),bytes:z.number(),verified:z.literal(true),draft_id:z.string().uuid(),remaining:z.number()}).parse(await this.request('chat.development.apply',params)); }
+  async cleanupScan(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.scan',params)); }
+  async cleanupPlan(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.plan',params)); }
+  async cleanupExecute(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.execute',params)); }
+  async cleanupRestore(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.restore',params)); }
   async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.generate' | 'chat.publication.save' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
     await this.start(); return chatSnapshotSchema.parse(await this.request(method, params));
   }
@@ -131,7 +139,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel', params: object = {}): Promise<unknown> {
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel', params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));

@@ -1,4 +1,10 @@
-# Electron 桌面模块（M16 源码）
+# Electron 桌面模块（M17 源码）
+
+## M17 代码、网页原型与临时文件隔离
+
+`M17Cards.tsx` 在会话内提供选定上下文预览、代码草稿完整差异、逐文件写入、React 受限原型预览、旧 Temp 文件逐项选择和受限恢复。preload 仅暴露固定 M17 方法，main 严格校验参数并在云端发送、逐文件写入、隔离和恢复前弹原生确认；renderer 不能指定清理路径或调用任意 IPC。模型和网页内容在 UI 中均为文本，预览不执行生成源码。示例与边界见根 README 和 `backend/src/orvia_backend/development/README.md`、`backend/src/orvia_backend/cleanup/README.md`。
+
+验证：`npm run build`；`npx vitest run apps/desktop/tests/m17-contracts.test.ts apps/desktop/tests/chat-contracts.test.ts`；设置 `ORVIA_TEST_MODULE=M17`、`ORVIA_TEST_RESULTS=artifacts/test-results/M17` 后运行 `npx playwright test tests/e2e/m17.spec.ts`。E2E 真实运行 Electron、Python、SQLite 和合成文件写入；Computer 及原生确认由测试启动器 mock。
 
 ## M16 简报成品制作
 

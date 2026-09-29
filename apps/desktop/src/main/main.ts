@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
-import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, chatPublicationPreviewSchema, chatPublicationSaveSchema, type SynthesisPreview, type PublicationPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
+import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, chatPublicationPreviewSchema, chatPublicationSaveSchema, developmentContextRequestSchema, developmentGenerateRequestSchema, developmentDraftRequestSchema, developmentApplyRequestSchema, cleanupPlanRequestSchema, cleanupExecuteRequestSchema, cleanupRestoreRequestSchema, type DevelopmentContext, type DevelopmentDraft, type CleanupPlan, type SynthesisPreview, type PublicationPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
 import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
@@ -42,6 +42,9 @@ app.whenReady().then(async () => {
   let documentPreviewAuthorization: {id:string;evidence_id:string;format:string;revision:string} | undefined;
   let synthesisAuthorization: {id:string;selection:string;preview:SynthesisPreview} | undefined;
   let publicationAuthorization: {id:string;selection:string;preview:PublicationPreview} | undefined;
+  let developmentContextAuthorization: {id:string;selection:string;preview:DevelopmentContext} | undefined;
+  let developmentDraftAuthorization: {id:string;draft:DevelopmentDraft} | undefined;
+  let cleanupAuthorization: {id:string;plan:CleanupPlan} | undefined;
   let activeSend: { id: string; request_id: string } | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
@@ -86,6 +89,9 @@ app.whenReady().then(async () => {
       documentPreviewAuthorization=undefined;
       synthesisAuthorization=undefined;
       publicationAuthorization=undefined;
+      developmentContextAuthorization=undefined;
+      developmentDraftAuthorization=undefined;
+      cleanupAuthorization=undefined;
       backend = createBackend();
       await backend.start();
       return {connected: true};
@@ -193,6 +199,99 @@ app.whenReady().then(async () => {
     if(chosen.canceled||!chosen.filePath)return {cancelled:true};
     const conversation=await backend.chat('chat.publication.save',{...request,path:chosen.filePath});
     return {cancelled:false,conversation};
+  }));
+  handle('orvia:development-context',1,input=>chatAction(async()=>{
+    developmentContextAuthorization=undefined;
+    const request=developmentContextRequestSchema.parse(input);
+    const preview=await backend.developmentContext(request);
+    developmentContextAuthorization={id:request.id,selection:JSON.stringify(request),preview};
+    return preview;
+  }));
+  handle('orvia:development-generate',1,input=>chatAction(async()=>{
+    const request=developmentGenerateRequestSchema.parse(input);
+    const authorization=developmentContextAuthorization;
+    developmentContextAuthorization=undefined;
+    const selection=JSON.stringify({id:request.id,requirement:request.requirement,paths:request.paths,sources:request.sources,result_message_id:request.result_message_id});
+    if(!authorization||authorization.id!==request.id||authorization.selection!==selection||authorization.preview.revision!==request.context_revision)throw new BackendRequestError('STALE_APPROVAL');
+    const fresh=await backend.developmentContext({id:request.id,requirement:request.requirement,paths:request.paths,sources:request.sources,result_message_id:request.result_message_id});
+    if(fresh.revision!==request.context_revision)throw new BackendRequestError('STALE_APPROVAL');
+    // 文件正文和需求仅此一次送固定 Computer；选择目录本身不授权上云。
+    const bytes=new TextEncoder().encode(JSON.stringify({files:fresh.files,fragments:fresh.fragments,saved_result:fresh.saved_result})).length;
+    const confirm=await dialog.showMessageBox(window!,{type:'question',title:'确认发送代码需求与选定上下文',
+      message:`向固定 Computer glm-5.3-flashx 发送需求、${fresh.files.length} 个文件、${fresh.fragments.length} 个引用片段及${fresh.saved_result?'一条已保存结果':'零条结果'}（约 ${bytes} 字节）？`,
+      detail:'请先核对完整预览。可能产生费用；模型只返回待审查草稿，不执行代码或写入项目。',buttons:['取消','确认发送'],defaultId:0,cancelId:0,noLink:true});
+    if(confirm.response!==1)return {cancelled:true};
+    const draft=await backend.developmentGenerate(request);
+    developmentDraftAuthorization={id:request.id,draft};
+    return {cancelled:false,draft};
+  }));
+  handle('orvia:development-draft',1,input=>chatAction(async()=>{
+    developmentDraftAuthorization=undefined;
+    const request=developmentDraftRequestSchema.parse(input);
+    const draft=await backend.developmentDraft(request);
+    developmentDraftAuthorization={id:request.id,draft};
+    return draft;
+  }));
+  handle('orvia:development-apply',1,input=>chatAction(async()=>{
+    const request=developmentApplyRequestSchema.parse(input);
+    const authorization=developmentDraftAuthorization;
+    if(!authorization||authorization.id!==request.id||authorization.draft.draft_id!==request.draft_id||authorization.draft.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    const fresh=await backend.developmentDraft({id:request.id,draft_id:request.draft_id});
+    const file=fresh.files[request.index];
+    if(fresh.revision!==request.revision||!file||file.status!=='pending'||file.content!==authorization.draft.files[request.index]?.content)throw new BackendRequestError('STALE_APPROVAL');
+    const confirm=await dialog.showMessageBox(window!,{type:'warning',title:'逐文件确认代码写入',
+      message:`${file.operation==='modify'?'修改':'新建'} ${file.path}？`,
+      detail:`版本 ${fresh.revision.slice(0,12)}；请核对已展示的完整差异。写入后仅做字节核验，不执行生成代码。`,
+      buttons:['取消','确认写入此文件'],defaultId:0,cancelId:0,noLink:true});
+    if(confirm.response!==1)return {cancelled:true};
+    developmentDraftAuthorization=undefined;
+    const result=await backend.developmentApply(request);
+    const draft=await backend.developmentDraft({id:request.id,draft_id:request.draft_id});
+    developmentDraftAuthorization={id:request.id,draft};
+    return {cancelled:false,result,draft};
+  }));
+  handle('orvia:cleanup-scan',1,input=>chatAction(async()=>{
+    cleanupAuthorization=undefined;
+    const request=chatIdSchema.parse(input);
+    const plan=await backend.cleanupScan(request);
+    cleanupAuthorization={id:request.id,plan};
+    return plan;
+  }));
+  handle('orvia:cleanup-plan',1,input=>chatAction(async()=>{
+    cleanupAuthorization=undefined;
+    const request=cleanupPlanRequestSchema.parse(input);
+    const plan=await backend.cleanupPlan(request);
+    cleanupAuthorization={id:request.id,plan};
+    return plan;
+  }));
+  handle('orvia:cleanup-execute',1,input=>chatAction(async()=>{
+    const request=cleanupExecuteRequestSchema.parse(input);
+    const authorization=cleanupAuthorization;
+    cleanupAuthorization=undefined;
+    if(!authorization||authorization.id!==request.id||authorization.plan.plan_id!==request.plan_id||authorization.plan.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    const fresh=await backend.cleanupPlan({id:request.id,plan_id:request.plan_id});
+    if(fresh.status!=='planned'||fresh.revision!==request.revision||new Set(request.indices).size!==request.indices.length)throw new BackendRequestError('STALE_APPROVAL');
+    const chosen=request.indices.map(index=>fresh.entries[index]);
+    if(chosen.some(item=>!item||item.status!=='pending'))throw new BackendRequestError('STALE_APPROVAL');
+    const bytes=chosen.reduce((n,item)=>n+item.size,0);
+    const confirm=await dialog.showMessageBox(window!,{type:'warning',title:'确认旧临时文件隔离',
+      message:`隔离 ${chosen.length} 个已列出的旧临时文件（逻辑大小 ${bytes} 字节）？`,
+      detail:`版本 ${request.revision.slice(0,12)}。仅当前用户 Temp 顶层旧 .tmp/.log；30 天内受限恢复。隔离移动不释放磁盘空间。`,
+      buttons:['取消','批准此版本并隔离'],defaultId:0,cancelId:0,noLink:true});
+    if(confirm.response!==1)return {cancelled:true};
+    const plan=await backend.cleanupExecute(request);
+    return {cancelled:false,plan};
+  }));
+  handle('orvia:cleanup-restore',1,input=>chatAction(async()=>{
+    const request=cleanupRestoreRequestSchema.parse(input);
+    const fresh=await backend.cleanupPlan({id:request.id,plan_id:request.plan_id});
+    const entry=fresh.entries[request.index];
+    if(!entry||entry.status!=='moved')throw new BackendRequestError('INVALID_STATE');
+    const confirm=await dialog.showMessageBox(window!,{type:'question',title:'确认恢复隔离文件',message:`将 ${entry.name} 恢复到原临时目录？`,
+      detail:'若原位置已有文件或隔离内容变化，程序拒绝覆盖。',buttons:['取消','确认恢复'],defaultId:0,cancelId:0,noLink:true});
+    if(confirm.response!==1)return {cancelled:true};
+    const plan=await backend.cleanupRestore(request);
+    return {cancelled:false,plan};
   }));
   handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
   handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));
