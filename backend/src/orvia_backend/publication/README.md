@@ -26,3 +26,5 @@ renderer 只有固定预览/保存 API，不可传路径、模板、素材、模
 `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m16_publication.py -q --basetemp=artifacts/test-results/M16/backend-temp --junitxml=artifacts/test-results/M16/backend.xml`：真实 DOCX/PPTX/PDF 生成、重开、PDF 渲染、SQLite/版本/会话/新建写入；M15 模型使用 mock。
 
 `npx vitest run apps/desktop/tests/m16-contracts.test.ts apps/desktop/tests/m15-contracts.test.ts`：固定 IPC 契约与纯文本卡片。`ORVIA_TEST_MODULE=M16`、`ORVIA_TEST_RESULTS=artifacts/test-results/M16` 下运行 `npx playwright test tests/e2e/m16.spec.ts`：真实 Electron/Python/保存网关，模型及系统对话框由测试启动器 mock。逐页 PDF/PowerPoint 本机渲染检查与冻结构建结果见 `docs/PROGRESS.md`；所有临时文件位于 Git 忽略的 M16 产物目录。
+
+按需显式运行 `backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_m16_publication.py --run-live`：仅本进程读取开发 Main Key，一次真实 `deepseek-flash` 请求使用两条短合成来源；随后在本地用该已保存结果生成并读回三格式。HTTP 超时20秒、总等待30秒、最多1024输出token、零自动重试；只报告计数、状态和供应商 token 用量，不打印原始请求/响应或凭据。常规测试不触发此脚本的真实调用。
