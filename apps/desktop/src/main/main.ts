@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
-import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
+import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, type SynthesisPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
 import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
@@ -40,6 +40,7 @@ app.whenReady().then(async () => {
   let reconnecting = false;
   let ordinaryRequests = 0;
   let documentPreviewAuthorization: {id:string;evidence_id:string;format:string;revision:string} | undefined;
+  let synthesisAuthorization: {id:string;selection:string;preview:SynthesisPreview} | undefined;
   let activeSend: { id: string; request_id: string } | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
@@ -82,6 +83,7 @@ app.whenReady().then(async () => {
       if (quitting) throw new Error('应用正在退出');
       activeComputerGrants.clear();
       documentPreviewAuthorization=undefined;
+      synthesisAuthorization=undefined;
       backend = createBackend();
       await backend.start();
       return {connected: true};
@@ -142,6 +144,31 @@ app.whenReady().then(async () => {
     if(selection.canceled||!selection.filePath)return {cancelled:true};
     const conversation=await backend.chat('chat.document.export',{...request,path:selection.filePath});
     return {cancelled:false,conversation};
+  }));
+  handle('orvia:chat-synthesis-preview',1,input=>chatAction(async()=>{
+    synthesisAuthorization=undefined;
+    const request=chatSynthesisPreviewSchema.parse(input);
+    const preview=await backend.chatSynthesisPreview(request);
+    synthesisAuthorization={id:request.id,selection:JSON.stringify(request),preview};
+    return preview;
+  }));
+  handle('orvia:chat-synthesis-generate',1,input=>chatAction(async()=>{
+    const request=chatSynthesisGenerateSchema.parse(input);
+    const authorization=synthesisAuthorization;
+    synthesisAuthorization=undefined;
+    const selection=JSON.stringify({id:request.id,mode:request.mode,question:request.question,sources:request.sources});
+    if(!authorization||authorization.id!==request.id||authorization.selection!==selection||authorization.preview.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    const fresh=await backend.chatSynthesisPreview({id:request.id,mode:request.mode,question:request.question,sources:request.sources});
+    if(fresh.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    // 产品正文上云必须再次经原生确认；renderer 调接口或选择附件本身均不能直接发送。
+    const confirmation=await dialog.showMessageBox(window!,{type:'question',title:'确认向固定 Main 模型发送证据片段',
+      message:`向 deepseek-flash 发送 ${fresh.fragments.length} 个片段（${fresh.fragments.reduce((n,item)=>n+Array.from(item.text).length,0)} 字）？`,
+      detail:'仅发送预览中列出的当前会话证据片段、定位和本次问题；可能产生模型费用。截断、OCR 与来源冲突需自行核对。',
+      buttons:['取消','确认发送并生成'],defaultId:0,cancelId:0,noLink:true});
+    if(confirmation.response!==1)return {cancelled:true};
+    activeSend={id:request.id,request_id:request.request_id};
+    try{return {cancelled:false,conversation:await backend.chat('chat.synthesis.generate',request)};}
+    finally{activeSend=undefined;}
   }));
   handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
   handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));

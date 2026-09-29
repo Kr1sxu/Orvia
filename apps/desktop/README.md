@@ -1,4 +1,10 @@
-# Electron 桌面模块（M13）
+# Electron 桌面模块（M15 源码）
+
+## M15 证据选择与正文上云确认
+
+当前源码新增“模型理解已保存资料”面板：只列本会话文档和有正文的网页证据，最多选3个版本；选择摘要或回答并填写最多300字的问题后，先预览后端决定的全部发送片段和覆盖。主进程保留最近一次预览身份，生成前重新向后端核对 revision，再弹原生确认框；取消不调用模型。新固定 preload 方法 `chatSynthesisPreview/Generate` 拒绝 renderer 提供路径、正文、模型或审批字段；后端仍复核会话归属。生成中复用忙碌状态和仅模型等待期取消，结果以纯文本卡片展示结构化引用并可回查原证据。例：添加合成DOCX → 勾选其版本 → 预览 → 原生确认 → 查看摘要与引用。M14安装器尚不包含此界面。
+
+验证：`npm run build`，`npx vitest run apps/desktop/tests/m15-contracts.test.ts tests/integration/m15.test.ts`，设置`ORVIA_TEST_MODULE=M15`、`ORVIA_TEST_RESULTS=artifacts/test-results/M15`后运行`npx playwright test tests/e2e/m15.spec.ts`。E2E仅在测试启动器替换模型与原生对话框；产品保持固定 Main 调用与真实确认。正文上传有费用，片段式覆盖不能当全文核验；结构引用不能保证模型事实正确。关键词检索入口仍独立，无 M20 自动意图或流式输出。
 
 用途：以对话完成授权目录观察、计划审批、执行核验与受限撤销。新建/历史会话在侧栏，中央消息流展示事实卡片，底部输入框持续提问，设置保留固定模型与凭据管理。不提供自动任务、技能广场、团队管理等入口。
 

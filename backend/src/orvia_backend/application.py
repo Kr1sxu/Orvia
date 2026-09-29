@@ -113,6 +113,7 @@ class Application:
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
+        methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
         methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
                     "chat.browser.search", "chat.browser.read", "chat.browser.ask", "chat.browser.source",
                     "chat.approve", "chat.resume", "chat.undo", "chat.cancel"}

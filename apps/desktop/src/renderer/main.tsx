@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { Conversation, ReadCall, BrowserEvidence, DocumentEvidence, DocumentPreview } from '../main/chat-contracts';
+import type { Conversation, ReadCall, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource } from '../main/chat-contracts';
 import type { Reply, Settings } from '../shared/api';
 import { SettingsPanel } from './SettingsPanel';
 import { PlanCard, ScanCard, EvidenceCard } from './ChatCards';
 import { SourceCard, SourceDetail } from './SourceCards';
 import { DocumentCard, DocumentDetail, ExportPreview, ExportCard } from './DocumentCards';
+import { SynthesisPreviewCard, SynthesisResult } from './SynthesisCards';
 import { nearBottom, submitsMessage, taskLabels } from './chat-state';
 import './style.css';
 
@@ -18,6 +19,10 @@ function App() {
   const [source,setSource] = useState<{cid:string;value:BrowserEvidence}>();
   const [document,setDocument] = useState<{cid:string;value:DocumentEvidence}>();
   const [preview,setPreview] = useState<{cid:string;value:DocumentPreview}>();
+  const [synthesisMode,setSynthesisMode]=useState<'summary'|'answer'>('summary');
+  const [synthesisQuestion,setSynthesisQuestion]=useState('请概括所选资料的主要内容、证据和局限。');
+  const [selectedSources,setSelectedSources]=useState<SynthesisSource[]>([]);
+  const [synthesisPreview,setSynthesisPreview]=useState<{cid:string;value:SynthesisPreview;sources:SynthesisSource[]}>();
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('');
   const [notice, setNotice] = useState('');
@@ -117,8 +122,8 @@ function App() {
     if (!accept(reply)) return undefined;
     return reply.ok ? reply.result.id : undefined;
   }
-  function newChat() { if (working.current || remoteBusy) return; activeId.current=undefined; setConversation(undefined);setText('');setQuery('');setNotice('');setSource(undefined);setDocument(undefined);setPreview(undefined);setIntent('files');webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);input.current?.focus(); }
-  async function open(id:string) { await run('正在读取历史会话…',async () => {activeId.current=id;setConversation(undefined);setText('');setQuery('');setSource(undefined);setDocument(undefined);setPreview(undefined);webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);accept(await window.orvia.chatGet({id}),id);}); }
+  function newChat() { if (working.current || remoteBusy) return; activeId.current=undefined; setConversation(undefined);setText('');setQuery('');setNotice('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);setIntent('files');webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);input.current?.focus(); }
+  async function open(id:string) { await run('正在读取历史会话…',async () => {activeId.current=id;setConversation(undefined);setText('');setQuery('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);accept(await window.orvia.chatGet({id}),id);}); }
   async function send(retryText?: string) {
     if(!retryText&&intent==='document'){await askDocument(text);return;}
     if(!retryText&&intent!=='files'&&intent!=='document'){await sendWeb(intent,text);return;}
@@ -209,6 +214,34 @@ function App() {
       else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);
     });
   }
+  function toggleSource(item:SynthesisSource){
+    setSynthesisPreview(undefined);
+    setSelectedSources(current=>current.some(source=>source.kind===item.kind&&source.evidence_id===item.evidence_id)
+      ?current.filter(source=>source.kind!==item.kind||source.evidence_id!==item.evidence_id)
+      :current.length<3?[...current,item]:current);
+  }
+  async function prepareSynthesis(){
+    const id=activeId.current,question=synthesisQuestion.trim();
+    if(!id||!selectedSources.length||!question||question.length>300)return;
+    await run('正在计算拟发送的证据片段…',async()=>{
+      const reply=await window.orvia.chatSynthesisPreview({id,mode:synthesisMode,question,sources:selectedSources});
+      if(reply.ok&&activeId.current===id)setSynthesisPreview({cid:id,value:reply.result,sources:[...selectedSources]});
+      else if(!reply.ok)setNotice(reply.message);
+    });
+  }
+  async function generateSynthesis(){
+    const shown=synthesisPreview,id=activeId.current;
+    if(!shown||!id||shown.cid!==id)return;
+    await run('等待正文发送确认及 Main 模型回答…',async()=>{
+      let reply;
+      try{reply=await window.orvia.chatSynthesisGenerate({id,mode:shown.value.mode,question:shown.value.question,sources:shown.sources,revision:shown.value.revision,request_id:crypto.randomUUID()});}
+      finally{setSynthesisPreview(undefined);}
+      if(!reply.ok){setNotice(reply.message);const latest=await window.orvia.chatGet({id});if(latest.ok)accept(latest,id);}
+      else if(reply.result.cancelled)setNotice('已取消正文发送；未调用模型。');
+      else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);
+      await refreshList();
+    });
+  }
   async function act(kind:'approve'|'resume'|'undo') {
     const op=conversation?.operation,id=activeId.current;if(!op||!id)return;
     await run(kind==='approve'?'正在审批、执行并核验此版本…':kind==='resume'?'正在核验中断任务…':'正在核验并撤销最近变更…',async()=>{
@@ -242,6 +275,7 @@ function App() {
           {message.kind==='document'&&message.data&&<DocumentCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='export'&&message.data&&<ExportCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='source'&&message.data&&<SourceCard message={message} disabled={locked||!online} show={id=>void showSource(id)} read={url=>void sendWeb('read',url,false)}/>} {(message.kind==='plan'||message.kind==='result')&&message.data&&<EvidenceCard message={message}/>}
+          {message.kind==='synthesis'&&<SynthesisResult message={message} show={(kind,id)=>void (kind==='document'?showDocument(id):showSource(id))}/>}
         </div></article>)}
         {pendingUser&&<article className="message user"><span className="speaker">你 · 正在处理</span><div className="bubble"><p>{pendingUser}</p></div></article>}
         {!!conversation?.sources?.length&&<details className="saved-sources"><summary>会话来源（最近 {conversation.sources.length} 项）</summary><ul>{conversation.sources.map(s=><li key={s.evidence_id}><button disabled={locked||!online} onClick={()=>void showSource(s.evidence_id)}>{s.title||s.source_url||'错误证据'} · {s.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.sources_truncated&&<p>仅展示最近来源，较早记录仍可通过会话检索找到。</p>}<button disabled={locked} onClick={()=>{setIntent('ask');setText('');input.current?.focus();}}>询问已有来源</button></details>}
@@ -249,6 +283,17 @@ function App() {
         {!!conversation?.documents?.length&&<details className="saved-sources"><summary>会话文档（最近 {conversation.documents.length} 项）</summary><ul>{conversation.documents.map(item=><li key={item.evidence_id}><button disabled={locked||!online} onClick={()=>void showDocument(item.evidence_id)}>{item.title} · {item.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.documents_truncated&&<p>文档目录已截断，较早文档可通过关键词检索。</p>}<button disabled={locked} onClick={()=>{setIntent('document');setText('');input.current?.focus();}}>询问文档</button></details>}
         {document&&document.cid===conversation?.id&&<section className="source-detail" aria-label="文档证据详情"><div className="row between"><h3>文档证据详情</h3><button onClick={()=>{setDocument(undefined);setPreview(undefined);}}>关闭文档证据</button></div><DocumentDetail source={document.value}/><div className="row"><button disabled={locked||!online} onClick={()=>void previewDocument('md')}>预览 Markdown 导出</button><button disabled={locked||!online} onClick={()=>void previewDocument('json')}>预览 JSON 导出</button></div></section>}
         {preview&&preview.cid===conversation?.id&&<ExportPreview preview={preview.value} disabled={locked||!online} save={()=>void exportDocument()}/>}
+        {conversation&&!!((conversation.documents?.length??0)+(conversation.sources?.length??0))&&<section className="source-detail synthesis-select" aria-label="生成式文档与来源回答">
+          <h3>模型理解已保存资料</h3><p>选择当前会话的 1–3 个版本，先预览实际发送片段。关键词原文检索仍在上方需求类型中。</p>
+          <fieldset><legend>选择证据版本</legend>{[
+            ...(conversation.documents??[]).map(item=>({kind:'document' as const,evidence_id:item.evidence_id,title:item.title})),
+            ...(conversation.sources??[]).filter(item=>!!item.content?.trim()&&!item.error).map(item=>({kind:'browser' as const,evidence_id:item.evidence_id,title:item.title||item.source_url||'网页来源'})),
+          ].map(item=><label key={item.kind+item.evidence_id} className="synthesis-choice"><input type="checkbox" disabled={locked||!online||selectedSources.length>=3&&!selectedSources.some(source=>source.kind===item.kind&&source.evidence_id===item.evidence_id)} checked={selectedSources.some(source=>source.kind===item.kind&&source.evidence_id===item.evidence_id)} onChange={()=>toggleSource({kind:item.kind,evidence_id:item.evidence_id})}/>{item.kind==='document'?'文档':'网页'} · {item.title} · {item.evidence_id.slice(0,12)}</label>)}</fieldset>
+          <label>生成类型<select aria-label="生成类型" disabled={locked} value={synthesisMode} onChange={e=>{setSynthesisMode(e.target.value as 'summary'|'answer');setSynthesisPreview(undefined);}}><option value="summary">摘要</option><option value="answer">多来源回答</option></select></label>
+          <label>摘要要求或问题<textarea aria-label="摘要要求或问题" maxLength={300} disabled={locked} value={synthesisQuestion} onChange={e=>{setSynthesisQuestion(e.target.value);setSynthesisPreview(undefined);}}/></label>
+          <button disabled={locked||!online||!selectedSources.length||!synthesisQuestion.trim()} onClick={()=>void prepareSynthesis()}>预览拟发送片段</button>
+        </section>}
+        {synthesisPreview&&synthesisPreview.cid===conversation?.id&&<SynthesisPreviewCard preview={synthesisPreview.value} disabled={locked||!online} close={()=>setSynthesisPreview(undefined)} confirm={()=>void generateSynthesis()}/>}
         {conversation?.operation&&<PlanCard operation={conversation.operation} disabled={disabled} act={kind=>void act(kind)}/>}
         {!!conversation?.operations?.length&&<details className="operation-history"><summary>任务操作历史（最近 {conversation.operations.length} 项）</summary><ol>{conversation.operations.map(op=><li key={op.operation_id}><span>{taskLabels[op.status] ?? op.status}</span><code>版本 {op.revision.slice(0,12)}</code><time>{op.updated_at}</time>{op.can_undo&&<span>可受限撤销</span>}</li>)}</ol>{conversation.operations_truncated&&<p className="muted">仅显示最近操作；历史记录不构成执行或撤销授权。</p>}</details>}
         {phase&&<p role="status" className="progress"><span className="spinner"/>{phase}</p>}

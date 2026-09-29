@@ -1,6 +1,10 @@
 # 开发进度与验证证据
 
-## 当前状态（2026-09-29，M13）
+## 当前状态（2026-09-29，M15）
+
+M15 源码已实现有界文档摘要与多来源回答、显式正文发送预览/确认及可回查引用；L0–L3 mock/真实组件测试和固定 Main 真实合成调用已通过。最新安装包仍是 M14 未签名 0.2.0-rc.1，不包含 M15；M14 生产签名和独立 Windows 验收仍暂缓。M16–M20 未开始。M15 详细范围、命令和风险见本文末节。本地提交与用户手动 push 状态独立记录；Agent 不 push。
+
+## 历史状态（2026-09-29，M13）
 
 M01–M13已完成当前模块范围的实现与对应验证；M13本地提交见本轮交付回执，等待用户手动push，Agent不push。预检main、origin/main与远端默认main均为M12提交 `0cffa15f3840a92cd9fd3668b2b9bc63d10f322c`，确认用户已同步M12。未跟踪 `.zcodeignore` 保留，不提交；LICENSE未触碰。M14未开始，M08安装包仍为历史版本。M13详细证据见本文末节。
 
@@ -583,3 +587,37 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 本轮固定作者创建正常本地提交，主题`build(M14): package unsigned conversation release candidate`，哈希以最终回执为准。提交前显式暂存模块文件，检查status/diff/cached diff与敏感信息，不包含LICENSE、.zcodeignore、安装包、日志、数据库或测试产物。完成本轮授权部分后停止，等待用户手动push。
 
 最终卫生检查：显式暂存31个模块文件，禁止暂存路径0、暂存真实密钥匹配0；目录包3096个文件中禁止文件0/密钥匹配0，另外4415个本轮产物密钥匹配0。报告hygiene.json及SHA256SUMS.txt均被Git忽略。安装器SHA256为`e5e5667239170aab2246a3e2ba4dc55fa276055b4690c7fe50996e4f0cc858cc`。已查看安装版导出及OCR截图，OCR原文/98%置信度显示正常；导出拒覆盖提示保留。`git diff --cached --check`通过，未暂存改动为空，仅保留`.zcodeignore`。
+
+## M15 模型理解文档、摘要与多来源回答（2026-09-29）
+
+### 预检、实现与边界
+
+开始时目录为`D:\Users\18532\Desktop\LXH\Project\Orvia`，分支`main`；`git ls-remote --symref origin HEAD refs/heads/main`实时返回默认`main`与`946b89f548a38f0c4be651fd0dae100b8a0b031f`，与本地HEAD/origin/main一致，确认用户已手动同步M14。未跟踪`docs/DEVELOPMENT_PLAN_V2.md`完整保留并纳入M15文档提交；`.zcodeignore`保留不暂存；LICENSE在本轮预检无删除状态，未修改。先阅读AGENTS、根README、ARCHITECTURE、旧/V2开发清单、PROGRESS及chat/documents/browser/desktop模块README。M14未完成的生产签名与独立机器验收保持原状态。
+
+- [x] √ 当前会话显式选择1–3个文档/网页不可变证据版本，摘要或问答模式、最多300字问题；原关键词检索入口保留。
+- [x] √ 后端复用M12/M13证据版本、文档页/段/幻灯片及网页块定位和M06 FTS；每源最多3段×600字、总计5400字；长文只采样/取命中，预览显示精确正文、覆盖、原提取截断、缺失与OCR来源。
+- [x] √ 主进程记录预览输入与revision，生成前复读复核，原生确认后才发送固定Main；renderer不能传正文、路径、模型或供应商。附件选择/网页读取/关键词检索不自动上传。
+- [x] √ 模型仅生成无工具JSON；程序按本轮片段复核引用版本/定位/会话，分辨fact/inference/conflict/unknown。生成消息持久化结果、引用、覆盖、用量，复用100次预算、幂等、取消/中断及历史；语义真实性仍需人工核对。
+- [x] √ 固定Main `deepseek-flash`/`https://api.deepseek.com`；单次20秒网络超时、30秒等待、1024输出token、0自动重试。Computer与Browser固定配置不变，文件规划不会把来源正文并入指令。无写操作、审批、M20意图路由或流式输出。
+
+### 分级验证（均在项目根执行）
+
+| 级别 | 实际命令 | 结果与 mock/真实边界 | 证据及未覆盖风险 |
+|---|---|---|---|
+| L0 | `npm run build`（含`npm run check`）；`backend/.venv/Scripts/python.exe -m compileall -q backend/src/orvia_backend/chat backend/src/orvia_backend/application.py` | 最终通过；无模型调用 | 构建只证明类型与打包前源码，不是安装包验收 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m15_synthesis.py -q --basetemp=artifacts/test-results/M15/backend-temp --junitxml=artifacts/test-results/M15/backend.xml` | 最终3 passed；真实SQLite/FTS、两文档加网页、长文/截断/OCR/冲突/伪造引用、跨会话、取消/幂等/重启；模型mock | `backend.xml`；结构引用校验不能保证模型所述事实正确 |
+| L1/L2 | `ORVIA_TEST_RESULTS=artifacts/test-results/M15`，`npx vitest run apps/desktop/tests/m15-contracts.test.ts tests/integration/m15.test.ts` | 最终4 passed；严格IPC/纯文本UI；真实Python stdio/文档提取/SQLite与缺钥拒绝；无云端 | 临时profile在M15结果目录；未使用用户文档 |
+| L3 | `ORVIA_TEST_MODULE=M15`、`ORVIA_TEST_RESULTS=artifacts/test-results/M15`，`npx playwright test tests/e2e/m15.spec.ts` | 最终2 passed；真实Electron/Python/SQLite/DOCX解析、预览、结果与回查；绕过预览拒绝、原生框取消后无模型结果；模型和原生对话框在测试启动器mock | `synthesis.png`已目检；测试对话框由启动器模拟接受/取消，不替代用户在产品中手动确认 |
+| 真实Main | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_m15_synthesis.py --run-live` | 首次1次真实调用返回结构/引用有效，但测试只要求回答主句包含固定日期字面而失败；调整为检查回答加分项结论的日期要素后再次1次调用通过：2合成来源、2结论、2引用、total_tokens=1011；每次单请求，无自动重试 | 仅当前测试进程读取根`.env.local`的Main Key，发送短合成文档/网页片段；不输出原始请求、响应或Key。未用LXH用户文件，未验证真实网页/Tavily或产品窗口真实云调用 |
+
+本轮未做L4全量或重新打包：变更限定生成服务、会话与桌面固定入口，L0–L3已覆盖相应接口；M14发布验收仍按用户暂缓。报告、截图、临时库及测试夹具均在Git忽略的`artifacts/test-results/M15/`。真实调用费用由供应商计费，token上限不能保证精确金额；无真实用户资料上传。
+
+### 试用、限制与提交状态
+
+运行`npm run build`、`npm start`，在同一会话添加合成附件或读取公开网页，勾选1–3个证据版本，选择摘要/回答并填问题，预览实际发送片段，点击生成后在原生框确认。生成卡片可展开覆盖并点击来源回查。取消框不产生模型调用；缺Key提示固定Main不可用。原关键词检索仍可独立使用。用户文件的本地读取授权不等于云端发送授权，发送前应自行审查预览文本。
+
+长文仅取有限片段，不保证全文覆盖；M06关键词为AND查询，可能漏召回；OCR分数与引用结构不证明事实，冲突/截断需人工核对。输出1024 token可能不足以容纳复杂回答，失败不会自动重试。当前源码未重建安装包；M16 Office/PDF成品、M17–M18执行类能力、M19视觉、M20统一意图与流式交互均未开发。
+
+本轮按固定作者“踪显 <18532112451@163.com>”创建正常本地提交，主题`feat(M15): add evidence-grounded document synthesis`，实际哈希以交付回执为准。提交前显式检查status/diff/cached diff、禁止暂存路径和真实Key，`.env.local`、数据库、日志、测试结果、用户文件、`.zcodeignore`与LICENSE均不进入提交。Agent不push；用户手动同步状态在本地提交后仍为待执行。
+
+暂存卫生：显式暂存29个本模块文件，其中包含用户此前未跟踪的完整V2规划；禁止暂存路径0、暂存真实密钥匹配0。本轮结果目录最终扫描339个文件，真实密钥匹配0，报告`artifacts/test-results/M15/hygiene.json`被Git忽略。`git diff --check`、`git diff --cached --check`通过；未暂存的工作区改动只有`.zcodeignore`未跟踪。没有读取LXH目录中的用户文件样本，本轮只使用测试进程生成的合成资料。

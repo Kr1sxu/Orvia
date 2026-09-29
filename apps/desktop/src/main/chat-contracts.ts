@@ -26,6 +26,16 @@ export const chatDocumentSourceSchema = chatBrowserSourceSchema;
 export const chatDocumentAskSchema = chatBrowserAskSchema;
 export const chatDocumentPreviewSchema = chatDocumentSourceSchema.extend({format:z.enum(['md','json'])}).strict();
 export const chatDocumentExportSchema = chatDocumentPreviewSchema.extend({revision:z.string().regex(/^[a-f0-9]{64}$/),request_id:z.string().uuid()}).strict();
+/** 生成只能引用当前会话证据 ID；正文范围由后端计算并经主进程预览确认。 */
+export const synthesisSourceSchema=z.object({kind:z.enum(['document','browser']),evidence_id:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
+export const chatSynthesisPreviewSchema=chatIdSchema.extend({mode:z.enum(['summary','answer']),question:z.string().trim().min(1).max(300),sources:z.array(synthesisSourceSchema).min(1).max(3)}).strict();
+export const chatSynthesisGenerateSchema=chatSynthesisPreviewSchema.extend({request_id:z.string().uuid(),revision:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
+export const synthesisFragmentSchema=z.object({citation:z.string(),kind:z.enum(['document','browser']),evidence_id:z.string(),locator:z.string(),unit:z.number().optional(),chunk:z.number(),text:z.string().max(600),method:z.string().optional(),confidence:z.number().nullable().optional()});
+export const synthesisCoverageSchema=z.object({kind:z.enum(['document','browser']),evidence_id:z.string(),title:z.string(),accessed_at:z.string().nullable(),selected_chunks:z.number(),available_chunks:z.number(),source_truncated:z.boolean(),missing_units:z.array(z.number()),ocr_available:z.boolean(),ocr_selected:z.boolean()});
+export const synthesisPreviewSchema=z.object({mode:z.enum(['summary','answer']),question:z.string(),supplier:z.string(),fragments:z.array(synthesisFragmentSchema).max(9),coverage:z.array(synthesisCoverageSchema).max(3),revision:z.string().regex(/^[a-f0-9]{64}$/)});
+export type SynthesisPreview=z.infer<typeof synthesisPreviewSchema>;
+export type SynthesisSource=z.infer<typeof synthesisSourceSchema>;
+export const synthesisMessageSchema=z.object({answer:z.string().max(2200),claims:z.array(z.object({text:z.string().max(600),kind:z.enum(['fact','inference','conflict','unknown']),citations:z.array(z.string()).max(3)})).max(8),citations:z.array(synthesisFragmentSchema.omit({text:true})).max(9),coverage:z.array(synthesisCoverageSchema).max(3),revision:z.string().regex(/^[a-f0-9]{64}$/),model:z.literal('deepseek-flash'),usage:z.record(z.number().int())});
 const documentErrorSchema=z.object({code:z.string(),message:z.string()}).nullable();
 const codepoints=(limit:number)=>z.string().refine(value=>Array.from(value).length<=limit);
 export const documentUnitSchema=z.object({number:z.number().int().min(1),locator:codepoints(200),text:codepoints(8000),method:z.enum(['text','ocr']),confidence:z.number().min(0).max(1).nullable(),error:documentErrorSchema});
@@ -56,10 +66,11 @@ export const actionSchema = z.object({ kind: z.enum(['mkdir', 'move', 'rename'])
 export const operationSchema = z.object({ operation_id: z.string().uuid(), revision: z.string(), status: z.string(), actions: z.array(actionSchema), error: z.string().nullable().optional(), can_undo: z.boolean().optional() });
 export const taskStatusSchema = z.enum(['draft','running','awaiting_approval','completed','failed','interrupted','cancelled','undone','partially_undone']);
 export const operationHistorySchema = z.object({operation_id:z.string().uuid(),revision:z.string(),status:z.string(),created_at:z.string(),updated_at:z.string(),can_undo:z.boolean()});
-export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','source','source_request','document_request','document','export','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() }).superRefine((message,ctx)=>{
+export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','source','source_request','document_request','document','export','synthesis_request','synthesis','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() }).superRefine((message,ctx)=>{
   if(message.kind==='document'&&!documentMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'文档消息不符合契约'});
   if(message.kind==='export'&&!documentExportMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'导出消息不符合契约'});
   if(message.kind==='source'&&!browserMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'来源消息不符合契约'});
+  if(message.kind==='synthesis'&&!synthesisMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'生成回答不符合契约'});
 });
 export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.string(), mission_id: z.string().uuid(), messages: z.array(chatMessageSchema),
   grant: z.object({ root_label: z.string().nullable(), grant_id: z.string().uuid(), calls_remaining: z.number() }).nullable(), operation: operationSchema.nullable(),

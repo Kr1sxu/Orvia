@@ -1,5 +1,5 @@
 import type { Configuration, Mission, MissionCreate, GrantStatus, ScanEnvelope } from '../main/contracts';
-import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence, DocumentEvidence, DocumentPreview } from '../main/chat-contracts';
+import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource } from '../main/chat-contracts';
 export type { GrantStatus, ScanEnvelope } from '../main/contracts';
 /** 渲染端只能请求有限业务接口，没有通用 IPC、后端初始化或凭据读取入口。 */
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
@@ -28,6 +28,8 @@ declare global { interface Window { orvia: {
   chatDocumentSource: (input:{id:string;evidence_id:string})=>Promise<Reply<DocumentEvidence>>;
   chatDocumentPreview: (input:{id:string;evidence_id:string;format:'md'|'json'})=>Promise<Reply<DocumentPreview>>;
   chatDocumentExport: (input:{id:string;evidence_id:string;format:'md'|'json';revision:string;request_id:string})=>Promise<Reply<{cancelled:boolean;conversation?:Conversation}>>;
+  chatSynthesisPreview: (input:{id:string;mode:'summary'|'answer';question:string;sources:SynthesisSource[]})=>Promise<Reply<SynthesisPreview>>;
+  chatSynthesisGenerate: (input:{id:string;mode:'summary'|'answer';question:string;sources:SynthesisSource[];revision:string;request_id:string})=>Promise<Reply<{cancelled:boolean;conversation?:Conversation}>>;
   chatApprove: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatResume: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatUndo: (input: ChatApproval) => Promise<Reply<Conversation>>;

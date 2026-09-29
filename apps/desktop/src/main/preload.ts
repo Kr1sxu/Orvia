@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('orvia', Object.freeze({
   chatDocumentSource: (input: unknown) => ipcRenderer.invoke('orvia:chat-document-source', input),
   chatDocumentPreview: (input: unknown) => ipcRenderer.invoke('orvia:chat-document-preview', input),
   chatDocumentExport: (input: unknown) => ipcRenderer.invoke('orvia:chat-document-export', input),
+  chatSynthesisPreview: (input: unknown) => ipcRenderer.invoke('orvia:chat-synthesis-preview', input),
+  chatSynthesisGenerate: (input: unknown) => ipcRenderer.invoke('orvia:chat-synthesis-generate', input),
   chatApprove: (input: unknown) => ipcRenderer.invoke('orvia:chat-approve', input),
   chatResume: (input: unknown) => ipcRenderer.invoke('orvia:chat-resume', input),
   chatUndo: (input: unknown) => ipcRenderer.invoke('orvia:chat-undo', input),

@@ -77,6 +77,22 @@ class DocumentExport(DocumentPreview):
     path: str = Field(min_length=1, max_length=1000)
 
 
+class SynthesisSource(Params):
+    kind: Literal["document", "browser"]
+    evidence_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class SynthesisPreview(Conversation):
+    mode: Literal["summary", "answer"]
+    question: str = Field(min_length=1, max_length=300)
+    sources: list[SynthesisSource] = Field(min_length=1, max_length=3)
+
+
+class SynthesisGenerate(SynthesisPreview):
+    request_id: UUID
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class Approval(Conversation):
     operation_id: UUID
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")

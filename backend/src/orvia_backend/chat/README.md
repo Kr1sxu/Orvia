@@ -1,4 +1,12 @@
-# M10–M13 会话与桌面任务应用服务
+# M10–M15 会话与桌面任务应用服务
+
+## M15 生成式证据回答
+
+`synthesis.py` 从当前会话显式选定的 1–3 个 `document/browser` 不可变版本组装有界证据包；文档按页/段/幻灯片单元切块，网页按正文切块，问答复用 M06 FTS 命中。`chat.synthesis.preview({id,mode,question,sources})` 只读返回确切拟发送片段、覆盖与 SHA256 revision，不调用模型。`chat.synthesis.generate` 另需 request_id/revision；主进程只接受最近实际预览的同一输入，重算版本并弹原生正文发送确认。后端再核对版本，调用该 Mission 固定 Main 一次，不提供工具。会话生成消息持久化回答、结论类别、引用版本与定位、覆盖、模型及用量；同一请求不重复调用，中断/取消不重放。资料中的指令不会进入文件任务的 `text` 历史或取得授权。
+
+每源最多3个600字片段，最多5400字正文；模型20秒网络超时、30秒本轮等待、1024输出token、0自动重试。输出必须是 `answer` 与 `claims` 的 JSON；`fact/inference` 需有本轮引用，`conflict` 需两个，`unknown` 不带引用。结构校验不等于事实核实。原文截断、缺失与 OCR 风险通过 coverage 返回。输入与输出无绝对路径、密钥和任意写操作；每会话100次请求预算沿用。示例：在当前会话保存文档和网页 → 选版本与问题 → 预览片段 → 主进程确认 → 查生成卡片及证据详情。源码试用需 `npm run build`、`npm start`；M14安装包未更新。
+
+测试：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m15_synthesis.py -q`、`npx vitest run apps/desktop/tests/m15-contracts.test.ts tests/integration/m15.test.ts`、构建后 `ORVIA_TEST_MODULE=M15` 与 `ORVIA_TEST_RESULTS=artifacts/test-results/M15` 下运行 `npx playwright test tests/e2e/m15.spec.ts`。以上均用合成数据及模型 mock；显式 `backend/tests/live_m15_synthesis.py --run-live` 才在当前测试进程读取根开发 Key 并调用真实固定 Main，输出仅状态和用量。结果目录 Git 忽略。长文采样不是全文摘要，旧 M06 AND 关键词检索可漏召回，模型可产生语义错误；没有流式输出和自动检索全部资料。
 
 ## M13 文档请求
 
