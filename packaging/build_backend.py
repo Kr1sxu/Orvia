@@ -41,7 +41,8 @@ def main():
     manifest = {'python': sys.version.split()[0], 'playwright': importlib.metadata.version('playwright'),
                 'pyinstaller': importlib.metadata.version('pyinstaller'), 'browsers': versions, 'app_version': '0.2.0-rc.1', 'signed': False,
                 'documents': {name: importlib.metadata.version(name) for name in
-                              ('pypdfium2', 'rapidocr-onnxruntime', 'onnxruntime', 'pillow', 'defusedxml')}}
+                              ('pypdfium2', 'rapidocr-onnxruntime', 'onnxruntime', 'pillow', 'defusedxml')},
+                'publication': {name: importlib.metadata.version(name) for name in ('python-docx', 'python-pptx', 'reportlab')}}
     (BUILD / 'runtime-manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     print('后端与浏览器资源已生成；尚未代表安装包验收通过。')
 

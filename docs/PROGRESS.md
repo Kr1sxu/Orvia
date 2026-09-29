@@ -621,3 +621,39 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 本轮按固定作者“踪显 <18532112451@163.com>”创建正常本地提交，主题`feat(M15): add evidence-grounded document synthesis`，实际哈希以交付回执为准。提交前显式检查status/diff/cached diff、禁止暂存路径和真实Key，`.env.local`、数据库、日志、测试结果、用户文件、`.zcodeignore`与LICENSE均不进入提交。Agent不push；用户手动同步状态在本地提交后仍为待执行。
 
 暂存卫生：显式暂存29个本模块文件，其中包含用户此前未跟踪的完整V2规划；禁止暂存路径0、暂存真实密钥匹配0。本轮结果目录最终扫描339个文件，真实密钥匹配0，报告`artifacts/test-results/M15/hygiene.json`被Git忽略。`git diff --check`、`git diff --cached --check`通过；未暂存的工作区改动只有`.zcodeignore`未跟踪。没有读取LXH目录中的用户文件样本，本轮只使用测试进程生成的合成资料。
+
+## M16 带来源引用的 Word／PPT／PDF 简报（2026-09-29）
+
+### 预检、范围与实现
+
+预检目录为`D:\Users\18532\Desktop\LXH\Project\Orvia`，分支`main`，本地 HEAD、`origin/main`及实时`git ls-remote --symref origin HEAD refs/heads/main`均为`a1ebe35be2fe503bc735e86fb6560e7bf4079d78`，远端默认分支为`main`，确认用户已手动同步 M15。工作区仅有未跟踪`.zcodeignore`，本轮保留且不纳入提交；LICENSE 未修改。阅读 AGENTS、根 README、架构、两份开发清单、进度及涉及模块 README 和源码后实施。用户确认首批为“带来源引用的简报”：Word/PDF 报告、PPT 演示摘要，来自一条已保存 M15 回答，允许编辑标题、摘要及各结论文字。未使用 subagent。
+
+- [x] √ 新增 publication 服务：固定版式和文字预算、最多48个版面、2 MiB 输出；引用身份、定位、fact/inference/conflict/unknown 类型和来源版本由原 M15 消息决定，用户编辑不能改引用。预览含分段/幻灯片、完整引用和 SHA256 revision；成品保留人工复核说明。
+- [x] √ 真实生成可编辑 DOCX/PPTX 和带嵌入中文字体的 A4 PDF，并用相应解析库读回；PDF 超出版面预算时拒绝。锁定 python-docx、python-pptx、ReportLab，随冻结包收集 Noto Sans SC 与 OFL 许可。
+- [x] √ 复用当前会话 SQLite 消息、M13 Computer gateway 的安全路径校验与独占新建、fsync/字节读回。主进程复核预览版本并弹原生保存框；renderer 只传有界文字和格式，不提供路径、模板、脚本或模型设置。相同请求幂等，换目标拒绝，取消不写入。
+- [x] √ 更新 desktop 卡片、preload/IPC、backend 协议、打包清单、相关 README、架构和 V2 清单。M16 不发起新模型调用；本轮没有 M17–M20 功能或视觉改版。M14 未签名安装器未重建，生产签名与独立 Windows 验收仍暂缓。
+
+### 分级验证（命令均在项目根运行）
+
+全部业务素材由测试生成并置于 Git 忽略的`artifacts/test-results/M16/`；只访问合成文件和临时数据库。模型在测试中仅为确定性 mock，真实云端请求、用户 LXH 文件读取与用户正文上传均为0。M15 既有两次合成 Main 真实调用结论继续适用于 M15 能力，不冒充 M16 新的真实调用。
+
+| 级别 | 实际命令或设置 | 结果、证据与边界 |
+|---|---|---|
+| L0 | `.venv/Scripts/uv.exe lock --project backend --check`；`npm run build`（含 TypeScript 检查）；`git diff --check` | 最终通过；依赖锁、桌面类型和构建与源码一致，无模型调用 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m16_publication.py -q --basetemp=artifacts/test-results/M16/backend-temp --junitxml=artifacts/test-results/M16/backend.xml` | 2 passed；真实 SQLite/FTS、M15 消息持久化、三种文件生成与读回、跨会话/过期版本/幂等/拒覆盖/错误后缀/长文控制字符；M15 回答为 mock。两条库弃用提示不影响结果 |
+| L1 | 设置`ORVIA_TEST_RESULTS=artifacts/test-results/M16`，`npx vitest run apps/desktop/tests/m16-contracts.test.ts apps/desktop/tests/m15-contracts.test.ts --reporter=json --outputFile=artifacts/test-results/M16/vitest.json` | 5 passed；严格桌面契约、卡片及 M15 相邻界面回归，无云端调用 |
+| L3 | 设置`ORVIA_TEST_MODULE=M16`、`ORVIA_TEST_RESULTS=artifacts/test-results/M16`，`npx playwright test tests/e2e/m16.spec.ts`；修正预览标题断言对应界面后仅重跑失败的成功场景 | 最终成功与取消两条流程均通过；真实 Electron、Python、文档解析、SQLite、三格式落盘、结果卡片、重启回查和绕过主进程预览拒绝。模型及原生对话框由启动器 mock；最初成功场景因预览未显示标题失败，补显示后定向通过，取消场景首轮已通过 |
+| L4 定向冻结 | `backend/.venv/Scripts/python.exe -m PyInstaller --noconfirm --distpath artifacts/test-results/M16/frozen-dist --workpath artifacts/test-results/M16/frozen-work packaging/orvia-backend.spec`；设置`ORVIA_FROZEN_BACKEND=<M16冻结exe绝对路径>`后，`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m16_frozen.py -q --basetemp=artifacts/test-results/M16/frozen-temp --junitxml=artifacts/test-results/M16/frozen.xml` | 最终1 passed；真实冻结 Windows EXE 隔离 PATH 为 System32，经 stdio/SQLite 写出三格式；字体与许可文件实际随包。`freeze-final.log`和`frozen.xml`保留 |
+| L4 定向视觉 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/integration/m16-libreoffice.ps1 -InputDirectory <M16合成E2E输出目录> -OutputDirectory artifacts/test-results/M16/office-render-final/word`；同参数模式运行`tests/integration/m16-office.ps1`，输出至`office-render-final/slides` | 本机 LibreOffice 把合成 DOCX 渲染为2页 PDF；本机 PowerPoint 打开 PPTX 并导出3页 PDF；原生 PDF 为2页。`visual-final/`七张逐页图已目检，中文可读、无可见裁切；Word/PPT 编辑性另由解析库和真实应用打开验证 |
+
+首次 LibreOffice 命令因 Windows 启动器先返回、文件稍后出现而误判失败；脚本改为最长10秒有界等待，随后通过。Microsoft Word COM 实际打开合成 DOCX，但其 PDF 导出和另存均长时间未返回，已停止仅由本轮启动的进程，并采用 LibreOffice 逐页验收；此现象是本机 Office 自动化限制，不能推断用户机器的 Word 行为。上述渲染和冻结属于 M16 定向 L4，不等于重新发布或独立 Windows 验收。没有做全量回归，复用 M14/M15 已通过的无关边界结论。
+
+### 试用、限制与提交状态
+
+先运行`.venv/Scripts/uv.exe sync --project backend --locked`、`npm run build`、`npm start`。在会话中生成 M15 摘要或多来源回答，点击结果上的“制作 Word／PPT／PDF 简报”，选择格式，编辑标题、摘要和结论，核对预览版面、来源及提示，点击保存并在原生对话框选择一个新文件名。再次保存需重新确认；取消不落盘。当前 M14 安装包没有 M15/M16 新源码，试用 M16 请运行本地开发版。
+
+首批仅固定文字简报，不含自定义模板、图片、图表、公式、宏、标书或完整行业调研。编辑文字可能改变语义，引用编号只映射原证据，不保证编辑后的叙述得到来源支持；OCR、截断、冲突仍需人工回查。Word 物理分页和字体替换受实际编辑器影响，复杂长文可能因有界版面拒绝；PDF 为排版成品而非文字编辑格式。没有真实云端 M16 调用，M15 云端验证不代表任意用户资料可自动发送。本机 Word COM 导出未完成，LibreOffice 与 PowerPoint 的合成文件目检结果不代替独立机器或生产发行验收。
+
+固定作者“踪显 <18532112451@163.com>”创建正常本地提交，主题`feat(M16): generate cited Word PowerPoint and PDF briefs`，具体哈希见交付回执。提交前显式暂存、检查 status/diff/cached diff 与敏感信息；`.env.local`、`.zcodeignore`、LICENSE、用户文件、数据库、日志及本轮产物不纳入 Git。Agent 不 push；M16 提交后待用户手动 push。完成后立即停止，不开始 M17。
+
+暂存卫生：显式暂存42个 M16 文件，禁止暂存路径0、暂存真实密钥匹配0；扫描3108个本轮产物，真实密钥匹配0。报告`artifacts/test-results/M16/hygiene.json`被 Git 忽略。`git diff --cached --check`通过；本轮文件之外保留未跟踪`.zcodeignore`。

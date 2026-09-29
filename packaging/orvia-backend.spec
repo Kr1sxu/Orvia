@@ -15,6 +15,8 @@ for distribution in ('orvia-backend', 'langgraph', 'langgraph-checkpoint', 'lang
 # OCR 权重/字典和 PDF 原生库必须随包携带，运行时不下载或查找开发环境。
 for package in ('rapidocr_onnxruntime', 'pypdfium2', 'pypdfium2_raw', 'onnxruntime'):
     datas += collect_data_files(package)
+# M16 固定离线 PDF 字体与 OFL 授权文件随冻结后端携带；不访问系统 Office。
+datas += collect_data_files('orvia_backend.publication')
 binaries = collect_dynamic_libs('pypdfium2_raw') + collect_dynamic_libs('onnxruntime')
 
 a = Analysis([str(root / 'packaging/backend_entry.py')], pathex=[str(root / 'backend/src')],

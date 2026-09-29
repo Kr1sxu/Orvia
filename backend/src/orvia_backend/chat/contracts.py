@@ -93,6 +93,21 @@ class SynthesisGenerate(SynthesisPreview):
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class PublicationPreview(Conversation):
+    """仅编辑已保存 M15 结果的文字；引用身份、来源与结论类型不可由 UI 改写。"""
+    message_id: UUID
+    format: Literal["docx", "pptx", "pdf"]
+    title: str = Field(min_length=1, max_length=40)
+    answer: str = Field(min_length=1, max_length=2200)
+    claim_texts: list[str] = Field(min_length=1, max_length=8)
+
+
+class PublicationSave(PublicationPreview):
+    request_id: UUID
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    path: str = Field(min_length=1, max_length=1000)
+
+
 class Approval(Conversation):
     operation_id: UUID
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")

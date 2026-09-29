@@ -94,7 +94,11 @@ class ComputerGateway:
     def export_document(self, role: str, path: str, data: bytes, format: str) -> str:
         """选择保存位置即对预览版本的一次写授权；O_EXCL 拒绝竞态覆盖。"""
         policy, name = self.selected_file(role, path)
-        if Path(name).suffix.lower() != {"md": ".md", "json": ".json"}[format] or len(data) > 60 * 1024:
+        limits = {"md": (".md", 60 * 1024), "json": (".json", 60 * 1024),
+                  "docx": (".docx", 2 * 1024 * 1024), "pptx": (".pptx", 2 * 1024 * 1024),
+                  "pdf": (".pdf", 2 * 1024 * 1024)}
+        extension, max_bytes = limits[format]
+        if Path(name).suffix.lower() != extension or not data or len(data) > max_bytes:
             raise ToolError("EXPORT_INVALID", "导出扩展名或内容预算不符合要求")
         target = policy.new_file(name)
         try:

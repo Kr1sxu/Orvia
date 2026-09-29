@@ -32,7 +32,7 @@ describe('M15 明确正文发送和模型结果边界',()=>{
     const message={id,role:'assistant' as const,kind:'synthesis' as const,text:'模型回答',created_at:'2026-09-29',data:{...data,coverage:[coverage]}};
     expect(chatMessageSchema.safeParse(message).success).toBe(true);
     expect(chatMessageSchema.safeParse({...message,data:{answer:'x'}}).success).toBe(false);
-    const html=renderToStaticMarkup(React.createElement(SynthesisResult,{message,show:()=>{}}));
+    const html=renderToStaticMarkup(React.createElement(SynthesisResult,{message,show:()=>{},compose:()=>{}}));
     expect(html).toContain('&lt;img src=x&gt;');expect(html).not.toContain('<img');expect(html).toContain('引用版本与覆盖范围');
   });
 });

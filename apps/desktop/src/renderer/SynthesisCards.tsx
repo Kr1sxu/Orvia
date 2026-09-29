@@ -1,7 +1,7 @@
 import React from 'react';
 import {synthesisMessageSchema,type ChatMessage,type SynthesisPreview} from '../main/chat-contracts';
 
-export function SynthesisResult({message,show}:{message:ChatMessage;show:(kind:'document'|'browser',id:string)=>void}){
+export function SynthesisResult({message,show,compose}:{message:ChatMessage;show:(kind:'document'|'browser',id:string)=>void;compose:(message:ChatMessage)=>void}){
   const parsed=synthesisMessageSchema.safeParse(message.data);
   if(!parsed.success)return <p role="alert">生成结果结构无效，请刷新会话核对。</p>;
   const result=parsed.data;
@@ -10,6 +10,7 @@ export function SynthesisResult({message,show}:{message:ChatMessage;show:(kind:'
     <ol>{result.claims.map((claim,index)=><li key={index}><strong>{{fact:'证据陈述',inference:'推断',conflict:'来源冲突',unknown:'无法回答'}[claim.kind]}：</strong>{claim.text}
       {!!claim.citations.length&&<span> 引用：{claim.citations.map(cite=>{const target=result.citations.find(item=>item.citation===cite);return target?<button key={cite} onClick={()=>show(target.kind,target.evidence_id)} title={target.locator}><code>{cite}</code></button>:<code key={cite}>{cite}</code>;})}</span>}</li>)}</ol>
     <details><summary>引用版本与覆盖范围</summary><ul>{result.coverage.map(item=><li key={item.kind+item.evidence_id}><button onClick={()=>show(item.kind,item.evidence_id)}>{item.title||item.evidence_id.slice(0,12)}</button> · {item.selected_chunks}/{item.available_chunks} 片段{item.source_truncated?' · 原文已截断':''}{item.missing_units.length?' · 有缺失单元':''}{item.ocr_available?' · 来源含 OCR，请核对识别':''}</li>)}</ul><small>固定 Main：{result.model}。引用仅校验身份和定位，结论仍需核对原文。</small></details>
+    <button onClick={()=>compose(message)}>制作 Word／PPT／PDF 简报</button>
   </section>;
 }
 

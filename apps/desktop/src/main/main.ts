@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
-import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, type SynthesisPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
+import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, chatPublicationPreviewSchema, chatPublicationSaveSchema, type SynthesisPreview, type PublicationPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
 import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
@@ -41,6 +41,7 @@ app.whenReady().then(async () => {
   let ordinaryRequests = 0;
   let documentPreviewAuthorization: {id:string;evidence_id:string;format:string;revision:string} | undefined;
   let synthesisAuthorization: {id:string;selection:string;preview:SynthesisPreview} | undefined;
+  let publicationAuthorization: {id:string;selection:string;preview:PublicationPreview} | undefined;
   let activeSend: { id: string; request_id: string } | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
@@ -84,6 +85,7 @@ app.whenReady().then(async () => {
       activeComputerGrants.clear();
       documentPreviewAuthorization=undefined;
       synthesisAuthorization=undefined;
+      publicationAuthorization=undefined;
       backend = createBackend();
       await backend.start();
       return {connected: true};
@@ -169,6 +171,28 @@ app.whenReady().then(async () => {
     activeSend={id:request.id,request_id:request.request_id};
     try{return {cancelled:false,conversation:await backend.chat('chat.synthesis.generate',request)};}
     finally{activeSend=undefined;}
+  }));
+  handle('orvia:chat-publication-preview',1,input=>chatAction(async()=>{
+    publicationAuthorization=undefined;
+    const request=chatPublicationPreviewSchema.parse(input);
+    const preview=await backend.chatPublicationPreview(request);
+    publicationAuthorization={id:request.id,selection:JSON.stringify(request),preview};
+    return preview;
+  }));
+  handle('orvia:chat-publication-save',1,input=>chatAction(async()=>{
+    const request=chatPublicationSaveSchema.parse(input);
+    const authorization=publicationAuthorization;
+    publicationAuthorization=undefined;
+    const selection=JSON.stringify({id:request.id,message_id:request.message_id,format:request.format,title:request.title,answer:request.answer,claim_texts:request.claim_texts});
+    if(!authorization||authorization.id!==request.id||authorization.selection!==selection||authorization.preview.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    const fresh=await backend.chatPublicationPreview({id:request.id,message_id:request.message_id,format:request.format,title:request.title,answer:request.answer,claim_texts:request.claim_texts});
+    if(fresh.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    // 原生保存框只授权本次预览版本的一次新文件写入，路径不进入 renderer 或历史消息。
+    const chosen=await dialog.showSaveDialog(window!,{title:'保存已预览简报成品（不能覆盖）',buttonLabel:'确认创建新文件',defaultPath:fresh.filename,
+      filters:[{name:{docx:'Word 文档',pptx:'PowerPoint 演示',pdf:'PDF 文档'}[request.format],extensions:[request.format]}]});
+    if(chosen.canceled||!chosen.filePath)return {cancelled:true};
+    const conversation=await backend.chat('chat.publication.save',{...request,path:chosen.filePath});
+    return {cancelled:false,conversation};
   }));
   handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
   handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));

@@ -4,7 +4,7 @@
 
 `read_attachment('computer', selected_path)` 仅供主进程选择器经过Application/ChatService进入，一次性读取最多10 MiB的允许文档；复用PathPolicy根链、相对路径和句柄身份，不授予父目录访问，不改变现有grant。`export_document('computer', selected_path, bytes, format)` 仅接收程序生成且已预览确认的Markdown/JSON，复用`PathPolicy.new_file`验证新文件名和父目录，通过`x+b`拒绝覆盖、fsync及读回核验，不写任意模型内容。角色不是computer一律拒绝。
 
-导出审批与M04整理审批分离：保存框只确认一个预览版本的新建文件，不能替代移动/重命名审批；导出不包含删除或撤销接口。详见 `../documents/README.md`，目标测试 `backend/tests/test_m13_documents.py`。底下M03“只读”描述属于原工具集合，新增导出的写边界以上述M13接口为准。
+导出审批与M04整理审批分离：保存框只确认一个预览版本的新建文件，不能替代移动/重命名审批；导出不包含删除或撤销接口。M16 复用相同 `export_document` 的路径策略、独占创建与读回验证，固定允许 `.docx/.pptx/.pdf` 且每份最多2 MiB，内容由后端固定生成器提供，renderer 不能传写入字节。详见 `../documents/README.md` 与 `../publication/README.md`。底下M03“只读”描述属于原工具集合。
 
 ## M10 接入更新
 

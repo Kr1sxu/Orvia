@@ -1,5 +1,9 @@
 # M14 未签名测试候选版：0.2.0-rc.1
 
+## M16 源码的冻结依赖
+
+M16 在后端增加 python-docx、python-pptx、ReportLab 和内置 OFL 中文字体；`orvia-backend.spec` 明确收集 `publication/assets`，开发环境及 M16 隔离冻结后端分别验证三格式实际生成。冻结输出仅位于 `artifacts/test-results/M16/`，不是新安装器、升级包或已签名发行版。M14 现有 `0.2.0-rc.1` 安装包保持原状，不含 M15/M16；将来重新打包仍需完成安装包专项验收，M14 暂缓的独立 Windows 与生产签名状态不变。依赖许可证与文件限额见 `backend/src/orvia_backend/publication/README.md`。
+
 本轮按用户授权完成本机打包与回归；生产证书签名、独立无开发环境 Windows 验收暂缓，M14 完整发布验收仍未完成。不发布 GitHub Release，不开启自动更新。
 
 ## 构建与资源

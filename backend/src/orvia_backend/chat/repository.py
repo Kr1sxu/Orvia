@@ -112,6 +112,18 @@ class ChatRepository:
                 count = (await cursor.fetchone())[0]
             return [json.loads(row[0]) for row in reversed(rows)], count
 
+    async def message(self, conversation_id, message_id):
+        """按会话和消息双重身份读取已保存结果，不受最近 30 条快照裁剪影响。"""
+        async with self.store._lock:
+            async with self.store._db().execute(
+                "SELECT message_json FROM chat_messages WHERE conversation_id = ? AND json_extract(message_json, '$.id') = ? LIMIT 1",
+                (conversation_id, message_id),
+            ) as cursor:
+                row = await cursor.fetchone()
+        if row is None:
+            raise ToolError("NOT_FOUND", "当前会话没有此生成结果")
+        return json.loads(row[0])
+
     async def latest_request_status(self, conversation_id):
         async with self.store._lock:
             async with self.store._db().execute("SELECT status FROM chat_requests WHERE conversation_id = ? ORDER BY rowid DESC LIMIT 1", (conversation_id,)) as cursor:

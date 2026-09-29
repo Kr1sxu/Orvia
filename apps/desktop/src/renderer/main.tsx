@@ -7,6 +7,7 @@ import { PlanCard, ScanCard, EvidenceCard } from './ChatCards';
 import { SourceCard, SourceDetail } from './SourceCards';
 import { DocumentCard, DocumentDetail, ExportPreview, ExportCard } from './DocumentCards';
 import { SynthesisPreviewCard, SynthesisResult } from './SynthesisCards';
+import { PublicationComposer,PublicationResult } from './PublicationCards';
 import { nearBottom, submitsMessage, taskLabels } from './chat-state';
 import './style.css';
 
@@ -23,6 +24,7 @@ function App() {
   const [synthesisQuestion,setSynthesisQuestion]=useState('请概括所选资料的主要内容、证据和局限。');
   const [selectedSources,setSelectedSources]=useState<SynthesisSource[]>([]);
   const [synthesisPreview,setSynthesisPreview]=useState<{cid:string;value:SynthesisPreview;sources:SynthesisSource[]}>();
+  const [publication,setPublication]=useState<{cid:string;message:Conversation['messages'][number]}>();
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('');
   const [notice, setNotice] = useState('');
@@ -275,7 +277,8 @@ function App() {
           {message.kind==='document'&&message.data&&<DocumentCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='export'&&message.data&&<ExportCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='source'&&message.data&&<SourceCard message={message} disabled={locked||!online} show={id=>void showSource(id)} read={url=>void sendWeb('read',url,false)}/>} {(message.kind==='plan'||message.kind==='result')&&message.data&&<EvidenceCard message={message}/>}
-          {message.kind==='synthesis'&&<SynthesisResult message={message} show={(kind,id)=>void (kind==='document'?showDocument(id):showSource(id))}/>}
+          {message.kind==='synthesis'&&<SynthesisResult message={message} show={(kind,id)=>void (kind==='document'?showDocument(id):showSource(id))} compose={item=>setPublication({cid:conversation!.id,message:item})}/>}
+          {message.kind==='publication'&&<PublicationResult message={message}/>}
         </div></article>)}
         {pendingUser&&<article className="message user"><span className="speaker">你 · 正在处理</span><div className="bubble"><p>{pendingUser}</p></div></article>}
         {!!conversation?.sources?.length&&<details className="saved-sources"><summary>会话来源（最近 {conversation.sources.length} 项）</summary><ul>{conversation.sources.map(s=><li key={s.evidence_id}><button disabled={locked||!online} onClick={()=>void showSource(s.evidence_id)}>{s.title||s.source_url||'错误证据'} · {s.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.sources_truncated&&<p>仅展示最近来源，较早记录仍可通过会话检索找到。</p>}<button disabled={locked} onClick={()=>{setIntent('ask');setText('');input.current?.focus();}}>询问已有来源</button></details>}
@@ -294,6 +297,7 @@ function App() {
           <button disabled={locked||!online||!selectedSources.length||!synthesisQuestion.trim()} onClick={()=>void prepareSynthesis()}>预览拟发送片段</button>
         </section>}
         {synthesisPreview&&synthesisPreview.cid===conversation?.id&&<SynthesisPreviewCard preview={synthesisPreview.value} disabled={locked||!online} close={()=>setSynthesisPreview(undefined)} confirm={()=>void generateSynthesis()}/>}
+        {publication&&publication.cid===conversation?.id&&<PublicationComposer key={publication.message.id} cid={publication.cid} message={publication.message} disabled={locked||!online} close={()=>setPublication(undefined)} notice={setNotice} saved={(reply,id)=>{accept(reply,id);void refreshList();}}/>}
         {conversation?.operation&&<PlanCard operation={conversation.operation} disabled={disabled} act={kind=>void act(kind)}/>}
         {!!conversation?.operations?.length&&<details className="operation-history"><summary>任务操作历史（最近 {conversation.operations.length} 项）</summary><ol>{conversation.operations.map(op=><li key={op.operation_id}><span>{taskLabels[op.status] ?? op.status}</span><code>版本 {op.revision.slice(0,12)}</code><time>{op.updated_at}</time>{op.can_undo&&<span>可受限撤销</span>}</li>)}</ol>{conversation.operations_truncated&&<p className="muted">仅显示最近操作；历史记录不构成执行或撤销授权。</p>}</details>}
         {phase&&<p role="status" className="progress"><span className="spinner"/>{phase}</p>}

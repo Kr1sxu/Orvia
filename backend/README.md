@@ -1,6 +1,8 @@
-# Orvia Python 后端（M01–M13）
+# Orvia Python 后端（M01–M16）
 
 当前入口是对话式应用；下方M01–M07段落保留历史接口说明，当前授权与UI以 `chat/README.md` 为准。M13 `documents/` 提供显式附件本地提取、版本引用、M06检索与Markdown/JSON导出，依赖/预算/运行/测试见 [文档模块](src/orvia_backend/documents/README.md)。固定子进程解析不接收路径或凭据，Computer gateway复用PathPolicy完成单文件读与新建导出；不上传文件，不扩大目录权限。
+
+M16 `publication/` 从一条当前会话的 M15 回答生成带引用的 DOCX/PPTX/PDF 简报；本地排版、预览绑定、独占新建与读回边界见 [成品模块](src/orvia_backend/publication/README.md)。
 
 ## 用途和目录结构
 

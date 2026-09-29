@@ -20,3 +20,4 @@
 .synthesis-preview details{margin:8px 0}
 .synthesis-result code{display:inline-block;margin:2px 4px;padding:2px 4px;overflow-wrap:anywhere}
 .synthesis-result li{margin:8px 0}
+.publication-composer>label{display:block;margin:10px 0}.publication-composer input,.publication-composer select,.publication-composer textarea{display:block;box-sizing:border-box;width:100%;margin-top:5px}.publication-composer textarea{min-height:75px;resize:vertical}.publication-page{border:1px solid #dfe5ed;border-radius:8px;background:#fff;padding:14px;margin:10px 0;white-space:pre-wrap;overflow-wrap:anywhere}.publication-page h5{margin:6px 0}.publication-preview{max-height:500px;overflow:auto}

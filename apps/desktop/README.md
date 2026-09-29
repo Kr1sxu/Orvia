@@ -1,4 +1,10 @@
-# Electron 桌面模块（M15 源码）
+# Electron 桌面模块（M16 源码）
+
+## M16 简报成品制作
+
+在当前会话一条 M15 回答卡片点“制作 Word／PPT／PDF 简报”，编辑标题、摘要、结论文字并选择格式；后端返回内容与页面安排、完整引用。主进程保存最近一次预览输入和 revision；保存前复取版本，原生保存框只批准新建单文件。固定 preload `chatPublicationPreview/Save` 不接收模板、路径、来源或模型覆写字段。取消无写入；成功卡片显示文件名和读回核验，不展示绝对路径。Word/PPT 可继续编辑；PDF 内嵌离线中文字体。此流程不调用模型或改变 M15 正文上云确认，也不并入 M04 文件整理撤销。格式和限制见 `backend/src/orvia_backend/publication/README.md`；M14 安装包尚不包含 M15/M16。
+
+验证：`npm run build`；`npx vitest run apps/desktop/tests/m16-contracts.test.ts apps/desktop/tests/m15-contracts.test.ts`；设置 `ORVIA_TEST_MODULE=M16` 和 `ORVIA_TEST_RESULTS=artifacts/test-results/M16` 后运行 `npx playwright test tests/e2e/m16.spec.ts`。E2E 的模型回答与原生对话框为测试 mock，Electron/Python/生成库/SQLite/文件写入真实运行。
 
 ## M15 证据选择与正文上云确认
 

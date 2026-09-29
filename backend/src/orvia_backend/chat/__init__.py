@@ -1,6 +1,7 @@
 """M10 对话应用服务：模型只能提案，程序授权、执行与核验证据。"""
 
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -16,8 +17,9 @@ from ..documents.service import DocumentStore
 from ..documents.parser import extract_document
 from ..configuration.client import ModelClient, ModelUnavailable
 from ..domain import MissionCreate
-from .contracts import Approval, BrowserAsk, BrowserSource, BrowserRead, BrowserSearch, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send, DocumentAttach, DocumentPreview, DocumentExport, SynthesisPreview, SynthesisGenerate
+from .contracts import Approval, BrowserAsk, BrowserSource, BrowserRead, BrowserSearch, Cancel, Conversation, Create, Grant, Inspect, Params, Proposal, Send, DocumentAttach, DocumentPreview, DocumentExport, SynthesisPreview, SynthesisGenerate, PublicationPreview, PublicationSave
 from .synthesis import prepare, verify_generated
+from ..publication import prepare_publication, render_publication
 from .repository import ChatRepository
 
 
@@ -71,6 +73,7 @@ class ChatService:
                      "chat.document.ask": BrowserAsk, "chat.document.preview": DocumentPreview,
                      "chat.document.export": DocumentExport,
                      "chat.synthesis.preview": SynthesisPreview, "chat.synthesis.generate": SynthesisGenerate,
+                     "chat.publication.preview": PublicationPreview, "chat.publication.save": PublicationSave,
                      "chat.approve": Approval, "chat.resume": Approval, "chat.undo": Approval}
         request = contracts[method].model_validate(params)
         cid = str(request.id)
@@ -95,11 +98,45 @@ class ChatService:
                 return await self.synthesis_preview(request)
             elif method == "chat.synthesis.generate":
                 await self.synthesis_generate(request)
+            elif method == "chat.publication.preview":
+                return await self.publication_preview(request)
+            elif method == "chat.publication.save":
+                await self.publication_save(request)
             elif method.startswith("chat.document."):
                 await self.document_request(method, request)
             elif method in {"chat.approve", "chat.resume", "chat.undo"}:
                 await self.action(method, request)
             return await self.snapshot(cid)
+
+    async def publication_preview(self, request):
+        """预览只重排该会话一条已保存的 M15 消息，不产生模型请求或文件写入。"""
+        cid = str(request.id)
+        message = await self.repository.message(cid, str(request.message_id))
+        return prepare_publication(message, request)
+
+    async def publication_save(self, request):
+        """重算预览版本后才接受主进程选择的保存路径；写入沿用 M13 网关。"""
+        cid, rid = str(request.id), str(request.request_id)
+        packet = await self.publication_preview(request)
+        if packet["revision"] != request.revision:
+            raise ToolError("STALE_APPROVAL", "成品预览已变化，请重新查看并确认")
+        # 去重键只保留路径摘要；同一请求标识不可换目标，绝对路径不进入数据库。
+        identity = hashlib.sha256((request.revision + "\n" + request.path).encode("utf-8")).hexdigest()
+        if not await self.repository.claim(cid, rid, "publication:" + identity):
+            return
+        await self.repository.append(cid, "user", "保存已预览的本地简报成品。", "publication_request",
+                                     {"format": request.format, "revision": request.revision, "message_id": str(request.message_id)})
+        try:
+            data = render_publication(packet)
+            name = self.gateway.export_document("computer", request.path, data, request.format)
+            await self.repository.append(cid, "system", "已独占创建并读回核验本地成品；未上传内容或覆盖已有文件。", "publication",
+                                         {"filename": name, "format": request.format, "revision": request.revision,
+                                          "message_id": str(request.message_id), "source_revision": packet["source_revision"],
+                                          "pages": len(packet["pages"])})
+            await self.repository.finish(cid, rid)
+        except ToolError as error:
+            await self.repository.append(cid, "system", error.message, "error", {"code": error.code})
+            await self.repository.finish(cid, rid, "failed")
 
     async def synthesis_preview(self, request):
         """模型发送前只读预览；不建立授权，也不调用模型。"""

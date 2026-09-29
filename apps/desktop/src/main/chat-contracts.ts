@@ -36,6 +36,13 @@ export const synthesisPreviewSchema=z.object({mode:z.enum(['summary','answer']),
 export type SynthesisPreview=z.infer<typeof synthesisPreviewSchema>;
 export type SynthesisSource=z.infer<typeof synthesisSourceSchema>;
 export const synthesisMessageSchema=z.object({answer:z.string().max(2200),claims:z.array(z.object({text:z.string().max(600),kind:z.enum(['fact','inference','conflict','unknown']),citations:z.array(z.string()).max(3)})).max(8),citations:z.array(synthesisFragmentSchema.omit({text:true})).max(9),coverage:z.array(synthesisCoverageSchema).max(3),revision:z.string().regex(/^[a-f0-9]{64}$/),model:z.literal('deepseek-flash'),usage:z.record(z.number().int())});
+/** M16 只编辑 M15 结果的纯文本；来源和引用映射由后端从原消息读取。 */
+export const chatPublicationPreviewSchema=chatIdSchema.extend({message_id:z.string().uuid(),format:z.enum(['docx','pptx','pdf']),title:z.string().trim().min(1).max(40),answer:z.string().trim().min(1).max(2200),claim_texts:z.array(z.string().trim().min(1).max(600)).min(1).max(8)}).strict();
+export const chatPublicationSaveSchema=chatPublicationPreviewSchema.extend({request_id:z.string().uuid(),revision:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
+const publicationReferenceSchema=z.object({number:z.number().int().min(1),citation:z.string(),title:z.string(),locator:z.string(),kind:z.enum(['document','browser']),evidence_id:z.string().regex(/^[a-f0-9]{64}$/)});
+export const publicationPreviewSchema=z.object({schema:z.literal('orvia.publication.v1'),format:z.enum(['docx','pptx','pdf']),message_id:z.string().uuid(),title:z.string(),answer:z.string(),claims:z.array(z.object({kind:z.enum(['fact','inference','conflict','unknown']),label:z.string(),text:z.string(),numbers:z.array(z.number().int())})).max(8),references:z.array(publicationReferenceSchema).max(9),pages:z.array(z.object({heading:z.string(),body:z.string(),label:z.string(),numbers:z.array(z.number().int()),references:z.array(publicationReferenceSchema).optional()})).max(60),notice:z.string(),source_revision:z.string().regex(/^[a-f0-9]{64}$/),revision:z.string().regex(/^[a-f0-9]{64}$/),filename:z.string()});
+export type PublicationPreview=z.infer<typeof publicationPreviewSchema>;
+export const publicationMessageSchema=z.object({filename:z.string().max(255),format:z.enum(['docx','pptx','pdf']),revision:z.string().regex(/^[a-f0-9]{64}$/),message_id:z.string().uuid(),source_revision:z.string().regex(/^[a-f0-9]{64}$/),pages:z.number().int().min(1)});
 const documentErrorSchema=z.object({code:z.string(),message:z.string()}).nullable();
 const codepoints=(limit:number)=>z.string().refine(value=>Array.from(value).length<=limit);
 export const documentUnitSchema=z.object({number:z.number().int().min(1),locator:codepoints(200),text:codepoints(8000),method:z.enum(['text','ocr']),confidence:z.number().min(0).max(1).nullable(),error:documentErrorSchema});
@@ -66,11 +73,12 @@ export const actionSchema = z.object({ kind: z.enum(['mkdir', 'move', 'rename'])
 export const operationSchema = z.object({ operation_id: z.string().uuid(), revision: z.string(), status: z.string(), actions: z.array(actionSchema), error: z.string().nullable().optional(), can_undo: z.boolean().optional() });
 export const taskStatusSchema = z.enum(['draft','running','awaiting_approval','completed','failed','interrupted','cancelled','undone','partially_undone']);
 export const operationHistorySchema = z.object({operation_id:z.string().uuid(),revision:z.string(),status:z.string(),created_at:z.string(),updated_at:z.string(),can_undo:z.boolean()});
-export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','source','source_request','document_request','document','export','synthesis_request','synthesis','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() }).superRefine((message,ctx)=>{
+export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','source','source_request','document_request','document','export','synthesis_request','synthesis','publication_request','publication','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() }).superRefine((message,ctx)=>{
   if(message.kind==='document'&&!documentMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'文档消息不符合契约'});
   if(message.kind==='export'&&!documentExportMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'导出消息不符合契约'});
   if(message.kind==='source'&&!browserMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'来源消息不符合契约'});
   if(message.kind==='synthesis'&&!synthesisMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'生成回答不符合契约'});
+  if(message.kind==='publication'&&!publicationMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'成品核验消息不符合契约'});
 });
 export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.string(), mission_id: z.string().uuid(), messages: z.array(chatMessageSchema),
   grant: z.object({ root_label: z.string().nullable(), grant_id: z.string().uuid(), calls_remaining: z.number() }).nullable(), operation: operationSchema.nullable(),
