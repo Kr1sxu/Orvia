@@ -15,7 +15,7 @@ test('真实设置、草稿重启持久化、受限 IPC 与 Windows safeStorage'
   try {
     const page = await app.firstWindow();
     await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '⚙ 设置' }).click();
+    await page.getByRole('button', { name: '设置' }).click();
     await expect(page.getByText('deepseek-flash', { exact: true })).toBeVisible();
     await expect(page.getByText('glm-5.3-flashx', { exact: true })).toBeVisible();
     await expect(page.getByText('mimo-v2.6-flash', { exact: true })).toBeVisible();

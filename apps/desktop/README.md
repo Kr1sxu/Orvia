@@ -1,10 +1,14 @@
 # Electron 桌面模块（M18 源码）
 
+## M19视觉升级（已完成）
+
+用户已确认B雾蓝、B原创折帆、其余A：内置字体/Windows11 x64/原生圆角控制。`style.css`、`Visual.tsx`及原生窗口呈现模块已接入；复用所有React业务卡片、事件、IPC与原生审批。资源来源/许可、接口、生成、测试及限制见[资源README](resources/README.md)，设计取舍见[设计说明](../../docs/M19_DESIGN.md)。13项受影响产品流程、4档渲染倍率、实际组件状态、M18最小真实LPAC/UIA/Chromium闭环通过；用户授权桌面验收后，产品普通/还原/最小窗四角原生像素、最大化/全屏/贴靠和全部窗口控制通过。实际定向安装/升级/卸载、快捷方式及新任务栏分组已核验；失败修复、旧分组图标差异及证据见PROGRESS。产物仅在`artifacts/test-results/M19/`，零真实模型，M20未实施。
+
 ## M18 脚本、桌面与浏览器写操作
 
 `M18Cards.tsx`在会话提供三项独立权限、完整计划、原生审批、执行事实/取消、产物回传和实际外发字段预览。`m18-contracts.ts`严格参数与预算，`m18-ipc.ts`只记录后端实际计划并核对会话/版本/有效期，绝对路径仅来自原生选择器；审批或源码不能由renderer伪造。preload静态21方法，没有方法名转发器或批准布尔字段。Application后端再次校验并持久化一次性状态；重连清空main授权，未知结果不重放。
 
-脚本支持粘贴/.py/固定Computer草稿；桌面原生选普通应用再UIA单步，保存副本另选新路径；Browser原生确认准确站点/类别与专用内存登录，每个实际请求另批（动态GET/自动保存也暂停）。源码/页面只用React转义，敏感与截断预览明确标注。实例、后端结构、依赖与权限见[automation README](../../backend/src/orvia_backend/automation/README.md)。没有M19样式升级或M20意图/流式路由。
+脚本支持粘贴/.py/固定Computer草稿；桌面原生选普通应用再UIA单步，保存副本另选新路径；Browser原生确认准确站点/类别与专用内存登录，每个实际请求另批（动态GET/自动保存也暂停）。源码/页面只用React转义，敏感与截断预览明确标注。实例、后端结构、依赖与权限见[automation README](../../backend/src/orvia_backend/automation/README.md)。M19只改变呈现与窗口资源，M20意图/流式路由未接入。
 
 验证：`npm run build`；`npx vitest run apps/desktop/tests/m18-ipc.test.ts apps/desktop/tests/m18-ui.test.ts`；设置`ORVIA_TEST_MODULE=M18`后`npx playwright test tests/e2e/m18.spec.ts`。实际LPAC/UIA/Chromium与替身模型/HTTP/原生确认分别记录在PROGRESS，不能当真实站点或原生系统确认视觉验收。
 

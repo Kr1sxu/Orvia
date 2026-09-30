@@ -10,6 +10,7 @@ import { CredentialVault } from './credentials';
 import { synchronizeCredentials, CredentialSynchronizationError } from './credentials/synchronize';
 import { credentialInputSchema, missionCreateSchema, credentialRoleSchema, computerCallSchema } from './contracts';
 import {registerM18} from './m18-ipc';
+import {windowPresentation,attachWindowPresentation,taskbarAppId} from './window-presentation';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -26,6 +27,8 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   if (!primaryInstance) return;
+  const windowsAppId=taskbarAppId(app.isPackaged,app.getAppPath());
+  app.setAppUserModelId(windowsAppId);
   const root = path.resolve(app.getAppPath(), '../..');
   const development = !app.isPackaged;
   // 开发测试可隔离应用数据；此路径只来自本地主进程环境，renderer 无法选择。
@@ -54,10 +57,15 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (_details, callback) => callback({ cancel: true }));
-  window = new BrowserWindow({ width: 1120, height: 880, minWidth: 760, minHeight: 560,
-    title: '序航 Orvia', backgroundColor: '#f7f8fa', autoHideMenuBar: true,
+  window = new BrowserWindow({ ...windowPresentation(root,app.isPackaged,process.resourcesPath),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false },
   });
+  // Windows任务栏按AppUserModelId分组；明确窗口重启图标，避免仅改EXE后仍回退Electron默认图。
+  if(process.platform==='win32')window.setAppDetails({appId:windowsAppId,
+    appIconPath:windowPresentation(root,app.isPackaged,process.resourcesPath).icon as string,appIconIndex:0,
+    relaunchCommand:app.isPackaged?`"${process.execPath}"`:`"${process.execPath}" "${app.getAppPath()}"`,
+    relaunchDisplayName:'序航 Orvia'});
+  attachWindowPresentation(window);
   const contents = window.webContents;
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
   contents.on('will-navigate', (event) => event.preventDefault());

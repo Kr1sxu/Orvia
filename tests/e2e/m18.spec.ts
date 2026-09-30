@@ -6,7 +6,7 @@ import path from 'node:path';
 
 test('M18 Electron原生审批与真实LPAC/UIA/Chromium闭环（外网和模型合成）',async()=>{
   test.setTimeout(180000);
-  const results=path.resolve('artifacts/test-results/M18');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS??'artifacts/test-results/M18');await mkdir(results,{recursive:true});
   const work=await mkdtemp(path.join(results,'electron-'));
   const nativeTemp=path.join(work,'native-temp');await mkdir(nativeTemp);
   const project=path.join(work,'synthetic-project');await mkdir(project);
@@ -20,7 +20,7 @@ test('M18 Electron原生审批与真实LPAC/UIA/Chromium闭环（外网和模型
   const app=await electron.launch({args:[path.resolve('tests/e2e/m18-launch.cjs')],env});
   try{
     const page=await app.firstWindow();await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'＋ 选择目录'}).click();
+    await page.getByRole('button',{name:'选择目录'}).click();
     await expect.poll(async()=>{const r=await page.evaluate(()=>window.orvia.chatList());return r.ok&&r.result.conversations.length>0;}).toBe(true);
     const cid=await page.evaluate(async()=>{const r=await window.orvia.chatList();if(!r.ok)throw Error(r.message);return r.result.conversations[0].id;});
     const invalid=await page.evaluate(id=>window.orvia.m18ScriptExecute({id,operation_id:crypto.randomUUID(),revision:'a'.repeat(64)}),cid);expect(invalid.ok).toBe(false);

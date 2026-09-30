@@ -14,7 +14,7 @@ async function fixture() {
 }
 async function authorize(app:ElectronApplication,page:Page,root:string) {
  await app.evaluate(({dialog},directory)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});},root);
- await page.getByRole('button',{name:'＋ 选择目录',exact:true}).click();
+ await page.getByRole('button',{name:'选择目录',exact:true}).click();
  await expect(page.locator('.result-card').last()).toContainText('sample.txt');
 }
 async function idle(page:Page) {

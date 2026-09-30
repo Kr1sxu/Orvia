@@ -54,7 +54,7 @@ test('M14 发布版 safeStorage、附件引用导出、重启及会话隔离（�
     expect(settings.ok && settings.result.profiles.every(item => !item.configured)).toBe(true);
     expect(settings.ok && settings.result.search_available).toBe(false);
     // 使用明确标记的合成值，仅验证 Windows 实际加密存储，绝不发起搜索。
-    await page.getByRole('button', { name: '⚙ 设置' }).click();
+    await page.getByRole('button', { name: '设置' }).click();
     await page.getByLabel('凭据类型').selectOption('tavily');
     await page.getByLabel('API Key').fill('synthetic-m14-packaged-key');
     await page.getByRole('button', { name: '加密保存' }).click();
@@ -69,7 +69,7 @@ test('M14 发布版 safeStorage、附件引用导出、重启及会话隔离（�
       ipc: typeof (window.orvia as any).invoke, grant: typeof (window.orvia as any).chatGrant })))
       .toEqual({ node: 'undefined', ipc: 'undefined', grant: 'undefined' });
     await selectDocument(app, path.join(work, 'synthetic.docx'), output);
-    await page.getByRole('button', { name: '＋ 添加附件', exact: true }).click();
+    await page.getByRole('button', { name: '添加附件', exact: true }).click();
     const card = page.getByLabel('文档与引用').last();
     await expect(card).toContainText('synthetic.docx', { timeout: 60000 });
     await card.locator('summary').first().click();
@@ -95,7 +95,7 @@ test('M14 发布版 safeStorage、附件引用导出、重启及会话隔离（�
     await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible({ timeout: 30000 });
     const restored = await page.evaluate(() => window.orvia.settings());
     expect(restored.ok && restored.result.search_available).toBe(true);
-    await page.getByRole('button', { name: '⚙ 设置' }).click();
+    await page.getByRole('button', { name: '设置' }).click();
     await page.getByLabel('凭据类型').selectOption('tavily');
     await page.getByRole('button', { name: '移除凭据' }).click();
     await expect(page.getByText('未配置 Tavily，搜索不可用；仍可读取已知公开网页。', { exact: true })).toBeVisible();
@@ -106,7 +106,7 @@ test('M14 发布版 safeStorage、附件引用导出、重启及会话隔离（�
     await page.getByLabel('需求类型').selectOption('document');
     await page.getByLabel('输入需求').fill('许可'); await page.getByLabel('输入需求').press('Enter');
     await expect(page.getByLabel('文档与引用')).toHaveCount(2);
-    await page.getByRole('button', { name: '＋ 新建对话', exact: true }).click();
+    await page.getByRole('button', { name: '新建对话', exact: true }).click();
     await page.getByLabel('需求类型').selectOption('document');
     await page.getByLabel('输入需求').fill('许可'); await page.getByLabel('输入需求').press('Enter');
     await expect(page.getByText('请先添加文档附件。', { exact: true })).toBeVisible();
@@ -124,7 +124,7 @@ test('M14 发布资源本地 OCR 可识别合成图片并提供置信度（无�
     const page = await app.firstWindow();
     await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible({ timeout: 30000 });
     await selectDocument(app, path.join(work, 'synthetic.png'), path.join(work, 'unused.md'));
-    await page.getByRole('button', { name: '＋ 添加附件', exact: true }).click();
+    await page.getByRole('button', { name: '添加附件', exact: true }).click();
     const card = page.getByLabel('文档与引用').last();
     await expect(card).toContainText('synthetic.png', { timeout: 60000 });
     await card.locator('summary').first().click();
@@ -161,7 +161,7 @@ test('M14 发布版目录授权重启失效、无凭据搜索及私有 URL 拒�
     await app.evaluate(({ dialog }, selected) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] });
     }, directory);
-    await page.getByRole('button', { name: '＋ 选择目录', exact: true }).click();
+    await page.getByRole('button', { name: '选择目录', exact: true }).click();
     await expect(page.getByText('M14合成说明.txt', { exact: true })).toBeVisible();
     await expect(page.locator('.directory-bar')).toContainText('已授权：synthetic-directory');
     await expect(page.getByRole('button', { name: '目录列表', exact: true })).toBeEnabled();

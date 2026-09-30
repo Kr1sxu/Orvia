@@ -22,7 +22,7 @@ test('M10 对话→授权→观察→版本审批→核验→重启重新授权�
     await page.screenshot({path:path.join(results,'welcome.png')});
     expect(await page.evaluate(()=>({node:typeof (window as any).require,ipc:typeof (window.orvia as any).invoke,grant:typeof (window.orvia as any).chatGrant}))).toEqual({node:'undefined',ipc:'undefined',grant:'undefined'});
     await mockDialog(app,root);
-    await page.getByRole('button',{name:'＋ 选择目录',exact:true}).click();
+    await page.getByRole('button',{name:'选择目录',exact:true}).click();
     await expect(page.getByText('合成说明.txt',{exact:true})).toBeVisible();
     await page.getByLabel('文件名搜索').fill('合成说明');await page.getByRole('button',{name:'搜索',exact:true}).click();
     await expect(page.locator('.result-card').last()).toContainText('合成说明.txt');
@@ -45,7 +45,7 @@ test('M10 对话→授权→观察→版本审批→核验→重启重新授权�
     await expect(page.getByRole('button',{name:'撤销最近一次变更'})).toBeVisible();
     expect(await readFile(path.join(root,'已整理.txt'),'utf8')).toBe('synthetic-only');
     await expect(page.getByLabel('当前操作计划')).toContainText('已完成');
-    await page.getByRole('button',{name:'＋ 新建对话',exact:true}).click();
+    await page.getByRole('button',{name:'新建对话',exact:true}).click();
     await page.getByLabel('输入需求').fill('另一会话');await page.getByRole('button',{name:'发送',exact:true}).click();
     await expect(page.getByText('请先通过“选择目录”授权本次任务范围，然后发送需要处理的需求。')).toBeVisible();
     const cross=await page.evaluate(async input=>{const list=await window.orvia.chatList();if(!list.ok)throw Error('list');return window.orvia.chatUndo({...input,id:list.result.conversations[0].id});},approval);
@@ -55,9 +55,9 @@ test('M10 对话→授权→观察→版本审批→核验→重启重新授权�
     await expect(page.getByText('当前未授权目录；历史记录不会恢复目录权限。')).toBeVisible();
     await expect(page.getByRole('button',{name:'撤销最近一次变更'})).toBeDisabled();
     expect((await page.evaluate(input=>window.orvia.chatUndo(input),approval)).ok).toBe(false);
-    await mockDialog(app,null);await page.getByRole('button',{name:'＋ 选择目录',exact:true}).click();
+    await mockDialog(app,null);await page.getByRole('button',{name:'选择目录',exact:true}).click();
     await expect(page.getByRole('alert')).toContainText('已取消选择');
-    await mockDialog(app,root);await page.getByRole('button',{name:'＋ 选择目录',exact:true}).click();
+    await mockDialog(app,root);await page.getByRole('button',{name:'选择目录',exact:true}).click();
     await expect(page.getByRole('button',{name:'撤销最近一次变更'})).toBeEnabled();
     await page.getByRole('button',{name:'撤销最近一次变更'}).click();
     await expect(page.getByLabel('当前操作计划')).toContainText('已撤销');
@@ -66,7 +66,7 @@ test('M10 对话→授权→观察→版本审批→核验→重启重新授权�
     await page.setViewportSize({width:800,height:650});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
     await page.screenshot({path:path.join(results,'narrow.png')});
-    await page.getByRole('button',{name:'⚙ 设置'}).click();await expect(page.getByRole('dialog',{name:'设置'})).toBeVisible();
+    await page.getByRole('button',{name:'设置'}).click();await expect(page.getByRole('dialog',{name:'设置'})).toBeVisible();
     await expect(page.getByText('deepseek-flash',{exact:true})).toBeVisible();
     for(const label of ['自动任务','技能广场','管家团队'])await expect(page.getByText(label,{exact:true})).toHaveCount(0);
   } finally {await app.close();}
@@ -80,7 +80,7 @@ test('M10 空目录、模型失败、部分结果与键盘输入（mock，无真
   const app=await electron.launch({args:[path.resolve('tests/e2e/m10-launch.cjs')],env});
   try {
     const page=await app.firstWindow();await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-    await mockDialog(app,root);await page.getByRole('button',{name:'＋ 选择目录',exact:true}).click();
+    await mockDialog(app,root);await page.getByRole('button',{name:'选择目录',exact:true}).click();
     await expect(page.getByText('没有匹配项目。')).toBeVisible();
     await page.getByLabel('输入需求').fill('合成模型失败');await page.getByLabel('输入需求').press('Enter');
     await expect(page.getByText('固定 Main 模型暂不可用；未切换模型，请稍后重新发送。')).toBeVisible();

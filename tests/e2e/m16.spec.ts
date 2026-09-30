@@ -16,7 +16,7 @@ async function launch(cancel=false){
 
 async function generate(page:import('@playwright/test').Page){
   await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'＋ 添加附件'}).click();
+  await page.getByRole('button',{name:'添加附件'}).click();
   const panel=page.getByLabel('生成式文档与来源回答');await panel.getByRole('checkbox').first().check();
   await panel.getByRole('button',{name:'预览拟发送片段'}).click();
   await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();

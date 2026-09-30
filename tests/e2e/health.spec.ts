@@ -23,7 +23,7 @@ test('真实窗口 → 受限 IPC → Python → 健康响应与退出清理', a
     pythonPid = Number(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
       `(Get-CimInstance Win32_Process -Filter "ParentProcessId=${mainPid} AND Name='python.exe'").ProcessId`], { encoding: 'utf8', windowsHide: true }).trim());
     expect(pythonPid).toBeGreaterThan(0);
-    await page.getByRole('button', { name: '⚙ 设置' }).click();
+    await page.getByRole('button', { name: '设置' }).click();
     await page.getByRole('button', { name: '重新检查连接' }).click();
     await expect(page.getByText('本地服务已连接', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => ({ keys: Object.keys(window.orvia), require: typeof (window as any).require, process: typeof (window as any).process })))

@@ -1,5 +1,17 @@
 # M14 未签名测试候选版：0.2.0-rc.1
 
+## M19定向视觉资源包（验收通过，非完整发行包）
+
+用户已确认原创折帆非文字图标。生产配置改用builder26.15.3的`signExecutable:false`，仅关闭生产签名，保留EXE图标编辑；窗口ICO、NSIS安装/卸载图标显式指定，三字体由Vite打包进ASAR，三原OFL额外分发。实际目录EXE、安装器、安装后EXE、卸载器四份PE各9尺寸图标与源ICO精确匹配，ASAR字体/SVG与包外ICO/OFL实际hash一致，四份PE为NotSigned。Windows实际关联图标和快捷方式已提取核验，快捷方式箭头叠层不要求与源图逐像素全图相等。源与维护见[视觉资源README](../apps/desktop/resources/README.md)。
+
+在已完成`npm run build`且本地M14冻结资源仍可用时，执行`npx electron-builder --config packaging/m19-visual.config.cjs --win --publish never`。独立appId/productName/shortcutName输出`artifacts/test-results/M19/release/`，不覆盖旧M14包。仅复用旧冻结后端/Chromium资源验证UI/字体/图标，不承诺M15–M18安装功能，不能称M20后完整安装包验收。资源审计：`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_resource_audit.py`、`node tests/e2e/m19-assets.cjs`。
+
+实际安装与快捷方式脚本为`powershell -NoProfile -File tests/integration/m19-install.ps1 -Stage Install`，只接受全新M19唯一测试标识和结果目录，无已有记录/路径/快捷方式才安装；不覆盖普通Orvia。`VerifyPending`只核验安装器/EXE/hash/注册身份/快捷方式，恢复记录而不重装；`Upgrade`只按既有自有记录更新，保存历史；`Uninstall`核验自有EXE/注册身份/hash后卸载，不删除用户配置。本轮实际安装、记录恢复、两次同标识升级、最后卸载均通过，自有EXE/注册项/快捷方式已移除；日志与历史保留。已有验收记录不能直接当全新Install重复使用。
+
+用户授权可见桌面后，设置`ORVIA_M19_DESKTOP_ALLOWED=1`和`ORVIA_TEST_MODULE=M19`运行`npx playwright test tests/e2e/m19-packaged.spec.ts`已通过；三字体离线加载，实际任务栏唯一新测试按钮裁切并查看为折帆图标。安装器appId、可信包元数据orviaAppId与窗口setAppDetails保持一致，测试标识`cn.orvia.m19.visualtest`与生产`cn.orvia.desktop`分开。旧Orvia分组曾显示Electron图标，源码资源正确并不足以证明任务栏正确；独立测试新分组已验证，旧固定项刷新仍受Windows缓存/既有安装影响。未清系统缓存，也未覆盖旧M14安装。只裁切自有按钮，不保存其他用户任务栏内容。
+
+生产签名、独立Windows及M20后脚本/Chromium全功能资源与开发版对照待办继续保留。
+
 ## M18 源码与安装资源边界
 
 本轮只交付 M18 开发源码与合成验收，不重建安装包。规格已携带固定 UIA PowerShell 工作器，但没有宣称冻结或安装版 M18 验收通过。隔离脚本目前要求开发后端的经校验 CPython3.12 私有副本；PyInstaller 后端不是通用解释器，冻结模式明确拒绝脚本运行，不查 PATH 回退。M20 后重建时仍须准备并核验专用脚本运行时、完整可见 Chromium、工作器及三项流程与开发版一致。M14 旧包不含 M15–M18，生产签名和独立 Windows 验收继续暂缓。

@@ -1,6 +1,10 @@
 # 开发进度与验证证据
 
-## 当前状态（2026-09-30，M18 三项交付）
+## 当前状态（2026-09-30，M19预检与候选设计）
+
+M18三项已实现/验证/提交，用户手动push已完成。本轮`git fetch origin`及`git ls-remote --symref origin HEAD refs/heads/main`实时核对，本地HEAD、origin/main和远端main均为`9195d209d3d036b6d66d5c74068832a991a6a6d6`，ahead/behind=0/0。M19已授权，仅完成预检、独立候选设计与原生窗口实验，五项用户设计决策待确认，整个模块未完成；未暂存/提交，不开始M20。详细候选见[M19_DESIGN](M19_DESIGN.md)，本轮证据见末节。M14生产签名/独立Windows验收和M20后全功能安装版对照待办仍保留。
+
+## 历史状态（2026-09-30，M18 三项交付时）
 
 用户确认的 M18 脚本、桌面点击、浏览器写操作三项源码已全部实现，通过实际 LPAC/UIA/可见Chromium、Electron审批闭环及分级验证，完整记录见本文末节和[确认设计](M18_DESIGN.md)。正常本地提交以包含本节的 M18 提交及交付回执为准，待用户手动 push；真实模型/真实网站/账号调用为0。M19–M20 未开始；M14 生产签名和独立 Windows 验收仍暂缓，旧包不含 M15–M18，M20 后重建安装包并核对开发版待办保留。Agent 不 push。
 
@@ -771,3 +775,140 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 最终三项实际实现/分级验收/文档记录全部成立，V2的M18清单已勾选。提交前再次`git fetch origin`、`git ls-remote --symref origin HEAD refs/heads/main`，远端仍为`19b1f8a7d4db03927d3eb60949c1de53be7b0727`，本地提交前ahead/behind=0/0；LICENSE状态为空，`.zcodeignore`仍未跟踪。本机自有M18 Chrome及fixture进程检查为0，无用户进程被关闭。固定作者正常M18提交以包含本节的`feat(M18): add approved isolated scripts desktop and browser writes`为准；提交后本地main领先远端1，待用户手动push。完成后立即停止，不开始M19。
 
 提交卫生：显式暂存58个M18文件，`git status --short`、`git diff`、`git diff --cached --stat/--check`和关键授权/协议/账本的cached diff已核对。复用既有检查函数，实际命令`backend/.venv/Scripts/python.exe -X utf8 -c "import sys; sys.path.insert(0,'backend/tests'); from hygiene_m10 import main; raise SystemExit(main('M18'))"`：禁止路径0、暂存与当前根开发密钥精确匹配0，35052个本轮普通产物文件精确匹配0，不沿测试reparse遍历；只读密钥用于本机内存匹配，无云调用/值输出。独立暂存复检包含`.zcodeignore`、LICENSE、数据库/日志/产物/运行时等禁入检查及完整私钥块检查，全部0，报告`hygiene.json`、`staged-current.json`均被忽略。最后仅进度文档补记录并显式重新暂存/复检，不重跑无关代码测试。
+
+## M19 预检、候选设计与独立实验（2026-09-30，待设计确认）
+
+用户明确授权本轮仅M19，窗口/字体/非文字图标/全部已实现界面共同完成，不提前M20。开始前完成目录、status、分支/log/remote/default-main、fetch、ls-remote和ahead/behind核对：HEAD/origin/main/实时远端main均为`9195d209d3d036b6d66d5c74068832a991a6a6d6`，0/0，确认M18已由用户手动push。初始仅`.zcodeignore`未跟踪；LICENSE无差异、未修改或暂存。历史M18待push/预检设计/验证中记录保留；V2当前状态已按事实修正。Agent未push、未修改TLS或历史。
+
+参考图先在仓库、Codex附件/临时目录及旧工作目录查找未命中，继续查当前用户Temp顶层找到`codex-clipboard-32eee0ac-dbc7-4032-8731-148404855163.png`并实际查看，原图副本位于本轮design/reference.png。没有要求重新上传，也没有根据截图认定准确字体。只借鉴浅色中性背景、窄侧栏、留白与圆角，不引入参考产品品牌/自动任务/技能/团队/推荐/促销。候选设计见[M19_DESIGN](M19_DESIGN.md)，交互预览与截图位于本轮design/；三个自行绘制几何图标、三组强调色、两组字体，以及原生/大圆角取舍已经形成可审查结果。通过异步问题集中请求五项决策，当前尚无用户确认，生产源代码/模型/权限/打包配置均未更改。
+
+只下载了官方Inter和JetBrains候选字库/原OFL到忽略目录，复用仓库Noto字库与许可，没有安装字体或增添生产依赖。Noto原始17,772,300字节，Inter352,240字节，JetBrains270,224字节，候选原始总计约17.54MiB；实际分发方案/安装增量待确认后验证。Pillow读回Noto为可变字库（fvar存在；默认实例名Thin），候选CSS使用其100–900字重轴；不将默认实例名误当只支持细体。
+
+### 本阶段实际命令与范围
+
+| 级别 | 命令/检查 | 结果 | 范围与证据 |
+|---|---|---|---|
+| L0 预检 | `git status --short`、`git branch -vv`、`git log -8 --oneline`、`git remote -v`、`git symbolic-ref refs/remotes/origin/HEAD`、`git fetch origin`、`git ls-remote --symref origin HEAD refs/heads/main`、`git rev-list --left-right --count HEAD...origin/main` | 成功，0/0 | 仓库实时同步只读；无push |
+| L0 候选资源 | 官方原字体许可读取、字节大小、`Get-FileHash`与Pillow字库读回 | 成功，字体确为可解析候选；许可证不替代产品字体打包验收 | 本轮design/fonts/含字库与各自原OFL；本地资源，无模型 |
+| L0/L1 设计板 | `node tests/e2e/m19-design-review.cjs` | 最终passed，3组FontFace实际load成功、JS错误0、900px页面横向溢出false，5张候选截图 | 真实Chromium153 Headless Shell；合成静态内容/本地file字体；不是产品组件/Electron流程验收。`design/review-check.json`与welcome/workflow/typography/review-narrow截图 |
+| L2 独立候选窗口 | 清除`ELECTRON_RUN_AS_NODE`后，`Start-Process -FilePath (Resolve-Path node_modules/electron/dist/electron.exe) -ArgumentList @('tests/e2e/m19-window-probe.cjs') -WindowStyle Hidden -Wait -PassThru`，stdout/stderr定向重定向至本轮结果目录 | 最终exit0、5状态；普通/最大化/最小化/还原/760×560 | 真实Electron44.4.5、Windows11 build26200/25H2、DPI96/scale1，未加载产品后端/凭据；`window-probe/window-report.json`和4张真实桌面截图，`probe-background-stdout/stderr.log` |
+| L0 测试脚本 | `node --check tests/e2e/m19-design-review.cjs`、`node --check tests/e2e/m19-window-probe.cjs`、PowerShell Parser.ParseFile检查m19-desktop-capture.ps1、`git diff --check` | 成功，PS解析错误0，diff无空白错误 | 测试代码语法与文档；未因文档变化重跑代码构建或M18全套 |
+
+独立窗口使用不透明窗口、roundedCorners:true、thickFrame:true、hidden标题栏和原生overlay控制。本机DwmGetWindowAttribute33返回成功/偏好2；普通/还原/最小尺寸截图中四角像素是背景，而向内10px是窗口颜色，实际可见外轮廓圆角，弧度明显小于参考图。DWM偏好值本身不作为圆角证明。最大化真实截图与native bounds单独保存；最小化记录isMinimized=true。窗口探针没有测试产品拖动、用户双击/边缘缩放/贴靠/全屏，不据此勾选M19窗口完成。截图侧按实际DWM边界裁切，用自有置顶合成背景覆盖周边；最大化不加周边padding，避免保存个人任务栏。
+
+失败与修正：设计板首次直接启动SDK完整chrome.exe为spawn UNKNOWN，改用已有固定Headless Shell进行静态候选检查；没有修改SDK、系统环境/TLS或产品M18浏览器策略。未诊断完整Chrome该次启动错误为已解决。字体初测在切换离开代码视图后OrviaMono显示unloaded，改在显式FontFace.load后记录解析状态，3组当时均loaded；未使用的字体状态仍如实保留，未将卸载状态抹为加载。原生截图PS5.1首次因UTF-8无BOM中文解析失败，改测试文件UTF-8 BOM和显式UTF-8输出后exit0；`probe-stderr.log`保留首跑。第一次探针背景被启动隐藏属性遮住，观察截图后补showInactive/置顶测试背景并缩小最大化裁切范围，最终自有背景截图覆盖此前图片，最终日志另存probe-background-*。这些修正仅测试侧。
+
+### 当前未完成与停止条件
+
+五项设计选择（强调色、图标方向、字体、Windows支持范围、圆角兼容策略）仍待用户确认。全部M19实施/产品L0–L3/窗口与图标打包定向L4/实际EXE安装器任务栏快捷方式核验/敏感信息检查及正常本地提交尚未完成，V2所有M19实施验收项保持未勾选。当前不创建部分完成commit，不将候选图标或原生探针称最终产品。不以等待设计选择擅自缩减Windows或圆角目标。
+
+M14生产签名和独立Windows验收继续暂缓，旧0.2.0-rc.1包没有改动；M20后完整安装包与开发版对照待办保持。全阶段真实模型/真实网站/账号调用0；官方字体下载是资源获取，不是业务模型调用。未暂存/提交，`.zcodeignore`和LICENSE继续保留原状。确认后继续同一M19，最终全部实现/验证/记录/固定作者本地commit后停止，push由用户手动执行。
+
+## M19 确认方案实施与当前验收（2026-09-30，未完成）
+
+用户已明确“强调色选B 非文字图标选B 其余选项选A”：雾蓝`#335FC7`、本项目原创折帆图标、内置Noto Sans SC/Inter/JetBrains Mono与各自原OFL、Windows11 x64普通桌面、原生系统小圆角及控制。上一节待确认是确认前历史，本节为当前事实。参考图已实际找到并查看；不据截图识别准确字体。用户随后选择“先继续其他检查，稍后再验收桌面”，因此当前不运行抢占桌面的原生窗口/安装启动/M18可见流程，不把部分通过标为整个M19完成。
+
+### 已实施与复用
+
+- `window-presentation.ts`接入现有主进程：1120×880/最小760×560、不透明窗口、hidden标题栏+42px原生overlay、roundedCorners/thickFrame与原生控制；F11/Escape切换实际全屏，拖动标题区不含业务控件。没有新增通用或窗口控制IPC；renderer隔离、CSP/网络拒绝、固定模型、主进程原生审批、后端复核及M18隔离未改变。
+- `Visual.tsx`的原SVG折帆用于标题/侧栏/欢迎页，功能图标与文字可访问名称分开。`style.css`统一字体层级、浅色/雾蓝与成功/警告/错误语义色、布局/圆角/边框/阴影、表格和源码滚动、长文本、焦点/禁用/悬停/加载/减少动态/forced-colors。业务组件及事件继续复用，M18独立workspace类共用视觉规范；权限文案和原文不裁掉。测试仅更新装饰图标后的按钮名称，没有引入M20统一入口/路由/流式。
+- 字体保留原字节、原名称、原OFL，100–900的Noto/Inter可变层级与Regular代码；可靠Windows回退、代码无连字、数字仅统计使用tabular-nums，运行时不联网。原始前端资源17.54MiB，与M16后端Noto仍重复，未以子集删字减体积。资源manifest记录来源与SHA256固定身份，不猜测上游发布版本。可选fontTools诊断显示未安装，未添加依赖，采用实际FontFace/PIL解析与hash核对。
+- `brand.svg`维护源、9个透明PNG尺寸和多帧ICO、生成器及resources README齐备。Vite `assetsInlineLimit:0`让小SVG符合原`img-src self`；不扩充data源。builder改`signExecutable:false`保留PE编辑，图标与三原许可实际打包。独立`packaging/m19-visual.config.cjs`使用唯一测试产品/appId/快捷方式名，结果仅写M19，旧M14安装包未改；复用旧冻结资源只验UI/图标，不能当M20全功能发行验收。
+
+### 实际命令、结果与证据
+
+所有结果在被忽略的`artifacts/test-results/M19/`，真实模型/账号/真实网站调用均0。下列命令从仓库根运行；可见桌面项尚未通过，不和独立候选探针混淆。
+
+| 级别 | 实际命令 | 结果与记录 | 真实/替身与限度 |
+|---|---|---|---|
+| L0 | `npm run build` | 通过；最终`build-csp.log`，类型+main编译+Vite，独立SVG/3字库资源 | 本地构建；CSP保持；不代表原生窗口 |
+| L0 资源 | `node apps/desktop/scripts/generate-icons.cjs`；`node apps/desktop/scripts/generate-resource-manifest.cjs` | 通过；`icons-generation-final.log`、`manifest-generation.log`与生产manifest | 可信自有SVG、已有headless Chromium；无产品后端/模型 |
+| L1 | `npx vitest run apps/desktop/tests/m19-visual.test.ts apps/desktop/tests/m11-ui.test.ts apps/desktop/tests/m18-ui.test.ts apps/desktop/tests/m18-ipc.test.ts apps/desktop/tests/m15-contracts.test.ts apps/desktop/tests/m16-contracts.test.ts apps/desktop/tests/m17-contracts.test.ts --reporter=json --outputFile=artifacts/test-results/M19/unit.json` | 首次22 passed/1 failed：禁用文字对比度3.893；其它19项通过。修复禁用文字后最小`npx vitest run apps/desktop/tests/m19-visual.test.ts --reporter=json --outputFile=artifacts/test-results/M19/unit-css-final.json`，4 passed；最终测试读取真实CSS变量，不镜像固定色 | Electron接口/审批/backend为mock；IMEs/键盘/模型契约/隔离桥及window options，无真实OS证明。初始失败与`unit-m19-fixed.json`保留，不重复累计相同用例 |
+| L1 静态组件 | `npx vitest run apps/desktop/tests/m19-gallery.test.tsx --reporter=json --outputFile=artifacts/test-results/M19/gallery-unit.json`；`node tests/e2e/m19-gallery.cjs` | 1 passed；最终`gallery-browser-final.log`、`gallery/report.json`、states-900/500.png | 实际React SSR合成审批/文件/M15/M16/M17/M18组件，源码转义、禁用批准、焦点/悬停、动画减少、900/760/500长文本无横溢；不执行event/IPC/effect，不当L3 |
+| L2/L3 页面 | `ORVIA_TEST_MODULE=M19`与`ORVIA_TEST_RESULTS=artifacts/test-results/M19/flows`下`npx playwright test tests/e2e/m19.spec.ts` | 首次产品套件4 passed/1 failed，`product-first.log`/`product-first.json`；100/125/150/200%页面/字库/图形/最小窗/设置Tab循环与Escape/ShiftEnter/减少动态均通过，product/resources-*.json与welcome/minimum-*.png | 真实Electron+Python/SQLite，空凭据与Main替身；倍率用force-device-scale-factor，不是更改系统DPI，实际系统96DPI。本套原生项失败，详见下一节 |
+| L3 受影响流程 | 同M19环境，`npx playwright test tests/e2e/m10.spec.ts tests/e2e/m11-ui.spec.ts tests/e2e/m12.spec.ts tests/e2e/m13.spec.ts tests/e2e/m15.spec.ts tests/e2e/m16.spec.ts tests/e2e/m17.spec.ts` | 13 passed/约2分钟；`flows-first.log`与flows/计划/完成/失败/设置窄窗/证据/OCR/导出/综合回答/成品/代码原型截图 | 真实Electron/Python/SQLite/合成解析写入/导出；模型、DNS/HTTP与原生确认由既有启动器mock；没有重跑无关M18后端全套。该轮在独立SVG修复前，功能结论有效，品牌加载以后续4倍率检查为准 |
+| 定向L4 构建 | `npx electron-builder --config packaging/m19-visual.config.cjs --win --publish never` | 最终exit0，`package-shortcut.log`；唯一视觉EXE/NSIS新包只位于M19/release | 真实未签名包，旧M14冻结后端/Chromium；不宣称M15–M18安装功能或M20安装版验收 |
+| 定向L4 实际资源 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_resource_audit.py`；`node tests/e2e/m19-assets.cjs` | 最终PE两实际文件各9尺寸与源ICO精确字节匹配；ASAR3字体/独立SVG、包外ICO/三OFL实际hash一致；`pe-icons.json`、`assets-audit-final2.log`/json；icon-review/icons-light-dark.png实际原PNG明暗背景已查看 | 实际包PE/ASAR，不是源码存在/mock证明；静态图标小尺寸仍可辨三折面，透明边缘可见；不替代任务栏/快捷方式 |
+| 定向L4 Windows资源提取 | `powershell -NoProfile -NonInteractive -File tests/integration/m19-shell-icons.ps1` | exit0；Windows ExtractAssociatedIcon从实际EXE/安装器取32px图标，PIL逐像素与源图一致；`shell-icons.json`/png、`shell-icons-pixels.json`，两个NotSigned | 真实Windows Shell资源接口，不启动程序，不清用户缓存，非任务栏/安装器可见窗口验收；像素核验已并入PE审计脚本 |
+| L0 脚本/Git | `node --check`检查M19 cjs；PS Parser.ParseFile检查capture/native/taskbar/install/shell脚本；`git diff --check`、`git status --short`、`git diff --cached --stat` | 语法/空白通过；index为空，未暂存或提交 | LF/CRLF提示保留；LICENSE无差异、`.zcodeignore`未跟踪，未触碰 |
+| L0 敏感预检 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_hygiene.py --working` | exit0；改动69文件、禁入0、已配置密钥精确匹配0、私钥块0；4148普通产物文件密钥匹配0；`hygiene-working.json`/log | 仅在本机内存读取密钥用于匹配，不输出值；合法生成PNG固定名称白名单，不沿reparse，4MiB块预算。working不是最终暂存验收，提交前必须再检查真实index |
+
+### 未通过、修正与待验收
+
+1. 初次图标Electron离屏生成出现UnknownVizError，相关早期logs保留；最终改只用已有headless Chromium渲染自有SVG，通过且不改产品运行时。
+2. 实际资源审查发现SVG被Vite内联data URI，与已有CSP不符；改assetsInlineLimit0并重建，4倍率FontFace/品牌加载以及ASAR独立SVG通过。未放宽CSP或renderer网络。
+3. 禁用文字初始对比度3.893，改为`#626d79`后真实CSS对比度至少4.5通过；只重跑M19目标项。静态悬停首跑读取动画起点颜色误判，改等待computed背景变化后通过；不是修改产品动画来掩盖结果。
+4. 产品原生测试首跑完成了系统命中区域、移动API、双击最大化/还原、最小化检查，但F11全屏断言失败。桌面原生截图实际受到其它前台窗口遮挡，ordinary/maximized/restored三张无效图片已删除，不保留或作为产品圆角证据；失败log/JSON保留。测试恢复后增加显式focus，capture增加GetForegroundWindow精确HWND核验，未经最小复跑不能称修复。尚需核对输入协议/焦点并完成F11/Escape、贴靠与真实外轮廓。独立候选窗口早期成功仅是探针，不替代此项。
+5. ASAR读取首跑因Windows反斜杠路径未标准化失败，修正检查用斜杠、extract用path.normalize后实际三字库/SVG/许可hash通过，`assets-audit.log`/`assets-audit-final.log`失败与final2通过均保留；包内容没有为通过检查而改变。
+
+### 保留全部目标与接续步骤
+
+待用户提供可见桌面时段后，设置`ORVIA_M19_DESKTOP_ALLOWED=1`，只重跑`tests/e2e/m19.spec.ts`的原生产品窗口项（`-g '真实产品外轮廓'`），核对拖动/缩放命中、最小化/最大化/还原/双击、全屏/贴靠/最小尺寸和真实外轮廓/系统DPI，失败继续定位不降目标。当前gate仅防日常误占前台，skip不是通过。
+
+`tests/integration/m19-install.ps1`已准备并语法检查，实际Install尚未执行；仅接受全新本轮安装/快捷方式与唯一测试标识，记录固定EXE/卸载器hash/注册身份。安装后执行实际安装版`tests/e2e/m19-packaged.spec.ts`（空safeStorage与固定角色，不调用云），核对页面离线资源、实际任务栏唯一测试按钮原生裁切、快捷方式目标/图标，再读回安装EXE/卸载器PE图标并按自有记录卸载。不能以当前已构建/PE通过称安装/任务栏验收完成，不清系统图标缓存或删除普通Orvia安装。
+
+受CSS影响的M18只需最小现有L3闭环`tests/e2e/m18.spec.ts`，设置`ORVIA_TEST_RESULTS`到M19结果目录；已调整该测试的结果路径覆盖，不重跑无改动的M18隔离/backend全套。原生框/模型/HTTP仍为合成替身，真实LPAC/UIA/专用Chromium范围沿既有结论记录。当前此项尚未重跑。
+
+剩余验收通过后更新最终中文文档与V2勾选，再status/diff/cached与敏感index复核、显式暂存M19文件、固定作者正常commit、记录待用户手动push并停止。当前尚未暂存/提交，不将部分完成记为M19完成。M14签名/独立Windows与M20后完整安装包对照保留；不push、不改TLS/重写历史/发布Release、不开始M20。
+
+非桌面收尾：共同间距/大容器圆角已提为复用变量，数值与已测界面保持一致。新实际`npm run build`通过（`build-spacing.log`）；`npx vitest run apps/desktop/tests/m19-visual.test.ts apps/desktop/tests/m19-gallery.test.tsx --reporter=json --outputFile=artifacts/test-results/M19/unit-spacing-final.json`为5 passed，`node tests/e2e/m19-gallery.cjs`再次实际读取新CSS通过（`gallery-spacing-final.log`）。同步定向重建exit0（`package-spacing-final.log`），新ASAR/hash/明暗图标检查通过（`assets-spacing-final.log`），Windows关联图标重新提取通过（`shell-icons-final.log`），两实际PE/源图与Shell像素核验通过（`pe-icons-spacing-final.log`）。没有因等效间距变量重复跑13项业务流程。
+
+待跑两个产品测试入口`npx playwright test tests/e2e/m19.spec.ts tests/e2e/m19-packaged.spec.ts --list`识别6项成功（`pending-tests-list.log`），这只是编译发现测试，不是执行通过。原生F11/Escape测试改为前台HWND/PID先核对，再发固定Win32快捷键；DevTools页面键盘不能独自证明系统快捷键，物理键路径仍待桌面时段实际复跑。5个PS脚本Parser均0（`ps-parse.json`），更新固定快捷键后native脚本再次解析0。本阶段没有再次操作前台。
+
+末次`git ls-remote --symref origin HEAD refs/heads/main`仍确认远端main/默认HEAD为9195d20，与本地HEAD及origin/main一致、0/0；LICENSE无差异，只有`.zcodeignore`未跟踪且保持不提交。卫生预检末次为70个工作树改动文件、4158个普通产物文件，禁入/密钥/私钥块均0（`hygiene-working-final.log`；初始JSON另存`hygiene-working-initial.json`）。这些是本阶段记录，不替代后续新增产物与最终暂存复核。当前可独立完成的实现/审查已落盘，仍无M19 commit；待可见桌面继续同一模块。
+
+## M19 桌面验收与最终交付（2026-09-30，已完成）
+
+用户随后明确“可以验收桌面”。前述待确认、未完成、暂缓桌面时段为历史记录，本节取代其当前状态：B雾蓝、B原创折帆、其余A的全部目标已实现并完成本机分级验收。真实窗口、字体、图标、已实现界面的统一视觉均纳入M19，没有删减或提前实施M20。V2的19项M19验收清单已勾选；正常本地提交后待用户手动push。
+
+### 实际交付与验收证据
+
+欢迎、历史侧栏、消息、输入框、设置、文件结果、审批、证据引用、导出和M15–M18卡片共用浅色变量、雾蓝强调色、间距/边框/圆角/阴影与状态。悬停、焦点、禁用、加载、成功、失败、空状态、长中文/混合文字、滚动与减少动态均有样式；原组件业务事件、键盘和权限链复用。没有自动任务、技能广场、团队、推荐/促销、统一自然语言路由、“＋”入口合并或流式协议。
+
+三原OFL及完整字库离线随包；Noto Sans SC/Inter/JetBrains Mono分层并有系统回退，代码禁用连字。SVG为原创三折帆维护源，九个透明PNG和ICO覆盖16/20/24/32/40/48/64/128/256px。源字库/hash/许可与生成流程见resources README和manifest，前端原字库约17.54MiB，与M16后端Noto当前重复携带。
+
+真实产品窗口`product/native-window.json`核对同一HWND/PID，六张原生桌面裁切位于`product/{ordinary,maximized,restored,fullscreen,minimum,snapped}.png`。普通、还原、760×560最小窗各四角像素为自有合成背景，向内为窗口内容；最大化、全屏、贴靠四角为窗口色，实际符合原生小圆角/屏幕边缘方角策略。DWM偏好不作为唯一证据；系统DPI96，窗口1120×880，标题命中2、左右/底边10/11/15、thickFrame/min/max控制存在。移动、标题区双击最大化/还原、最小化、F11/Escape、贴靠与关闭通过。操作由测试侧Win32/Electron API驱动，不称人工鼠标拖拽验收；命中区域与实际移动/缩放/控制行为共同取证，renderer截图仅证明内容。
+
+实际定向包安装、两次自有同标识升级、安装版启动、快捷方式和卸载通过。`installation.json`终态uninstalled，自有EXE/注册项/Start Menu快捷方式移除，用户配置未删除。安装器、目录EXE、安装后EXE和卸载器四份实际PE各9尺寸图标与源ICO字节精确匹配，签名均NotSigned。Windows Shell四份关联图逐像素匹配源32px；实际快捷方式含系统箭头与边缘alpha变换，未叠层上半区主体轮廓59像素/全不透明主体40像素RGB与源图匹配。完整图不能声称与源图相等。原PNG明暗背景、小尺寸和快捷方式实际图已查看。
+
+任务栏最初实际显示Electron原子图，静态PE/窗口ICO存在不能冒充成功。主进程从可信package.json仅识别固定生产`cn.orvia.desktop`或测试`cn.orvia.m19.visualtest`，app/窗口setAppDetails/安装器使用相同AppId，重启图标与命令来自可信程序路径；这只用于Windows分组，不授予任何权限。定向安装的新分组实际按钮`taskbar.png`已查看为蓝色折帆，`packaged-visual.json`记录唯一标题/PID/裁切。旧Orvia分组曾显示Electron图标，`taskbar-prior-appid.png`保留作差异，未清系统缓存或覆盖旧M14安装。生产稳定AppId保留以兼容升级；已有固定快捷方式/旧安装缓存不保证自动刷新。
+
+### 本阶段实际命令与结果
+
+命令均从项目根运行。产品Playwright环境`$env:ORVIA_TEST_MODULE='M19'`；仅本轮获授权可见桌面项另设`$env:ORVIA_M19_DESKTOP_ALLOWED='1'`。所有报告/截图/日志/合成数据仍只在被忽略的`artifacts/test-results/M19/`，真实模型、真实账户、真实外网业务调用0。
+
+| 级别 | 实际命令 | 最终结果/证据 | 真实与替身范围 |
+|---|---|---|---|
+| L0 | `npm run build` | exit0，`build-appid.log` | TS/Vite实际构建；未改变固定角色或锁定依赖 |
+| L1 | `npx vitest run apps/desktop/tests/m19-visual.test.ts --reporter=json --outputFile=artifacts/test-results/M19/unit-appid.json` | 5 passed，含固定AppId白名单、窗口选项/快捷键、实际ICO及真实CSS对比度 | Electron API mock；包元数据自有合成JSON。加前阶段19项相邻目标与1项实际SSR，共25个不同目标用例，不累加重跑 |
+| L1/L2 状态 | `node tests/e2e/m19-gallery.cjs` | 前阶段最终`gallery-spacing-final.log`通过，900/760/500px长文本、悬停、焦点、字体、减少动态 | 实际React SSR/headless静态，不执行事件/IPC/effect，功能证据另由L3 |
+| L2/L3 原生窗口 | `npx playwright test tests/e2e/m19.spec.ts -g '真实产品外轮廓'` | 1 passed/14.0秒，`native-hwnd-final.log/json`，真实六状态与控制 | 真实产品Electron/Python/SQLite；合成背景/文件，模型与原生业务确认沿既有替身；系统操作测试侧固定API |
+| L2 原生像素 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_window_evidence.py` | exit0，`window-pixels-hwnd.log`、`product/corner-pixels.json`：六状态，普通/还原/最小各四圆角 | 读取上述真实桌面PNG及边界，不读取renderer圆角 |
+| L3 受影响业务 | `$env:ORVIA_TEST_RESULTS=(Join-Path (Get-Location) 'artifacts/test-results/M19/m18-flow'); npx playwright test tests/e2e/m18.spec.ts` | 1 passed/54.7秒，`m18-flow.log/json`，脚本/桌面/可见浏览器闭环 | 真实LPAC/Job/UIA/专用可见Chromium/账本，模型、HTTP与原生确认替身；仅最小受影响流程，复用M18安全结论而不重跑其全套 |
+| L2/L3 前阶段结论复用 | `npx playwright test tests/e2e/m19.spec.ts`的四倍率项及前节七个业务spec | 四倍率项4 passed、业务13 passed；`product-first`/`flows-first`及对应截图 | 真实Electron/Python/合成解析/写入/导出，模型/外网/原生业务确认mock；100/125/150/200%只是渲染倍率。最后只增加AppId与测试修复，未改变业务/样式，未重复无关流程 |
+| 定向L4 构建 | `npx electron-builder --config packaging/m19-visual.config.cjs --win --publish never` | exit0，`package-appid.log`，独立M19/release产物 | 真实未签名EXE/NSIS；仅复用旧M14冻结后端/Chromium做视觉资源验证 |
+| 定向L4 安装 | `powershell -NoProfile -NonInteractive -File tests/integration/m19-install.ps1 -Stage Install`；同脚本`-Stage VerifyPending`、`-Stage Upgrade`（两次）、`-Stage Uninstall` | 实际安装成功后记录修正；Upgrade退出0/历史保留；最后Uninstall退出0，`uninstall.log`、`installation.json` | 只操作唯一M19测试安装路径/注册身份/快捷方式，自有hash校验，不动普通Orvia、不删用户配置 |
+| 定向L4 安装版 | `npx playwright test tests/e2e/m19-packaged.spec.ts` | 1 passed/7.4秒，`packaged-appid-final.log/json`、`packaged-welcome.png`、`taskbar.png` | 实际安装EXE、空safeStorage、隔离profile/系统PATH，三字体/SVG离线，Node/通用invoke不可见；只核验视觉，不称M15–M18安装业务通过 |
+| 定向L4 实际资源 | `node tests/e2e/m19-assets.cjs`；`powershell -NoProfile -NonInteractive -File tests/integration/m19-shell-icons.ps1`；`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_resource_audit.py` | exit0，`assets-complete.log`/`assets-audit.json`、`shell-installed.log`/`shell-icons.json`、`pe-installed-complete.log`/`pe-icons.json` | 实际ASAR/包外ICO/OFL、四份PE/五张Windows Shell图；先在安装尚存在时读取，卸载后保留hash/报告/提取图 |
+
+### 失败修正与实际覆盖限制
+
+1. 早期前台锁阻止原生焦点与F11；测试仅对已经核对自有HWND/PID的窗口临时AttachThreadInput，激活后在finally解除，截图再次精确核对前台；未改产品权限。被遮挡图不保留为证据。
+2. 原生测试创建合成背景后，`getAllWindows()[0]`实际指背景，早期最小化/尺寸误核验及native-keyboard“通过”无效。改精确选file产品窗口并核对HWND、760×560实际bounds；最小窗在贴靠前测试，避免系统贴靠状态保留尺寸影响。先前最小尺寸/像素失败记录保留，只有`native-hwnd-final`与`window-pixels-hwnd`为最终产品证据。
+3. NSIS实际DisplayName带版本，最初记录核对误报未找到；安装器已成功，不重复安装。只增加固定带版本名称识别，VerifyPending核对已有安装器/EXE/注册身份/快捷方式后恢复真实记录，没有伪造原失败退出码。
+4. 任务栏旧分组图不正确，setAppDetails单独指定旧分组尚未消除。定向安装/运行窗口固定同一独立AppId后新分组真实折帆通过；早期旧图保留，不把默认分组或所有已有固定项刷新当已验收。
+5. 实际快捷方式有系统箭头及alpha边缘，不可能全图与源32px逐字节相同；单独核对未叠层轮廓/主体不透明颜色，再结合实际目标路径、PE九尺寸和查看原图核验，没有放宽PE或ASAR字节一致性。
+
+实际系统Windows11 x64 25H2/build26200、96DPI；其他Win11版本/VM/AVD/Windows10、多用户和杀毒环境未覆盖。系统圆弧约8DIP，与参考图大圆弧取舍已经由用户选择A确认。渲染倍率测试不能替代不同系统DPI实机。操作系统原生审批框、外部应用/网页保持自己的视觉和权限链；renderer隔离、CSP、主进程授权、严格IPC、后端复核、固定模型和M18隔离均未削弱。
+
+### 试用与提交停止点
+
+开发版在根目录执行`npm run build`、`npm start`：检查欢迎/侧栏折帆、浅色字体和业务卡片；普通窗/最大化还原/最小化/双击/缩放，F11全屏、Escape退出。日常试用不等于授权真实模型请求或用户文件写入，业务仍按原权限与逐项原生审批。验收测试不读取用户文档，安装测试只创建本轮Start Menu快捷方式并已随卸载移除。
+
+M19定向安装器仅用于本轮视觉/窗口资源验证，不是M20后完整安装包验收；M14旧0.2.0-rc.1包未改、不含M15–M18。生产签名、独立Windows以及M20完成后重建完整安装包/逐项对照开发版保持待办。
+
+提交前再fetch/ls-remote核对main默认分支与远端仍为`9195d209d3d036b6d66d5c74068832a991a6a6d6`、ahead/behind=0/0。显式暂存M19文件并审查status/diff/cached及实际index敏感信息；LICENSE无差异、`.zcodeignore`保留且不暂存，密钥、数据库、用户数据、日志/截图/安装产物均不提交。本轮固定作者正常本地提交以包含本节的`feat(M19): unify visual design native windows fonts and application icons`为准，实际哈希见提交回执；提交后本地领先远端1，待用户手动push。Agent未push、未改TLS/网络/历史、未发布Release；本轮M19完成后立即停止，不开始M20。
+
+首次实际index卫生检查71文件/5816普通产物文件，禁入/密钥/私钥块均0（`hygiene-staged.log`）。cached diff发现JetBrains原OFL上游行尾空格，保留原文而不修剪；同时发现core.autocrlf会在重新检出时改变SVG/许可hash。新增精确`.gitattributes -text`保护源SVG与三原许可，只对原许可允许上游行尾空格，其他文件仍执行diff --check；测试卫生脚本新增实际index资源字节/manifest校验。重新暂存原字节后做最终L0复核，原生产资源字节和已经验收包均未变化，不重复无关功能测试。
+
+最终L0：`git diff --cached --check`退出0、工作树diff为空；`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_hygiene.py`退出0，72个实际暂存文件、5818个普通产物文件，禁入/密钥/私钥块/产物密钥匹配/资源manifest失配全部0（`hygiene-staged-final.log`）。提交前重新暂存本段并再执行同一审查，结果见`hygiene-staged-commit.log`；源码资源原字节受到固定Git属性保护，未提交测试产物。当前完成状态与历史待验收状态分开保留。

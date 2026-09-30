@@ -17,7 +17,7 @@ test('M13 选择附件、原文引用、预览导出、不覆盖、重启及会�
   const {results,output,launch}=await fixture();let app=await launch();
   try{
     let page=await app.firstWindow();await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'＋ 添加附件',exact:true}).click();
+    await page.getByRole('button',{name:'添加附件',exact:true}).click();
     const card=page.getByLabel('文档与引用').last();await expect(card).toContainText('synthetic.docx');
     await card.locator('summary').first().click();
     await card.getByRole('button',{name:'查看文档证据',exact:true}).click();
@@ -48,7 +48,7 @@ test('M13 选择附件、原文引用、预览导出、不覆盖、重启及会�
     await page.getByLabel('需求类型').selectOption('document');await page.getByLabel('输入需求').fill('许可');await page.getByLabel('输入需求').press('Enter');
     await expect(page.getByLabel('文档与引用')).toHaveCount(2);
     await expect(page.getByLabel('输入需求')).toHaveValue('');
-    await page.getByRole('button',{name:'＋ 新建对话',exact:true}).click();
+    await page.getByRole('button',{name:'新建对话',exact:true}).click();
     await page.getByLabel('需求类型').selectOption('document');await page.getByLabel('输入需求').fill('许可');await page.getByLabel('输入需求').press('Enter');
     await expect(page.getByText('请先添加文档附件。',{exact:true})).toBeVisible();
     await expect(page.getByLabel('文档与引用')).toHaveCount(0);
@@ -60,7 +60,7 @@ test('M13 本地真实 OCR 合成图片：识别方式和置信度可见',async(
   const {results,launch}=await fixture(true);const app=await launch();
   try{
     const page=await app.firstWindow();await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'＋ 添加附件',exact:true}).click();
+    await page.getByRole('button',{name:'添加附件',exact:true}).click();
     const card=page.getByLabel('文档与引用').last();await expect(card).toContainText('synthetic.png',{timeout:60000});
     await card.locator('summary').first().click();await card.getByRole('button',{name:'查看文档证据'}).click();
     await expect(page.getByLabel('文档证据详情')).toContainText('OCR 识别');

@@ -43,7 +43,7 @@ export function ScanCard({message, inspect, disabled}: {message: ChatMessage; in
 }
 
 export function PlanCard({operation, disabled, act}: {operation: NonNullable<Conversation['operation']>; disabled: boolean; act:(kind:'approve'|'resume'|'undo')=>void}) {
-  return <section className="plan-card" aria-label="当前操作计划"><div className="row between"><h3>当前操作计划</h3><span className="badge">{taskLabels[operation.status] ?? operation.status}</span></div>
+  return <section className="plan-card" aria-label="当前操作计划"><div className="row between"><h3>当前操作计划</h3><span className="badge" data-status={operation.status}>{taskLabels[operation.status] ?? operation.status}</span></div>
     <p className="muted">版本 {operation.revision.slice(0,12)} · {operation.actions.length} 个动作</p>
     <ol>{operation.actions.map((a,i) => <li key={i}><b>{a.kind === 'mkdir' ? '创建目录' : a.kind === 'rename' ? '重命名' : '移动'}</b> {a.source && <><code>{a.source}</code> → </>}<code>{a.destination}</code></li>)}</ol>
     <p>批准将改变上述文件的位置或名称。请核对源和目标；拒绝覆盖、删除和跨卷移动。文本回复“同意”不会执行。</p>

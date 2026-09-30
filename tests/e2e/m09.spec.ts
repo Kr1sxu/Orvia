@@ -21,7 +21,7 @@ test('M09 桌面整理只读界面闭环（合成目录）', async () => {
     await app.evaluate(({ dialog }, directory) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] });
     }, root);
-    await page.getByRole('button', { name: '＋ 选择目录', exact: true }).click();
+    await page.getByRole('button', { name: '选择目录', exact: true }).click();
     await expect(page.getByText('会议记录.txt', { exact: true })).toBeVisible();
     await page.getByText('会议记录.txt', { exact: true }).locator('..').getByRole('button', { name: '属性' }).click();
     await expect(page.locator('.result-card').last()).toContainText('修改时间');

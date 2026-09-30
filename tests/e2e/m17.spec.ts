@@ -21,7 +21,7 @@ async function launch(cancel=false){
 
 async function enter(page:import('@playwright/test').Page){
   await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'＋ 选择目录'}).click();
+  await page.getByRole('button',{name:'选择目录'}).click();
   const workspace=page.getByLabel('代码、原型和系统清理');
   await expect(workspace).toBeVisible();
   return workspace;

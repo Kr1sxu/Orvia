@@ -13,7 +13,7 @@ M15 在现有会话增加固定 `chat.synthesis.preview/generate`，不改变文
 
 renderer 只持证据 ID、模式和问题，不能传正文、路径、模型或供应商。主进程记录实际返回的预览身份，生成前复取并核对 revision，弹原生确认框后才允许一次性发送；取消不调用模型。后端仅使用 Mission 固定 Main `deepseek-flash`/`https://api.deepseek.com`，一次请求、20 秒适配器超时、30 秒等待预算、1024 输出 token、零自动重试；没有工具调用。确认的片段、定位、问题与系统规则进入 Main 云服务，附件选择、网页读取和关键词检索本身均不授予上传权限。Computer/Browser 固定配置不变。
 
-模型结果为 JSON 结论和 `fact/inference/conflict/unknown` 分项。程序只接受本轮片段 ID，复核证据版本、会话和文档单元/网页块定位；冲突至少两个引用，未知项无引用。结构校验不证明语义支持，界面提示回查原文。结果及覆盖、模型名、用量入本地会话消息，原正文仍在证据库；生成请求复用 pending/幂等/中断/取消，不自动重发或触发文件动作、审批与写入。外部资料和模型输出均为纯文本不可信数据，不能改变主进程授权。M20 意图统一与流式协议、M19 视觉升级未接入。
+模型结果为 JSON 结论和 `fact/inference/conflict/unknown` 分项。程序只接受本轮片段 ID，复核证据版本、会话和文档单元/网页块定位；冲突至少两个引用，未知项无引用。结构校验不证明语义支持，界面提示回查原文。结果及覆盖、模型名、用量入本地会话消息，原正文仍在证据库；生成请求复用 pending/幂等/中断/取消，不自动重发或触发文件动作、审批与写入。外部资料和模型输出均为纯文本不可信数据，不能改变主进程授权。M19视觉已接入且本机验收通过；M20意图统一与流式协议未接入。
 
 ## M16 已保存回答到本地简报成品
 
@@ -94,6 +94,14 @@ flowchart LR
   Graph -. M07 .-> Web[搜索 / HTTP / Playwright 只读]
 ```
 
+## M19视觉与原生窗口边界（已完成）
+
+2026-09-30用户确认雾蓝/原创折帆/内置字体/Win11 x64/原生小圆角，见[M19_DESIGN](M19_DESIGN.md)。主进程`window-presentation.ts`从可信根选择ICO，创建不透明、thickFrame、hidden标题栏与原生overlay窗口；普通窗系统圆角，最大化/贴靠/全屏系统方角，F11/Escape处理实际全屏。原生控制处理关闭/最小化/最大化/拖动/双击，不新增renderer窗口控制IPC；业务区域不拖动。用户授权桌面时段后，真实产品普通/还原/最小窗四角像素、最大化/全屏/贴靠方角与系统命中/移动/双击/最小化/关闭均通过；系统DPI96，4档渲染倍率另记，不用renderer圆角证明外轮廓。
+
+主进程taskbarAppId只读可信安装package.json中的固定生产cn.orvia.desktop或定向测试cn.orvia.m19.visualtest；未知值返回生产标识，不接受renderer路径。app.setAppUserModelId、窗口setAppDetails与安装器标识一致，ICO与重启命令来自可信程序根。AppId仅供Windows图标分组，不成为权限。实际新测试分组已显示折帆；旧Orvia分组曾显示Electron旧图，缓存/既有固定项差异保留，生产升级标识不改。
+
+React组件与原事件链复用，`Visual.tsx`只装饰品牌和固定功能图标，CSS统一离线Noto/Inter/JetBrains字体与状态。Vite不内联小SVG以符合既有img-src self，CSP没有放宽。builder仅关闭签名、保留PE图标编辑，字体原OFL额外分发；独立M19定向包复用旧冻结后端，不能当全功能安装版。字体/图标/参考图均为数据，不授予权限；contextIsolation/sandbox、严格IPC、固定模型、原生审批、后端版本复核与M18隔离保持。M20意图路由、统一附件入口与流式协议仍未授权。
+
 ## 进程与协议（M01）
 
 开发时主进程固定启动仓库 `backend/.venv/Scripts/python.exe`，`shell:false`、`windowsHide:true`；不查 PATH，不拼接 Shell，Python 不直接加载 `.env.local`。发布时由 M08 使用安装资源内固定 PyInstaller 后端；主进程从 `process.resourcesPath/backend/orvia-backend.exe` 启动，不查找系统 Python。
@@ -149,7 +157,7 @@ PyInstaller 已使用 onedir + console 保留 stdio，electron-builder 将后端
 
 ## 后续能力边界
 
-M13 文档提取、M16 固定简报、M17 受限代码/原型/临时文件隔离及M18执行分别受上文边界约束。标书、完整行业调研仍未实施；M19–M20保留规划。
+M13 文档提取、M16 固定简报、M17 受限代码/原型/临时文件隔离及M18执行分别受上文边界约束。标书、完整行业调研仍未实施；M19视觉已完成，M20保留规划。
 
 ## M14 本机候选包边界
 

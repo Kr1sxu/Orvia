@@ -56,7 +56,7 @@ test('M12 搜索、引用、显式读取、已有来源追问、重启和窄窗�
     await page.locator('.source-card').last().locator('summary').first().click();
     await page.locator('.source-card').last().getByRole('button',{name:'查看证据',exact:true}).first().click();
     await expect(page.getByLabel('证据详情')).toContainText('访问时间');
-    await page.getByRole('button',{name:'＋ 新建对话',exact:true}).click();
+    await page.getByRole('button',{name:'新建对话',exact:true}).click();
     await send(page,'ask','许可');
     await expect(page.locator('.source-card').last()).toContainText('没有匹配来源');
     await expect(page.getByLabel('当前操作计划')).toHaveCount(0);

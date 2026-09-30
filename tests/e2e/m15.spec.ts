@@ -12,7 +12,7 @@ test('M15 显式选择文档、预览正文、原生确认后生成并回查引�
   const app=await electron.launch({args:[path.resolve('tests/e2e/m15-launch.cjs')],env});
   try{
     const page=await app.firstWindow();await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'＋ 添加附件'}).click();
+    await page.getByRole('button',{name:'添加附件'}).click();
     const panel=page.getByLabel('生成式文档与来源回答');await expect(panel).toBeVisible();
     const bypass=await page.evaluate(async()=>{
       const list=await window.orvia.chatList();if(!list.ok)throw new Error('list');
@@ -43,7 +43,7 @@ test('M15 用户在原生框取消后不调用模型',async()=>{
   const app=await electron.launch({args:[path.resolve('tests/e2e/m15-launch.cjs')],env});
   try{
     const page=await app.firstWindow();await expect(page.getByText('本地服务已连接',{exact:true})).toBeVisible();
-    await page.getByRole('button',{name:'＋ 添加附件'}).click();
+    await page.getByRole('button',{name:'添加附件'}).click();
     const panel=page.getByLabel('生成式文档与来源回答');await panel.getByRole('checkbox').first().check();
     await panel.getByRole('button',{name:'预览拟发送片段'}).click();
     await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();

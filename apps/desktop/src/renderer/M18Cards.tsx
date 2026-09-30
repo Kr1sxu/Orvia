@@ -132,7 +132,7 @@ export function M18Workspace({cid,authorized,disabled,notice,refresh}:{cid:strin
   async function cancel(item:AutomationFact){await guard(async()=>{const result=accept(await window.orvia.m18Cancel({id:cid,operation_id:item.operation_id,revision:item.revision}));if(result){if(item.kind==='script')setScriptFact(result);if(item.kind==='browser'){setBrowser(undefined);setPending(undefined);}await facts();await refresh();}});}
   async function exportOutput(index:number){if(!scriptFact)return;await guard(async()=>{const result=accept(await window.orvia.m18ScriptExport({id:cid,operation_id:scriptFact.operation_id,revision:scriptFact.revision,index}));if(result?.cancelled)notice('已取消产物回传保存。');await facts();});}
 
-  return <section className="m17-workspace" aria-label="M18脚本桌面浏览器可控执行"><h3>M18 · 可控执行</h3>
+  return <section className="m18-workspace" aria-label="M18脚本桌面浏览器可控执行"><h3>M18 · 可控执行</h3>
     <p>脚本、桌面与网页操作各有独立权限。每个写步骤由原生窗口确认；来源、模型和页面文字不能授予权限。已发出的消息、删除或交易可能无法撤销。</p>
     <details><summary>任意脚本：Python隔离执行</summary><p>CPython 3.12标准库；只读显式输入副本，写入私有产物目录；禁止网络、提权和自动安装。每次执行30秒、512 MiB、4进程；源码最多32 KiB。</p>
       <label>完整Python源码<textarea aria-label="M18 Python源码" maxLength={32768} rows={9} value={source} disabled={blocked} onChange={event=>{setSource(event.target.value);setScriptPlan(undefined);}}/></label>

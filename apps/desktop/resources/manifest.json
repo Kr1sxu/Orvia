@@ -1,0 +1,106 @@
+{
+  "schema": "orvia.visual-resources.v1",
+  "fontPolicy": "原字节、OFL-1.1、离线；hash作为固定字库版本身份，不猜测截图字体或上游发布版本",
+  "fonts": [
+    {
+      "file": "NotoSansSC.ttf",
+      "family": "Noto Sans SC",
+      "license": "Noto-OFL.txt",
+      "source": "仓库M16 publication/assets/NotoSansSC.ttf原字节复用",
+      "upstream": "https://github.com/google/fonts/tree/main/ofl/notosanssc",
+      "bytes": 17772300,
+      "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+      "revision": "sha256:a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+      "licenseDigest": {
+        "bytes": 4387,
+        "sha256": "babcfe66c8a098b2fa279bc724a3a342f8124f77ce18941fbcc1bbb39823cded"
+      }
+    },
+    {
+      "file": "InterVariable.woff2",
+      "family": "Inter",
+      "license": "Inter-OFL.txt",
+      "source": "2026-09-30从rsms/inter官方仓库获取原字库",
+      "upstream": "https://github.com/rsms/inter/blob/master/docs/font-files/InterVariable.woff2",
+      "bytes": 352240,
+      "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+      "revision": "sha256:693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+      "licenseDigest": {
+        "bytes": 4380,
+        "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+      }
+    },
+    {
+      "file": "JetBrainsMono-Regular.ttf",
+      "family": "JetBrains Mono",
+      "license": "JetBrains-OFL.txt",
+      "source": "2026-09-30从JetBrains官方仓库获取原字库",
+      "upstream": "https://github.com/JetBrains/JetBrainsMono/blob/master/fonts/ttf/JetBrainsMono-Regular.ttf",
+      "bytes": 270224,
+      "sha256": "e6fd0d7e91550b3ed2b735d4312474362c4716edc4fc0577a0f61ed782d5aed1",
+      "revision": "sha256:e6fd0d7e91550b3ed2b735d4312474362c4716edc4fc0577a0f61ed782d5aed1",
+      "licenseDigest": {
+        "bytes": 4399,
+        "sha256": "a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697"
+      }
+    }
+  ],
+  "icons": [
+    {
+      "file": "brand.svg",
+      "bytes": 156,
+      "sha256": "697bb9a5bda2a2164eccaf111d272216a64e2f67c2adaf6ca87e252136f2c90a"
+    },
+    {
+      "file": "orvia-128.png",
+      "bytes": 2676,
+      "sha256": "9366f6dc52a17df6af3257fc0f786174e9e2b4474d9c38caa0c6aab7b08fba79"
+    },
+    {
+      "file": "orvia-16.png",
+      "bytes": 428,
+      "sha256": "f3944af2b3143a5f5050a8b27f6e8cd459d012aa41373318f8af2303829e5ab3"
+    },
+    {
+      "file": "orvia-20.png",
+      "bytes": 561,
+      "sha256": "1255bc82b9c696913b9f6cd021b33812da9fefb31b5c486c0390e88e5a406794"
+    },
+    {
+      "file": "orvia-24.png",
+      "bytes": 674,
+      "sha256": "eeb81c0d426dd98d84d63fe8befd2c796102e022434261dddf3cf88f597cc911"
+    },
+    {
+      "file": "orvia-256.png",
+      "bytes": 4631,
+      "sha256": "fb35f7763848d9d6d5a51403a211e80aaf30bf57fbb631934ee16870c0c1a57a"
+    },
+    {
+      "file": "orvia-32.png",
+      "bytes": 909,
+      "sha256": "bfa842b6aefe7cc3506cdd4eba42423702eaa64b986bf3e02759da5743c75a55"
+    },
+    {
+      "file": "orvia-40.png",
+      "bytes": 1061,
+      "sha256": "ecbce9a3d93a4a91e91000b7bbb74cd75d061f1889fb776b792285359066d181"
+    },
+    {
+      "file": "orvia-48.png",
+      "bytes": 1307,
+      "sha256": "5896615c7ab9c864904d65c94b4fa13a0895fc08358ade5db0389ae70574f6aa"
+    },
+    {
+      "file": "orvia-64.png",
+      "bytes": 1612,
+      "sha256": "7ae841ec81ce13b9c482a960d1a05cfecf38e93b9e1c8bb58d6632079d435f25"
+    },
+    {
+      "file": "orvia.ico",
+      "bytes": 14009,
+      "sha256": "1eebbf4b99656fc0838d49e6e58110a47fa7a9193ce3e77354994730b042d963"
+    }
+  ],
+  "iconSource": "本项目原创折帆SVG；无文字；generated PNG/ICO由可信源重新生成"
+}
