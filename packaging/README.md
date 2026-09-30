@@ -1,5 +1,9 @@
 # M14 未签名测试候选版：0.2.0-rc.1
 
+## M18 源码与安装资源边界
+
+本轮只交付 M18 开发源码与合成验收，不重建安装包。规格已携带固定 UIA PowerShell 工作器，但没有宣称冻结或安装版 M18 验收通过。隔离脚本目前要求开发后端的经校验 CPython3.12 私有副本；PyInstaller 后端不是通用解释器，冻结模式明确拒绝脚本运行，不查 PATH 回退。M20 后重建时仍须准备并核验专用脚本运行时、完整可见 Chromium、工作器及三项流程与开发版一致。M14 旧包不含 M15–M18，生产签名和独立 Windows 验收继续暂缓。
+
 ## M16 源码的冻结依赖
 
 M16 在后端增加 python-docx、python-pptx、ReportLab 和内置 OFL 中文字体；`orvia-backend.spec` 明确收集 `publication/assets`，开发环境及 M16 隔离冻结后端分别验证三格式实际生成。冻结输出仅位于 `artifacts/test-results/M16/`，不是新安装器、升级包或已签名发行版。M14 现有 `0.2.0-rc.1` 安装包保持原状，不含 M15/M16；将来重新打包仍需完成安装包专项验收，M14 暂缓的独立 Windows 与生产签名状态不变。依赖许可证与文件限额见 `backend/src/orvia_backend/publication/README.md`。

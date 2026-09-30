@@ -9,6 +9,7 @@ import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
 import { synchronizeCredentials, CredentialSynchronizationError } from './credentials/synchronize';
 import { credentialInputSchema, missionCreateSchema, credentialRoleSchema, computerCallSchema } from './contracts';
+import {registerM18} from './m18-ipc';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -46,6 +47,7 @@ app.whenReady().then(async () => {
   let developmentDraftAuthorization: {id:string;draft:DevelopmentDraft} | undefined;
   let cleanupAuthorization: {id:string;plan:CleanupPlan} | undefined;
   let activeSend: { id: string; request_id: string } | undefined;
+  let m18Authorization: {clear:()=>void} | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
   // 模型请求仅后端显式发起；渲染端仍拒绝权限申请及所有联网请求。
@@ -67,8 +69,8 @@ app.whenReady().then(async () => {
       }
       if (quitting || (reconnecting && channel !== 'orvia:connection-status')) return { ok: false, message: '本地服务正在重连或退出，请稍候。' };
       // 防止短超时设置请求排在模型规划后，使正常规划被误判为后端失联。
-      if (chatBusy && !['orvia:connection-status', 'orvia:chat-cancel'].includes(channel)) return { ok: false, message: '任务正在处理，请等待完成或取消本次规划。' };
-      const control = ['orvia:connection-status', 'orvia:chat-cancel'].includes(channel);
+      const control = ['orvia:connection-status', 'orvia:chat-cancel','orvia:m18-cancel','orvia:m18-script-status','orvia:m18-browser-pending','orvia:m18-browser-close','orvia:m18-history'].includes(channel);
+      if (chatBusy && !control) return { ok: false, message: '任务正在处理，请等待完成或取消本次规划。' };
       if (channel === 'orvia:reconnect' && ordinaryRequests) return {ok: false, message: '还有请求正在收尾，请稍候再重新连接。'};
       if (!control) ordinaryRequests++;
       try { return { ok: true, result: await action(...args) }; }
@@ -92,6 +94,7 @@ app.whenReady().then(async () => {
       developmentContextAuthorization=undefined;
       developmentDraftAuthorization=undefined;
       cleanupAuthorization=undefined;
+      m18Authorization?.clear();
       backend = createBackend();
       await backend.start();
       return {connected: true};
@@ -108,6 +111,7 @@ app.whenReady().then(async () => {
     chatBusy = true;
     try { return await action(); } finally { chatBusy = false; }
   }
+  m18Authorization=registerM18({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   handle('orvia:chat-list', 0, () => chatAction(() => backend.chatList()));
   handle('orvia:chat-create', 1, input => chatAction(() => backend.chat('chat.create', chatCreateSchema.parse(input))));
   handle('orvia:chat-get', 1, input => chatAction(() => backend.chat('chat.get', chatIdSchema.parse(input))));

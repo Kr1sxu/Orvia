@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { backendLaunch, type PackagedRuntime } from './runtime';
-import { JsonLines, VERSION, responseSchema, helloSchema, healthSchema } from './protocol';
+import { JsonLines, VERSION, MAX_LINE_BYTES, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
 import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema, developmentContextSchema, developmentDraftSchema, cleanupPlanSchema } from './chat-contracts';
 
@@ -121,6 +121,14 @@ export class BackendClient {
   async cleanupPlan(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.plan',params)); }
   async cleanupExecute(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.execute',params)); }
   async cleanupRestore(params:object) { await this.start();return cleanupPlanSchema.parse(await this.request('chat.cleanup.restore',params)); }
+  /** 仅主进程固定 handler 使用，preload 不暴露方法名转发器。 */
+  async automation(suffix: string, params: object): Promise<unknown> {
+    const allowed=['script.preview','script.file','script.model_preview','script.model_generate','script.execute','script.status','script.export',
+      'desktop.windows','desktop.grant','desktop.observe','desktop.preview','desktop.execute',
+      'browser.open','browser.observe','browser.pending','browser.preview','browser.execute','browser.request','browser.origin','browser.close','cancel','history'];
+    if(!allowed.includes(suffix))throw new BackendRequestError('METHOD_NOT_FOUND');
+    await this.start();return this.request(`chat.automation.${suffix}`,params);
+  }
   async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.generate' | 'chat.publication.save' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
     await this.start(); return chatSnapshotSchema.parse(await this.request(method, params));
   }
@@ -139,16 +147,19 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel', params: object = {}): Promise<unknown> {
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
     const id = randomUUID();
+    const payload=JSON.stringify({v:VERSION,id,method,params})+'\n';
+    // 先按最终JSON字节预算拒绝，避免32KiB源码经转义放大而让后端失去响应身份。
+    if(Buffer.byteLength(payload,'utf8')>MAX_LINE_BYTES)return Promise.reject(new BackendRequestError('OUTPUT_LIMIT'));
     return new Promise((resolve, reject) => {
       // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
       const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')), method.startsWith('chat.') ? 65000 : this.timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
-      this.child!.stdin.write(JSON.stringify({ v: VERSION, id, method, params }) + '\n');
+      this.child!.stdin.write(payload);
     });
   }
 

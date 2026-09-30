@@ -32,8 +32,15 @@ async def serve(reader: BinaryIO, writer: BinaryIO) -> None:
         if output_closed:
             return
         payload = json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n"
+        encoded = payload.encode("utf-8")
+        if len(encoded) > MAX_LINE_BYTES:
+            # 任意脚本/敌意网页可放大JSON转义。只回固定错误并保持连接，不截断业务事实。
+            response = error_response(response.get("id"), "OUTPUT_LIMIT", "结果超过协议预算，请读取最小账本并核对实际状态，不会自动重试")
+            encoded = (json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+            if len(encoded) > MAX_LINE_BYTES:
+                encoded = (json.dumps(error_response(None, "OUTPUT_LIMIT", "响应身份超过预算")) + "\n").encode("utf-8")
         try:
-            writer.write(payload.encode("utf-8"))
+            writer.write(encoded)
             writer.flush()
         except OSError:
             # 管道断开只停止输出；不在文件操作中途取消事务或打印异常路径。
@@ -71,7 +78,9 @@ async def serve(reader: BinaryIO, writer: BinaryIO) -> None:
                 request = json.loads(line)
             except (ValueError, RecursionError):
                 request = {}
-            control = isinstance(request, dict) and request.get("method") in {"health", "chat.cancel"}
+            control = isinstance(request, dict) and request.get("method") in {
+                "health", "chat.cancel", "chat.automation.cancel", "chat.automation.script.status",
+                "chat.automation.browser.pending", "chat.automation.browser.request", "chat.automation.browser.close"}
             if control:
                 # 旁路仍经过 Application 的完整协议及参数检查。
                 emit(await handle_safely(line))

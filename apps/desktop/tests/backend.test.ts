@@ -36,6 +36,15 @@ describe('后端连接生命周期（模拟子进程，无模型）', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.mocked(spawn).mockReset(); });
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
+  it('M18源码JSON转义超预算仅拒绝本次请求，连接仍可健康响应',async()=>{
+    const {client,child,requests,reply}=await connected();
+    await expect(client.automation('script.preview',{id:'00000000-0000-4000-8000-000000000001',source:'#'+'\\'.repeat(32767),inputs:[]})).rejects.toThrow('OUTPUT_LIMIT');
+    expect(requests).toHaveLength(1);expect(child.kill).not.toHaveBeenCalled();
+    const healthy=client.health();await vi.advanceTimersByTimeAsync(0);
+    reply(requests[1],{status:'ok',service:'orvia-backend'});
+    expect(await healthy).toEqual({status:'ok',service:'orvia-backend'});expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('数据库初始化失败即终止子进程，不留不可用的常驻后端', async () => {
     const { child, requests, reply } = fakeChild();
     const client = new BackendClient('C:/synthetic-orvia', 100, { dataDirectory: 'C:/synthetic-data', credentials: () => ({ main: 'synthetic-private-key' }) });

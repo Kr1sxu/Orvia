@@ -117,6 +117,8 @@ class Application:
         methods |= {"chat.publication.preview", "chat.publication.save"}
         methods |= {"chat.development.context", "chat.development.generate", "chat.development.draft", "chat.development.apply"}
         methods |= {"chat.cleanup.scan", "chat.cleanup.plan", "chat.cleanup.execute", "chat.cleanup.restore"}
+        from .automation.contracts import CONTRACTS as AUTOMATION_CONTRACTS
+        methods |= {"chat.automation." + suffix for suffix in AUTOMATION_CONTRACTS}
         methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
                     "chat.browser.search", "chat.browser.read", "chat.browser.ask", "chat.browser.source",
                     "chat.approve", "chat.resume", "chat.undo", "chat.cancel"}
@@ -272,6 +274,9 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.chat is not None:
+            # 先终止自有隔离/自动化工作进程并记账，再关闭共享数据库。
+            await self.chat.automation.close()
         if self.graph is not None:
             await self.graph.__aexit__(None, None, None)
             self.graph = None

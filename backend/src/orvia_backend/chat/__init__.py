@@ -25,6 +25,7 @@ from ..development.service import context_preview, _digest as development_digest
 from ..cleanup import CleanupService
 from .contracts import DevelopmentContext, DevelopmentGenerate, DevelopmentDraft, DevelopmentApply, CleanupPlan, CleanupExecute, CleanupRestore
 from .repository import ChatRepository
+from ..automation.service import AutomationService
 
 
 def encoded_size(value):
@@ -42,6 +43,7 @@ class ChatService:
         self.development = DevelopmentService(store, gateway)
         self.cleanup = CleanupService(store)
         self.client = ModelClient(registry)
+        self.automation = AutomationService(self)
         self._locks = {}
         self._active = {}
 
@@ -51,9 +53,12 @@ class ChatService:
         await self.documents.open()
         await self.development.open()
         await self.cleanup.open()
+        await self.automation.open()
 
     async def handle(self, method, params):
         """仅 Application 私有管道调用；拒绝未知字段与跨会话操作引用。"""
+        if method.startswith("chat.automation."):
+            return await self.automation.handle(method, params)
         if method == "chat.list":
             Params.model_validate(params)
             rows = await self.repository.list()

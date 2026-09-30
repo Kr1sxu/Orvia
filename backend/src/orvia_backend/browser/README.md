@@ -1,5 +1,7 @@
 # Browser 搜索与公开网页读取（M07 / M12）
 
+M18另增`../automation/browser.py`与`write_network.py`专用写会话。它需要main原生逐任务准确站点/类别授权、专用可见内存登录、控件逐步审批及真实外发请求独立确认，不能从本只读接口得到写许可；详见[automation README](../automation/README.md)。原BrowserService/SafeHTTP与M12证据存储仍保持只读。
+
 M15 可在用户选择当前会话已保存的网页版本并确认发送范围后，将有界正文片段交给固定 Main 生成回答；Browser 网络读取本身仍是只读，不自动上传正文给模型，也不开放浏览器写操作。生成入口与引用验证见 `../chat/README.md`。
 
 ## 用途、结构与接口

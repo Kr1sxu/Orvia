@@ -1,6 +1,10 @@
 # 开发进度与验证证据
 
-## 当前状态（2026-09-29，M15）
+## 当前状态（2026-09-30，M18 三项交付）
+
+用户确认的 M18 脚本、桌面点击、浏览器写操作三项源码已全部实现，通过实际 LPAC/UIA/可见Chromium、Electron审批闭环及分级验证，完整记录见本文末节和[确认设计](M18_DESIGN.md)。正常本地提交以包含本节的 M18 提交及交付回执为准，待用户手动 push；真实模型/真实网站/账号调用为0。M19–M20 未开始；M14 生产签名和独立 Windows 验收仍暂缓，旧包不含 M15–M18，M20 后重建安装包并核对开发版待办保留。Agent 不 push。
+
+## 历史状态（2026-09-29，M15）
 
 M15 有界文档摘要与多来源回答、M16 带引用简报、M17 代码生成/网页原型/旧临时文件隔离首批源码均已实现和验证，详见本文后续分节。最新安装包仍是 M14 未签名 0.2.0-rc.1，不包含 M15–M17；M14 生产签名和独立 Windows 验收仍暂缓。M18–M20 未开始。本地提交与用户手动 push 状态独立记录；Agent 不 push。
 
@@ -695,3 +699,75 @@ L3 覆盖：取消匹配/错标识拒绝/取消后幂等；运行中重载不重
 固定作者“踪显 <18532112451@163.com>”创建正常本地 M17 提交，具体哈希见 `git log` 和交付回执；Agent 不 push。M14 安装包仍不含 M15–M17，生产签名和独立 Windows 验收继续暂缓；M18–M20 不在本轮。
 
 提交卫生：显式暂存36个 M17 文件，`git status`、`git diff`、`git diff --cached --stat/--check` 已核对；禁入路径0、暂存文件与根开发 Key 精确匹配0、私钥块标记0。`.env.local`、`.zcodeignore`、LICENSE、数据库、日志、用户文件和 `artifacts/test-results/M17/` 均未暂存。提交前再次 `git ls-remote --symref origin HEAD refs/heads/main` 显示远端 `main` 仍为 `73a6d3f`；本地已有未推送的 `fcdcd00`，M17 提交会继续增加本地领先数，push 仍由用户手动完成。
+
+## M18 实施前预检与候选设计（2026-09-30，历史阶段）
+
+用户明确只实施脚本、桌面点击、浏览器写操作三项同模块能力，要求先完成不依赖决策的预检设计，再确认首批执行范围。本阶段不把模块名称当作任意执行授权，不删减三项目标，不勾选 M18 完成。
+
+项目位置正确，分支 main；`git status --short --branch` 原仅未跟踪 `.zcodeignore`，`git branch -vv`、`git remote -v`、`git log -8 --oneline --decorate` 和 `git show -s --format=fuller HEAD` 已核对。`git fetch origin` 成功；`git ls-remote --symref origin HEAD refs/heads/main` 确认远端默认 main、HEAD 为 `19b1f8a7d4db03927d3eb60949c1de53be7b0727`，`git rev-list --left-right --count HEAD...origin/main` 为 `0/0`。因此 M17 与前一项 V2 文档提交已经同步，保留上一轮历史待 push 记录，不将其视为当前状态。Agent 没有 push、改 TLS 或重写历史。LICENSE 当前为已跟踪且无差异，只核对状态，未恢复、修改或暂存。
+
+已阅读规定文档、相关 README 和应用/网关/会话/审批/退出代码，复用 M17 与 M11 的已有测试结论。三项只读评估分别委派子 Agent，均无修改文件所有权，未传递或读取真实 Key。候选设计和拟改文件、公共权限链路、状态、原生隔离前提、L0–L4 方案见 [M18_DESIGN.md](M18_DESIGN.md)。本机家庭中文版且 WindowsSandbox.exe 不存在；脚本建议 LPAC 加 Job 的真实合成验收，不能用路径校验/工作目录冒充 OS 沙箱。桌面建议独立 UIA worker，Browser 建议独立专用写会话/HTTP 出口和逐实际请求确认，现有只读能力不据此扩权。
+
+本阶段仅新增设计和更新 V2/进度文档，L0 `git diff --check` 通过，`git diff --cached --stat` 为空，`git check-ignore artifacts/test-results/M18/preflight.json` 确认产物路径被忽略；LF/CRLF 转换提示不是检查失败。未改代码、配置或依赖，按文档-only 规则未运行 L1–L4，也没有执行脚本、读取用户窗口、网页提交或真实模型调用。预检摘要为忽略的 `artifacts/test-results/M18/preflight.json`。
+
+已经集中请求五项选择：脚本语言/运行时与来源、隔离/文件/网络权限、桌面应用与动作、浏览器站点/动作/登录、逐步审批/取消/核验/恢复与证据保留。当前待用户回复，执行接口未实施，未暂存文件、未创建 M18 commit；待三项确认范围全部实现验证记录后，按固定作者正常本地提交并停止。M19–M20 未开始，M14 生产签名和独立 Windows 验收暂缓、M20 完成后重建安装包并核对开发版的待办均保留。
+
+## M18 三项实现与验收（2026-09-30）
+
+### 授权、实现和复用
+
+预检已实时确认 main/HEAD/origin/main/远端默认 main 同为 `19b1f8a7d4db03927d3eb60949c1de53be7b0727`，ahead/behind=0/0，上一轮两个本地提交已由用户同步。初始工作区只有未跟踪`.zcodeignore`，保留且不提交；LICENSE干净且本轮不恢复、修改或暂存。规定文档及相关代码已读，先设计再集中确认权限。用户最终确认：Python3.12粘贴/原生.py/另行审查固定Computer草稿三来源；私有运行时、LPAC+Job、只读输入复制、隔离写、每文件回传审批、无网络/提权/依赖安装；桌面每任务原生选普通权限应用和唯一UIA动作；Browser每任务原生确认准确公共HTTPS站点及form/message/upload/delete/transaction类别，专用可见窗手工登录、Cookie仅内存。每步及实际外发另行原生批准；取消阻止后续、自有进程回收、未知不重试、无通用撤销，最小哈希/事实审计。
+
+脚本、桌面、Browser适配器及各自测试分别委派三个子Agent，独占文件已明确，无并发同文件修改，无真实Key传递；主Agent负责Application/Chat装配、共同账本/契约、主进程授权和整合E2E/文档/Git。只读交叉审查发现的问题分别回交原所有者修复。
+
+- `automation/`复用Store/ChatRepository、Computer gateway/PathPolicy、固定模型快照和M17显式文件结果；新增SQLite步骤条件更新、300秒计划、会话归属与版本复核、终态不重放、重启interrupted。状态/取消/待请求旁路长任务，桌面派发全局串行。源码/页面/模型不能授予权限。
+- Python私有标准库运行时从固定3.12安装复制，私有exe/DLL/pyd固定manifest变换解决LPAC SxS失败，原安装不改；变换后原签名失效，以完整哈希核验。挂起→Job→零cap/LPAC语义/Low integrity/非提升/UIAccess=0/Win32k禁止及Job UI0xff核验→恢复。30秒、512MiB、4进程上限、stdout+stderr16KiB；输入8×2MiB/总16MiB，只读副本；产物512目录项/12文件/各2MiB/总16MiB，有界遍历和退出后读回。回传新文件经独占创建/fsync/句柄与字节hash复核，不改原输入。
+- 桌面固定PowerShell5.1 MTA可信工作器，绑定同用户TokenUser、Session、exe身份、PID创建时间、HWND/class，密码/安全界面拒读；UIA Value/Invoke/SelectionItem/Toggle/Focus，目标/相对布局/前景/焦点复核，无坐标退化。common保存框只允许准确Save按钮走`save_new`，私有staging→原生新路径副本/hash，应用当前路径仍staging。普通应用会自行保存/联网，外发类别在点击前另批业务动作，不能由桌面逐HTTP拦截。
+- Browser专用非持久Chromium，公开DNS固定IP/TLS出口、全部route拦截，禁止continue/私网/个人profile/Worker/子框架/WebSocket/下载。任何非GET含HEAD/OPTIONS、动态GET、后续导航、声明GET写端点均实际请求独立审批。普通表单/JSON/multipart有界字段、文件字节hash、遮盖与完整性标记；请求版本180秒，拒绝/过期零外发。初始GET写端点先交付尚未加载的sid再审批；HTTP重定向拒绝直接跟随，须准确授权最终页。2xx只回执，新文字须在之前不存在且提交后实际DOM出现才核验，不能当服务器业务真值。
+- 固定21项preload/Zod/Pydantic接口，无通用IPC/执行器/解释器/绝对路径/renderer approved；main保留实际预览并原生逐步确认，backend再次复核。64KiB双向JSON最终字节预算拒绝转义放大，返回固定错误而不破坏连接。三项卡片有完整源码/计划、实际状态/账本、产物回传和外发预览；不开展M19视觉或M20自然语言路由。
+
+### 实际验证命令与结果
+
+报告、合成源码/输入/输出、私有运行时、fixture可执行文件、SQLite、日志和截图统一在被Git忽略的`artifacts/test-results/M18/`。云模型/真实网站/账号调用均为0。模型提案只做固定Computer mock，缺凭据明确不可用，未宣称真实供应商可用；LPAC、UIA和Chromium为本机真实能力。原生选择/审批框仅由测试启动器替换，不冒充原生框视觉验收。
+
+| 级别 | 实际命令 | 结果与证据 | mock / 真实组件与未覆盖风险 |
+|---|---|---|---|
+| L0 | `npm run build` | 最终通过，`build-complete.log`；两套严格tsc及Vite | 无模型；非安装器构建 |
+| L0 | `backend/.venv/Scripts/python.exe -X utf8 -m py_compile backend/src/orvia_backend/automation/windows_isolation.py backend/tests/test_m18_isolation.py backend/tests/m18_isolation_probe.py` | 通过；桌面Python/PS AST亦通过，组件validation.json | 固定源码语法，不替代原生验收 |
+| L0 最终AST | 项目根以`backend/.venv/Scripts/python.exe -X utf8 -`调用`ast.parse`检查本轮automation、M18测试/E2E及4个改动的共享Python文件；PowerShell `Parser.ParseFile`检查`automation/desktop_worker.ps1`；`git diff --check` | 25个Python文件通过、PS错误0、diff通过；`syntax-final.json`、`syntax-powershell-final.json` | 语法解析无额外执行、无模型；具体范围固定在本轮文件 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_m18_service.py backend/tests/test_m18_protocol.py backend/tests/test_m18_desktop_service.py -q --basetemp=artifacts/test-results/M18/common-tree-final-temp --junitxml=artifacts/test-results/M18/common-tree-final.xml` | 11 passed；输入规范化新增断言另跑service 6 passed，`input-normalized.xml` | 执行器/UIA/模型/网络替身；Application/SQLite/协议真实；审批归属/版本/重复/取消/重启/私密审计/读取竞态/树预算 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_isolation.py -q --basetemp=artifacts/test-results/M18/isolation-release-validation --junitxml=artifacts/test-results/M18/isolation-release-validation.xml` | 13 passed/0 skip，27.73s；收紧子进程WinError5单项另1 passed，`isolation-process-exact.xml` | 真实LPAC/Job/令牌/句柄/读写/注册表写打开拒绝/环境/超时/取消/输出/内存及父崩溃回收；socket为WSAStartup10107拒绝，未访问远端；4为上限，本机普通子进程被拒 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_desktop.py backend/tests/test_m18_desktop_service.py -q --basetemp=artifacts/test-results/M18/desktop-unit-temp --junitxml=artifacts/test-results/M18/desktop-unit.xml` | 11 passed/1 skip；skip的原生项下列单独启用通过 | UIA mock/Application SQLite真实；身份/漂移/密码/取消/预算/全局隔离/保存核验；不代表所有应用兼容 |
+| L2 原生UIA | `$env:ORVIA_M18_REAL_DESKTOP='1'; backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_desktop.py::test_real_uia_synthetic_window -q --basetemp=artifacts/test-results/M18/desktop-real-temp --junitxml=artifacts/test-results/M18/desktop-real.xml` | 1 passed，31.06s；`desktop-validation.json` | 真实自有WinForms/Win32 UIA：输入/focus/invoke/toggle/select、合成原生焦点变化、common保存框和新副本、自有helper取消；未选用户应用 |
+| L1/L2 Browser | `$env:ORVIA_BROWSER_TEST='1'; backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_browser.py backend/tests/test_m18_browser_engine.py -q --basetemp=artifacts/test-results/M18/browser-final-security2-temp --junitxml=artifacts/test-results/M18/browser-final-security2.xml` | 30 passed，26.72s | 真实headless Chromium、DNS/HTTP替身；五类别真实请求审批前0/批准后1、multipart、DOM、GET/autosave、越站/Worker/非HTTPS/硬链接/预算/发送中取消、重定向停止；无真实网站 |
+| L1 main/UI | `npx vitest run apps/desktop/tests/backend.test.ts apps/desktop/tests/m18-ipc.test.ts --reporter=json --outputFile=artifacts/test-results/M18/main-cancel-final.json`；`npx vitest run apps/desktop/tests/m18-ui.test.ts --reporter=json --outputFile=artifacts/test-results/M18/m18-ui-save.json` | 15 passed + UI4 passed | native/backend mock；注入拒绝/跨CID/旧版本/重连清理/实际外发另批/终态清理/转义/保存按钮可达，非OS能力证明 |
+| L3 | `$env:ORVIA_TEST_MODULE='M18'; npx playwright test tests/e2e/m18.spec.ts` | 最终1 passed/40.7秒，`electron-final-usable.log`；先前修复后1 passed/46.2秒，`electron-complete.log` | 真实Electron/Python/SQLite/LPAC/UIA/可见Chromium；原生框、空凭据、固定Computer及DNS/HTTP替身；完整脚本预览/执行/回传，UIA输入/点击，写审批前0/批准后1，拒绝/取消/旧版不重放，终端界面恢复可用；非安装版/真实账号 |
+| L4 定向共享回归 | `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_computer_actions.py backend/tests/test_application_actions.py backend/tests/test_m10_action_safety.py backend/tests/test_chat.py backend/tests/test_server.py backend/tests/test_browser.py backend/tests/test_m12_browser_chat.py backend/tests/test_m17_services.py backend/tests/test_m17_chat.py -q --basetemp=artifacts/test-results/M18/regression-fixed-temp --junitxml=artifacts/test-results/M18/regression-fixed.xml` | 86 passed；原有LangChainPendingDeprecationWarning保留，不阻塞 | 文件网关/审批/聊天/协议/只读Browser/M12/M17 mock与本地真实组件；不重跑无改动的M13/M16解析/Office或独立安装器 |
+| L4 桌面/私有stdio回归 | `npx vitest run apps/desktop/tests tests/integration/backend.test.ts --reporter=json --outputFile=artifacts/test-results/M18/desktop-complete.json` | 最终71 passed；早期68 passed另保留 | Electron API mock、真实Python管道/握手/退出；无真实云调用 |
+| L1/L2 最终整合 | `$env:ORVIA_BROWSER_TEST='1'; backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_browser.py backend/tests/test_m18_browser_engine.py backend/tests/test_m18_browser_runtime.py backend/tests/test_m18_browser_visible.py backend/tests/test_m18_service.py backend/tests/test_m18_protocol.py backend/tests/test_m18_desktop_service.py -q --basetemp=artifacts/test-results/M18/final-backend-temp --junitxml=artifacts/test-results/M18/final-backend.xml` | 45 passed/36.12秒 | 最终可见布局/Chromium sandbox、真实renderer令牌/回收与共同账本复核；新增XML/metadata边界后最小重跑见下两行，未重复无关测试 |
+| L1/L2 运行时和生命周期 | `$env:ORVIA_BROWSER_TEST='1'; backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_browser_runtime.py backend/tests/test_m18_browser.py backend/tests/test_m18_browser_engine.py -q --basetemp=artifacts/test-results/M18/runtime-lifecycle-final --junitxml=artifacts/test-results/M18/runtime-lifecycle-final.xml` | 34 passed/20.15秒 | 4项合成运行时篡改/链接/XML/一致目录边界，30项真实headless引擎与网络替身；包含初始化失败回收保护 |
+| L2 真实可见浏览器 | `$env:ORVIA_BROWSER_TEST='1'; backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m18_browser_visible.py -q --basetemp=artifacts/test-results/M18/visible-complete-temp --junitxml=artifacts/test-results/M18/visible-complete.xml` | 1 passed/11.72秒；`visible-report.json`、`visible-browser.png`在对应临时目录 | 与产品相同四项环境，完整可见Chromium153；3个renderer原生令牌Untrusted/非提升，无--no-sandbox，写审批前0/批准后1+新DOM，关闭后自有进程已回收；DNS/HTTP仍为合成替身 |
+
+### 失败、修复与最小重跑
+
+1. 初次Chromium完整浏览器下载部分超时，SDK重试后成功安装Chrome153/revision1243，`chromium-install.log`保留；未修改TLS、代理系统设置或自动下载产品依赖。
+2. 原生Python初始SxS失败，采用只变换私有运行时manifest；后端干净环境缺LocalAppData改由KnownFolder读取，未拓宽环境白名单。TokenInformationClass46本机不支持87，LPAC改实际AccessCheck语义核验。Windows DirEntry缓存nlink=0改真实lstat。上述正常/负例均原生复测通过。
+3. Electron首次目录创建竞态由测试等待chatList存在解决；随后真实LPAC ACL阶段5。实际medium进程对自建目录有WRITE_DAC、无WRITE_OWNER，合并DACL+LABEL会被拒。改仅自有资源DACL先授权当前owner再设置mandatory label，不提权/接管系统ACL。AccessCheck新诊断1338修为同时获取Owner/Group，后原生完整13项及Electron整链通过。早期`electron-first`至`electron-sixth`和isolation诊断失败保留，不冒充通过。
+4. Browser最初纯click核验结果字段、未外发动作终态和后台会话关闭问题，经重复核验/取消/发送后回执用例修复。最终追加URL/DTO/控件句柄预算、secret key截断前识别、上传独立文件、HEAD/OPTIONS逐项审批。初始GET写端点“goto等审批但尚未返回sid”死锁改异步交付；新增首跑28 passed/2 failed，修正空白页基线及不直接跟随重定向后定向2 passed、全套30 passed；`browser-final-security.xml`/`browser-bootstrap-repair.xml`/`browser-final-security2.xml`分别保留。
+5. 交叉审查补修save_new按钮原被UI禁用、输入`./`别名生成幽灵步骤、导出元数据检查后的字节替换、产物树无界展开、终态取消与main旧审批身份、浏览器审计路径/查询泄漏；上述最小目标集合通过。
+6. 共享回归首次误写不存在的`backend/tests/test_actions.py`，未执行测试，`regression.xml`/log保留；改实际文件列表后86 passed。LF/CRLF、NO_COLOR与既有LangChain弃用警告不是测试失败。
+7. 增强L3的可见Chromium在真实产品干净环境发现`BROWSER_RUNTIME_UNAVAILABLE`，此前headless结果不代表可见窗成功；`electron-final.log`/`electron-visible-diagnostic.log`保留。先定位SxS 14001，私有版本子目录补manifest/ELF后能启动，但启用sandbox后创建页时主进程退出0xC0000005；固定环境/短Temp/只读ACL实验未解决，相关`browser-visible-*`失败/超时记录保留。仅改变私有副本布局为根chrome.exe、其余DLL/manifest/资源同一版本目录后，真实可见sandbox/请求/DOM流程通过；依据对照结果推断混合DLL路径是本机触发因素，未取得完整崩溃堆栈。源码/SDK/系统PE字节不变；最终只给自有公开程序的AppContainer/LPAC组只读执行，不保留诊断用Everyone/RestrictedCode ACL、环境扩充、DEBUG或Chrome日志参数。修复中一次复制函数块错位造成合成runtime失败，立即修正后3项通过；恶意XML及metadata硬链接新增负例后4项通过。最终原生renderer令牌/回收和L3可见闭环如上，绝不以早期no-sandbox/headless实验冒充最终验收。
+
+### 试用、限制和Git收尾
+
+`npm run build`、`npm start`后新建对话展开“M18可控执行”。脚本完整预览→原生逐步批准→实际状态→逐文件回传；桌面原生选普通应用→观察控件/明确动作/预期结果→原生批准→读回；浏览器原生准确站点和类别→专用窗手工登录→控件计划/批准→实际外发字段/文件/hash/完整性单独批准→页面核验。缺完整可见Chromium时显式运行`backend/.venv/Scripts/python.exe -m playwright install chromium`，不会静默回退个人浏览器。可选固定Computer提案仅已预览≤1000字需求，一次/30秒/4096输出token/零重试、原生费用确认，返回草稿仍需另批执行，本轮真实模型请求0。
+
+限额是上限，不承诺任意脚本/应用/网站兼容；Python部分原生标准库/GUI/网络/子进程被OS拒绝，LPAC仍有系统基础只读及私有系统存储，磁盘为25ms采样而非配额、瞬时可能超额。宿主强杀Job回收已验证，但unique AppContainer profile可能残留；正常finally尝试删除，未单独核验profile删除成功。任务副本/产物无按日期自动清理。冻结后端脚本明确不可用，专用runtime资源须在M20重建时验收；本轮spec只携带固定UIA资源，不称冻结包通过。新建文件中断可能留部分文件，人工核对，不自动覆盖或删除。
+
+桌面无盲坐标/键鼠事件回退；终端/IDE/安全/提权/已知个人浏览器不接管；普通应用自行保存/联网仍可能有副作用，控件读回不证明业务真值，保存应用路径为staging。Browser复杂CDN/子框架/Worker/WebSocket/302登录或提交可拒绝，初始资源GET是否有服务器副作用无法普遍证明；脱敏/截断预览不称全量，2xx+新DOM文字不证明交易结算。未知或已外发取消结果不重试，无通用撤销。本机合成验收不代表独立Windows、多用户、所有权限组合/安全软件/真实站点或供应商可用。
+
+本轮仅M18；M19–M20不实施，M14生产签名/独立Windows暂缓和M20安装版对照待办保留。提交前按固定作者正常本地commit；明确暂存M18文件、审查status/diff/cached与敏感信息，`.zcodeignore`、LICENSE、密钥、报告/数据库/用户数据均不纳入。Agent不push、不改TLS/重写历史/发布Release，本地提交与用户手动push状态分别记回执。
+
+最终三项实际实现/分级验收/文档记录全部成立，V2的M18清单已勾选。提交前再次`git fetch origin`、`git ls-remote --symref origin HEAD refs/heads/main`，远端仍为`19b1f8a7d4db03927d3eb60949c1de53be7b0727`，本地提交前ahead/behind=0/0；LICENSE状态为空，`.zcodeignore`仍未跟踪。本机自有M18 Chrome及fixture进程检查为0，无用户进程被关闭。固定作者正常M18提交以包含本节的`feat(M18): add approved isolated scripts desktop and browser writes`为准；提交后本地main领先远端1，待用户手动push。完成后立即停止，不开始M19。
+
+提交卫生：显式暂存58个M18文件，`git status --short`、`git diff`、`git diff --cached --stat/--check`和关键授权/协议/账本的cached diff已核对。复用既有检查函数，实际命令`backend/.venv/Scripts/python.exe -X utf8 -c "import sys; sys.path.insert(0,'backend/tests'); from hygiene_m10 import main; raise SystemExit(main('M18'))"`：禁止路径0、暂存与当前根开发密钥精确匹配0，35052个本轮普通产物文件精确匹配0，不沿测试reparse遍历；只读密钥用于本机内存匹配，无云调用/值输出。独立暂存复检包含`.zcodeignore`、LICENSE、数据库/日志/产物/运行时等禁入检查及完整私钥块检查，全部0，报告`hygiene.json`、`staged-current.json`均被忽略。最后仅进度文档补记录并显式重新暂存/复检，不重跑无关代码测试。

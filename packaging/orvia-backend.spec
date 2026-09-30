@@ -17,6 +17,8 @@ for package in ('rapidocr_onnxruntime', 'pypdfium2', 'pypdfium2_raw', 'onnxrunti
     datas += collect_data_files(package)
 # M16 固定离线 PDF 字体与 OFL 授权文件随冻结后端携带；不访问系统 Office。
 datas += collect_data_files('orvia_backend.publication')
+# M18 UIA固定工作器是程序资源，不从用户脚本/renderer读取PowerShell正文。
+datas += [(str(root / 'backend/src/orvia_backend/automation/desktop_worker.ps1'), 'orvia_backend/automation')]
 binaries = collect_dynamic_libs('pypdfium2_raw') + collect_dynamic_libs('onnxruntime')
 
 a = Analysis([str(root / 'packaging/backend_entry.py')], pathex=[str(root / 'backend/src')],

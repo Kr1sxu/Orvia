@@ -27,6 +27,20 @@ M16 增加固定 `chat.publication.preview/save`，以当前会话一条已保�
 
 原型让模型只提出 1–4 页结构化纯文案，后端固定生成 HTML/CSS/JS 可编辑源码。应用中的交互预览由 React 固定组件转义渲染，不执行源码，页面导航和表单反馈明确为 mock；真实业务接口、部署或运行环境未接入。`chat.cleanup.scan/plan/execute/restore` 与生成草稿分账本：清理根只能是 Windows 当前账户已知 `%LOCALAPPDATA%\Temp` 顶层，候选限旧 `.tmp/.log` 独立普通文件。SQLite 计划记录身份、大小、风险和 revision；main 原生框按选中项和版本批准，后端执行前再校验，逐项先记状态，再同卷隔离并核验；中断不重放。30 天内按账本恢复，冲突拒绝覆盖；到期不自动删除。隔离移动量单独报告，实际释放空间为 0。系统目录、注册表、永久删除和通用任意脚本没有 M17 接口。
 
+## M18 脚本、桌面与浏览器写操作
+
+`automation/` 经 Application 固定 `chat.automation.*` 装配，与 M17 草稿/清理和 M07/M12 只读网关分开授权。main 的 `m18-ipc.ts` 保存后端实际预览身份，原生选脚本/应用/站点和逐步确认；renderer 只有固定业务方法，不能传执行器、绝对路径或 `approved`。后端固化会话、目标、源码/参数、输入哈希和300秒 revision，SQLite `m18_operations` 在派发前条件更新为 running。相同步骤不可重放，重启把未收尾步骤记 interrupted 且不恢复内存权限。状态/取消/待请求旁路长任务；桌面动作全局串行，避免争夺整机焦点。
+
+Python 仅从固定3.12解释器复制私有标准库运行时，不自动安装。私有 exe/DLL/pyd 的固定 RT_MANIFEST 变换避免 LPAC 下 SxS 初始化失败；原安装未改，私有副本原签名失效，以完整哈希清单核验。每任务独立 LPAC SID，零capability、Low integrity、UIAccess=0，挂起后核验令牌/Win32k禁止/Job再恢复。显式输入复制只读、源码和runtime只读、output可写；Job控制30秒/512MiB/4进程、KillOnClose、全部UI限制，输出16KiB、产物最多12项/单项2MiB/总16MiB采样监测。标准库涉及GUI/网络/进程调用可能被OS拒绝；Job不是磁盘配额，LPAC还可读Windows授予低权限应用的基础资源。产物复用Computer gateway/PathPolicy，独占新建、fsync、读回，不直接改原输入。不验证隔离就不执行。
+
+桌面固定Windows PowerShell5.1 MTA工作器只接程序JSON，不执行用户PowerShell；PID/创建时间/会话/HWND/exe身份绑定，限制被选窗口树和唯一UIA控件，密码原生样式及子树屏蔽。原生审批后重新核对树/焦点，支持Value/Invoke/Selection/Toggle/Focus；无盲坐标。原生新文件保存经私有staging再独占复制，应用当前文件仍指向staging；普通保存框动作不可绕过路径批准。UIA核验的是控件状态，不证明交易等业务真值。普通目标应用并非OS沙箱，外发类别另行确认点击业务动作，HTTP层不能由桌面网关拦截。已知个人浏览器通过专用Browser入口，终端/IDE/提权/安全界面拒绝，任意自绘应用兼容性不承诺。
+
+BrowserAdapter 启动独立可见Chromium非持久context，手工登录，只保留本次内存Cookie；WriteNetwork复用公开地址/DNS固定IP/TLS策略。所有网络由route拦截再经固定出口，不continue直连；准确origin逐个原生授予，Worker/子框架/WebSocket/下载不开放。后续导航、动态GET、非GET/自动保存逐请求暂停，当前URL/method/字段/文件/hash/截断与脱敏元数据形成新的180秒审批版本；无授权零外发。2xx仅response_received，必须有本步回执且审批前指定的新文字出现于真实DOM才verified；这仍不证明服务器结算等业务语义。发送阶段取消/断线为uncertain，绝不自动重试，关闭回收专用会话。账本只存元数据/摘要，不持久化原始网页、网络正文、密码、Cookie或默认截图。
+
+Windows可见Chromium由SDK固定来源原样复制到私有版本目录，根chrome.exe与版本内DLL/资源采用一致布局，不混用两份ELF。源/副本完整hash及目录预算、独立文件/manifest复核；只有公开程序副本给AppContainer/LPAC组只读执行，不授权profile或任务数据。明确启用Chromium sandbox，不拓宽私有管道环境，不改原SDK或系统SxS。真实合成窗读回renderer非提升/Untrusted令牌、审批前0写/批准后1写和正常关闭后的进程回收。页面初始化有界，失败关闭自有浏览器，不以headless或个人浏览器回退。
+
+固定三角色模型保持不变；可选Python模型草稿只向固定Computer发送用户需求，一次/4096输出token/30秒/零重试。M18开发验证只用合成数据，不把模型/HTTP替身当真实供应商或网站验证。完整接口、试用和限制见 [automation README](../backend/src/orvia_backend/automation/README.md)。M14旧包不含M15–M18；M20后重建并核对安装版的待办保留。
+
 ## M13 本地文档与导出边界
 
 输入框显式附件选择经 main 原生单文件选择器传入 `chat.document.attach`，renderer没有路径字段。Computer gateway复用PathPolicy拒绝UNC/链接/重解析/ADS/敏感目录并核对读取句柄，不建立父目录权限。10 MiB字节送固定解析子进程，45秒硬预算、独立环境、无云端请求；解析器支持PDF文本、无文本层PDF/图片本地OCR、DOCX段落、PPTX幻灯片，最多50单元/8000码点，44 KiB解析结果。worker不持有用户路径、凭据、网络客户端或授权；无原始附件临时副本。
@@ -128,14 +142,14 @@ Python 管理 SQLite + aiosqlite 业务库，保存任务、依赖、动作、�
 
 ## Browser 与分发（M07/M08）
 
-HTTP 读取用 httpx + trafilatura，动态页面用 Python Playwright + Chromium。Browser 只读，不复用用户 Cookie，不任意上传本地内容，不提供表单提交和其他浏览器写操作。
+HTTP 读取用 httpx + trafilatura，动态页面用 Python Playwright + Chromium。既有BrowserService仍只读；M18专用BrowserAdapter的另行授权写操作见上文，不复用个人Cookie。
 M07 私有 browser.read / browser.search 要求现有 Mission；显式 URL 仅允许同源重定向与单页资源，固定公开 IP 连接并保留 TLS 验证。Playwright 所有资源经相同网关 fulfill，CSP sandbox 与资源/时间/字节预算封闭写操作；不复用会话、不自动索引。具体边界和兼容限制见 Browser README。
 搜索首个适配 Tavily；未提供 Key 时 `web_search` 明确不可用，不制造结果。已知公开 URL 的读取与搜索配置分别处理。
 PyInstaller 已使用 onedir + console 保留 stdio，electron-builder 将后端和匹配 Chromium 放 ASAR 外；M08 已在本机完成资源、FTS5、动态依赖、浏览器版本、安装/卸载验收。无开发环境独立 Windows 机器和签名/发布渠道仍待补验。
 
 ## 后续能力边界
 
-M13 文档提取、M16 固定简报和 M17 受限代码/原型/临时文件隔离分别受上文边界约束。标书、完整行业调研、任意脚本、桌面点击和浏览器写操作仍未实现。
+M13 文档提取、M16 固定简报、M17 受限代码/原型/临时文件隔离及M18执行分别受上文边界约束。标书、完整行业调研仍未实施；M19–M20保留规划。
 
 ## M14 本机候选包边界
 

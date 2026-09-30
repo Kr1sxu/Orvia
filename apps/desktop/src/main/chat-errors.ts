@@ -1,6 +1,23 @@
 /** 错误码映射为固定中文，不展示供应商正文、路径或异常输入。 */
 export function chatErrorMessage(code: string): string {
   const messages: Record<string, string> = {
+    M18_ISOLATION_UNAVAILABLE: 'Windows 脚本隔离无法核验，已停止；不会退回普通进程执行。',
+    M18_ISOLATION_INVALID: '隔离任务路径或运行时身份不符合要求，执行已停止。',
+    M18_RUNTIME_UNAVAILABLE: '经校验的 Python 3.12 私有运行时不可用。',
+    M18_AUTH_EXPIRED: '本次自动化授权已过期，请重新观察和预览。',
+    M18_DESKTOP_UNAVAILABLE: '没有可授权的普通权限应用窗口。',
+    DESKTOP_UNAVAILABLE: 'Windows UI Automation 暂不可用，不能回退盲坐标操作。',
+    DESKTOP_STALE: '应用控件已变化，请重新观察和逐步审批。',
+    DESKTOP_TARGET_CHANGED: '所选应用窗口或程序身份变化，授权已停止。',
+    DESKTOP_DENIED: '目标控件或应用不在当前可核验的操作范围。',
+    BROWSER_WRITE_UNAVAILABLE: '专用 Chromium 写会话不可用，请核对浏览器安装。',
+    BROWSER_RUNTIME_UNAVAILABLE: '配套完整 Chromium 不可用，请安装可见浏览器运行时后重新授权。',
+    BROWSER_OPEN_FAILED: '专用页面未成功加载，请核对准确网址；不会放宽网络或审批限制。',
+    BROWSER_REDIRECT_REVIEW: 'HTTP 重定向未直接跟随，请明确授权最终 HTTPS 页面；提交后的外部结果需先人工核对。',
+    BROWSER_PERMISSION_DENIED: '站点动作类别或 GET 写端点不符合本任务授权。',
+    BROWSER_SESSION_INVALID: '专用浏览器会话已结束或不属于当前对话，请重新授权。',
+    BROWSER_SESSION_EXPIRED: '专用浏览器会话已经结束，请重新授权站点。',
+    BROWSER_OBSERVE_FAILED: '页面已变化或关闭，请重新观察。',
     PERMISSION_DENIED: '目录授权已失效，请重新选择目录。', permission_denied: '目录身份发生变化，请重新授权。',
     PATH_DENIED: '路径超出授权范围或包含不允许的链接。', path_denied: '路径超出授权范围或包含不允许的链接。',
     invalid_root: '请选择可访问的普通本地目录，不支持网络目录或链接。',

@@ -1,4 +1,6 @@
-# Orvia Python 后端（M01–M17）
+# Orvia Python 后端（M01–M18）
+
+M18 `automation/`接入Application/ChatService固定私有接口，分别提供LPAC+Job的Python私有运行时、普通应用UIA、专用Chromium准确站点写入。复用Computer gateway/PathPolicy、SQLite、会话和固定Computer模型适配；每步审批与实际外发分开，后端再复核并先记账，控制请求不等待长任务。用途、文件、输入输出、预算、配置、运行、示例及风险见[automation README](src/orvia_backend/automation/README.md)。M19–M20未实施，最新M14安装包无M15–M18。
 
 当前入口是对话式应用；下方M01–M07段落保留历史接口说明，当前授权与UI以 `chat/README.md` 为准。M13 `documents/` 提供显式附件本地提取、版本引用、M06检索与Markdown/JSON导出，依赖/预算/运行/测试见 [文档模块](src/orvia_backend/documents/README.md)。固定子进程解析不接收路径或凭据，Computer gateway复用PathPolicy完成单文件读与新建导出；不上传文件，不扩大目录权限。
 
@@ -77,7 +79,7 @@ M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initiali
 
 主进程私有协议已增加 M03–M07 的工具与任务方法，renderer 仍只开放配置和草稿；不提供任意 SQL、任意模型提示词或桌面控制接口。模型适配只由受控后端代码与显式测试调用，渲染端没有模型执行入口。
 这不是操作系统级沙箱；应由可信 Electron 主进程启动，禁止把 stdio 直接暴露给不可信远程端。
-M04 已验证动作计划、审批、核验、恢复和受限撤销；M06 增加显式提交文本的上下文索引和偏好。仍无通用删除、覆盖、任意脚本或 renderer 写操作 UI。父进程负责超时和进程清理，EOF 关闭数据库连接后退出。
+M04 已验证动作计划、审批、核验、恢复和受限撤销；M06 增加显式提交文本的上下文索引和偏好。M04接口仍无通用删除/覆盖/脚本；M18执行使用独立权限与账本，不沿用旧文件批准。父进程负责超时和自有资源清理，EOF关闭服务与数据库后退出。
 
 M07 增加 browser.read / browser.search，须存在的 mission_id；来源与正文证据不自动落盘。Tavily 仅以内存 SecretStr 持有，不作为模型配置。Browser 策略、Chromium 依赖和合成试用见 `src/orvia_backend/browser/README.md`。
 

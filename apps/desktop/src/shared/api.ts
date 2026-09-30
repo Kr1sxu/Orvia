@@ -1,5 +1,9 @@
 import type { Configuration, Mission, MissionCreate, GrantStatus, ScanEnvelope } from '../main/contracts';
 import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource, PublicationPreview, DevelopmentContext, DevelopmentDraft, CleanupPlan } from '../main/chat-contracts';
+import type {z} from 'zod';
+import type {AutomationObservation,AutomationPlan,AutomationFact,BrowserPending,automationId,automationOperation,automationApproval,scriptPreviewInput,scriptFileInput,scriptModelInput,scriptModelGenerateInput,scriptExportInput,desktopObserveInput,desktopPreviewInput,browserOpenInput,browserSessionInput,browserPreviewInput,browserRequestInput,browserOriginInput} from '../main/m18-contracts';
+export type ScriptModelPreview={requirement:string;role:string;model:string;base_url:string;max_tokens:number;timeout_seconds:number;automatic_retries:number;files_sent:number;revision:string};
+type NativeAutomation={cancelled:boolean;result?:AutomationFact|Record<string,unknown>};
 export type { GrantStatus, ScanEnvelope } from '../main/contracts';
 /** 渲染端只能请求有限业务接口，没有通用 IPC、后端初始化或凭据读取入口。 */
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
@@ -40,6 +44,27 @@ declare global { interface Window { orvia: {
   cleanupPlan: (input:{id:string;plan_id:string})=>Promise<Reply<CleanupPlan>>;
   cleanupExecute: (input:{id:string;plan_id:string;revision:string;indices:number[]})=>Promise<Reply<{cancelled:boolean;plan?:CleanupPlan}>>;
   cleanupRestore: (input:{id:string;plan_id:string;index:number})=>Promise<Reply<{cancelled:boolean;plan?:CleanupPlan}>>;
+  m18ScriptPreview:(input:z.input<typeof scriptPreviewInput>)=>Promise<Reply<AutomationPlan>>;
+  m18ScriptFile:(input:z.input<typeof scriptFileInput>)=>Promise<Reply<{cancelled:boolean;preview?:AutomationPlan}>>;
+  m18ScriptModelPreview:(input:z.input<typeof scriptModelInput>)=>Promise<Reply<ScriptModelPreview>>;
+  m18ScriptModelGenerate:(input:z.input<typeof scriptModelGenerateInput>)=>Promise<Reply<{cancelled:boolean;preview?:AutomationPlan}>>;
+  m18ScriptExecute:(input:z.input<typeof automationApproval>)=>Promise<Reply<NativeAutomation>>;
+  m18ScriptStatus:(input:z.input<typeof automationOperation>)=>Promise<Reply<AutomationFact>>;
+  m18ScriptExport:(input:z.input<typeof scriptExportInput>)=>Promise<Reply<NativeAutomation>>;
+  m18DesktopChoose:(input:z.input<typeof automationId>)=>Promise<Reply<{cancelled:boolean;observation?:AutomationObservation}>>;
+  m18DesktopObserve:(input:z.input<typeof desktopObserveInput>)=>Promise<Reply<AutomationObservation>>;
+  m18DesktopPreview:(input:z.input<typeof desktopPreviewInput>)=>Promise<Reply<AutomationPlan>>;
+  m18DesktopExecute:(input:z.input<typeof automationApproval>)=>Promise<Reply<NativeAutomation>>;
+  m18BrowserOpen:(input:z.input<typeof browserOpenInput>)=>Promise<Reply<{cancelled:boolean;observation?:AutomationObservation}>>;
+  m18BrowserObserve:(input:z.input<typeof browserSessionInput>)=>Promise<Reply<AutomationObservation>>;
+  m18BrowserPending:(input:z.input<typeof browserSessionInput>)=>Promise<Reply<BrowserPending>>;
+  m18BrowserPreview:(input:z.input<typeof browserPreviewInput>)=>Promise<Reply<AutomationPlan>>;
+  m18BrowserExecute:(input:z.input<typeof automationApproval>)=>Promise<Reply<NativeAutomation>>;
+  m18BrowserRequest:(input:z.input<typeof browserRequestInput>)=>Promise<Reply<NativeAutomation>>;
+  m18BrowserOrigin:(input:z.input<typeof browserOriginInput>)=>Promise<Reply<{cancelled:boolean;result?:Record<string,unknown>}>>;
+  m18BrowserClose:(input:z.input<typeof browserSessionInput>)=>Promise<Reply<Record<string,unknown>>>;
+  m18Cancel:(input:z.input<typeof automationApproval>)=>Promise<Reply<AutomationFact>>;
+  m18History:(input:z.input<typeof automationId>)=>Promise<Reply<{operations:AutomationFact[]}>>;
   chatApprove: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatResume: (input: ChatApproval) => Promise<Reply<Conversation>>;
   chatUndo: (input: ChatApproval) => Promise<Reply<Conversation>>;

@@ -1,5 +1,7 @@
 # 跨进程与端到端测试
 
+M18：`e2e/m18.spec.ts`真实Electron→main→Python/SQLite并实际运行LPAC脚本、UIA合成应用、Chromium合成页面；原生确认/Computer模型/DNS/HTTP仅由测试启动器mock。`m18_desktop_fixture.ps1`只构建自有WinForms/标准Win32控件，所有源码副本/exe/私有运行时/日志/截图留`artifacts/test-results/M18/`。后端`test_m18_isolation.py`、`test_m18_desktop.py`、`test_m18_browser_engine.py`分别显式启用真实本机适配器，不能当真实网站或所有应用验收。测试不读取开发密钥/真实账号，不输出网络正文。精确命令、失效项修复、证据和L4定向回归见PROGRESS；M14生产签名/独立机器与M20安装版核对仍暂缓。
+
 M13：`integration/m13-fixtures.ts`只生成无敏感DOCX/PNG；`integration/m13.test.ts`验证真实Python/stdio附件、索引、引用、导出与重启。`e2e/m13.spec.ts`通过测试专用启动器模拟原生选择器，真实运行Electron、后端、SQLite、解析和本地OCR，凭据来源替换为空，不读取开发Key，不调用云模型/Tavily。报告环境为`ORVIA_TEST_MODULE=M13`与`ORVIA_TEST_RESULTS=artifacts/test-results/M13`；精确命令及定向重跑见PROGRESS。该测试不代表系统原生对话框视觉或发布包已验收。
 
 用途：验证桌面与真实 Python 的通信及实际用户窗口流程。

@@ -1,4 +1,6 @@
-# M10–M17 会话与桌面任务应用服务
+# M10–M18 会话与桌面任务应用服务
+
+M18新增`ChatService.automation`，固定`chat.automation.*`由Application分发，open初始化单独SQLite状态账本，close先回收自有脚本/UIA/浏览器资源再关数据库。长动作立即返回步骤身份；控制/状态/待外发审批可旁路普通串行请求，避免执行等待未来审批死锁。消息kind=automation只放身份/hash/核验摘要，排除在Main text规划上下文。脚本、桌面与站点分别原生授权，不继承目录或旧文件审批；结构、输入输出、固定模型、示例和限制见[automation README](../automation/README.md)。
 
 ## M17 代码草稿、原型和清理接口
 
