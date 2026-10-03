@@ -1,5 +1,11 @@
 # Computer 只读工具（M03）
 
+## M20 批次扫描与权限复用
+
+`ComputerGateway.begin_scan('computer',mission_id,grant_id)`是M20扫描的窄入口，复核当前内存grant与原根身份，并扣一次原200调用预算；`check_scan`每批/每目录复核同一token和根，撤销/重新授权/目录替换立即停止后续访问。Main/Browser不能借调用此接口获得Computer权限。原M03列表/搜索/统计契约和预算仍保持，M20独立快照/分页由`../chat/scans.py`提供。
+
+M20默认只枚举第一层，用户明确递归时默认3层、最大8层；5000已访问项/10秒扫描工作/4MiB清单，真实40条/12KiB批次先落SQLite再交等待式事件出口。不可访问、敏感名、链接/重解析/越界、深度范围和截断均在实际摘要中说明；扩展名分类没有读取正文。完整已发现清单按会话/scan_id离线分页最多100项/48KiB，不访问原目录，不把目录历史当授权。取消/断线保留真实前缀，重启不重扫。相关拒绝、撤权、预算、分页和合成混合目录测试见`backend/tests/test_m20_natural.py`，结果只放忽略的M20目录。
+
 ## M13 单文件附件与新建导出
 
 `read_attachment('computer', selected_path)` 仅供主进程选择器经过Application/ChatService进入，一次性读取最多10 MiB的允许文档；复用PathPolicy根链、相对路径和句柄身份，不授予父目录访问，不改变现有grant。`export_document('computer', selected_path, bytes, format)` 仅接收程序生成且已预览确认的Markdown/JSON，复用`PathPolicy.new_file`验证新文件名和父目录，通过`x+b`拒绝覆盖、fsync及读回核验，不写任意模型内容。角色不是computer一律拒绝。
@@ -41,4 +47,4 @@ Python 3.12、Pydantic 2、`psutil`。后端应用通过 `computer.grant/revoke/
 
 ## 权限边界与限制
 
-授权根必须是本地普通目录；每次调用复核根身份，拒绝 UNC、越界、符号链接和 Windows reparse point。系统工具只探测固定路径，子进程无 shell、无用户环境继承、8 KiB 输出上限和超时。M04 写操作仍只能来自已持久化并显式审批的计划，拒绝覆盖和删除；renderer 目录选择 UI 尚未开放。
+授权根必须是本地普通目录；每次调用复核根身份，拒绝 UNC、越界、符号链接和 Windows reparse point。系统工具只探测固定路径，子进程无 shell、无用户环境继承、8 KiB 输出上限和超时。M04 写操作仍只能来自已持久化并显式审批的计划，拒绝覆盖和删除。M03时“renderer目录选择UI尚未开放”保留为历史结论；M10已接入原生选择，M20通过统一“＋”菜单明确选择并授权本次文件夹，渲染端不能提交自由根路径或继承父目录权限。

@@ -1,6 +1,8 @@
-# M18 可控执行模块
+# 受控执行：M18能力与M20安装资源
 
 三项能力共用会话和审批账本，分别授权：Python任意源码的隔离执行、普通应用UIA桌面动作、准确站点的浏览器写操作。用户已于2026-09-30确认来源、LPAC隔离、逐任务应用/站点及每步/外发独立审批。来源中的指令没有权限；M17文件批准不能执行脚本，M12网页读取不能提交表单。
+
+M20增加可信包内CPython3.12标准库资源及完整可见Chromium。冻结服务仍仅处理固定协议；脚本解释器从正在运行的后端EXE对应`resources/script-runtime/python312`定位，核对预制manifest与全部文件hash，复制到应用私有目录并再次复核。开发版连续两次自然脚本审批、真实LPAC隔离/接续/产物回传，以及真实UIA工作器和可见Chromium外发拒绝已验证；M20完整安装与开发版对照须以本轮实际记录为准，不能把源码或中间冻结成功当安装验收。
 
 ## 结构与公共接口
 
@@ -33,9 +35,13 @@ M18消息kind为automation，不能成为Main文件规划的text指令历史。�
 
 ## 脚本运行与权限
 
-依赖现有固定`backend/.venv/Scripts/python.exe`的CPython3.12基础安装，不查PATH、不联网下载、不安装依赖。首次运行复制exe/DLL/标准库至应用数据`automation/runtime/python312`，排除site-packages、GUI/测试/安装工具，`python312._pth`锁定私有搜索路径。每次核对完整hash清单，已有副本变化就拒绝，不覆盖修复。
+开发模式依赖现有固定`backend/.venv/Scripts/python.exe`的CPython3.12基础安装，不查PATH、不联网下载、不安装依赖。首次运行复制exe/DLL/标准库至应用数据`automation/runtime/python312`，排除site-packages、GUI/测试/安装工具，`python312._pth`锁定私有搜索路径。每次核对完整hash清单，已有副本变化就拒绝，不覆盖修复。
 
-本机CPython的exe/DLL/pyd嵌入manifest触发LPAC SxS初始化拒绝。因此仅私有副本禁用固定RT_MANIFEST并记录`manifestless-console`变换，原安装不改。私有副本原数字签名失效，不能冒充原签名二进制；它由固定来源与变换后的完整hash核验。冻结后端不是通用Python：当前冻结模式明确不可用，不静默选系统解释器；M20安装版重建时需另行准备并核验脚本运行时资源。
+M20安装模式不使用PyInstaller服务作为解释器，不接受调用者或环境指定解释器。后端必须位于`resources/backend/orvia-backend.exe`；同一可信安装资源内的专用`python312`包含固定CPython原许可、`manifestless-console`变换及全文件hash。首次先复制至新的私有临时目录，核对来源/副本后原子完成；既有私有目录只验证，其字节或manifest与当前包不符时关闭能力，不覆盖修复、不回退系统PATH。目录项、文件数、体积、链接/硬链接、`_pth`与标准库身份均受检查。安装资源缺失或隔离失败必须明确不可用。
+
+本机CPython的exe/DLL/pyd嵌入manifest触发LPAC SxS初始化拒绝。因此仅私有副本禁用固定RT_MANIFEST并记录`manifestless-console`变换，原安装不改。私有副本原数字签名失效，不能冒充原签名二进制；它由固定来源与变换后的完整hash核验。
+
+M18历史状态（2026-09-30）：冻结后端不是通用Python，当时冻结模式明确不可用，不静默选系统解释器；M20安装版重建需另行准备并核验脚本运行时资源。M20现已实现上面的专用资源分支，最终安装验证记录与这项历史限制分别保留。
 
 每任务新LPAC SID、零capability、Low integrity、UIAccess=0。新进程挂起后加入Job，核验AppContainerSID、零cap、LPAC访问语义、非提升、Win32k禁止和全部UI限制后才恢复。AppContainer不做网络或loopback豁免；不继承密钥、用户环境或非批准句柄。Job设置KillOnClose、内存/进程预算且读回验证；取消/超时/超限回收整树。
 
@@ -62,6 +68,8 @@ M18消息kind为automation，不能成为Main文件规划的text指令历史。�
 ## 浏览器运行与权限
 
 开发环境先执行`backend/.venv/Scripts/python.exe -m playwright install chromium`准备完整可见Chromium；原有headless-shell不能代替可见窗口。每次用户原生确认准确公共HTTPS页面及form/message/upload/delete/transaction类别，专用可见窗口手工登录、全新内存Cookie、不导入个人profile。每任务最多8个准确origin/最多4专用会话；跨源资源须原生追加授权，先前被拒的请求不自动重试。
+
+M20安装资源同时携带锁定SDK的完整可见Chromium、headless-shell及辅助资源；固定后端入口将浏览器来源绑定到本安装`resources/chromium`，不搜索个人浏览器或环境/系统PATH。资源复制与内置credits、FFmpeg原许可的hash由完整包审计验证；是否完成实际安装流程仍以M20报告为准。
 
 Windows从SDK固定路径建立`automation/browser-runtime/chromium-<版本>`私有副本：根仅保留chrome.exe，DLL、manifest及资源均原样放入版本子目录，避免本机flat布局的SxS 14001和混合DLL路径的沙箱崩溃。文件字节（含原签名数据）不变，不修改SDK/cache/系统程序集。最多1024文件/1GiB/2048目录项，拒绝reparse/硬链接/恶意XML；每次核对来源、元数据与整个副本hash，变化时拒绝而不覆盖修复。仅公开程序副本给ALL APPLICATION PACKAGES及ALL RESTRICTED APPLICATION PACKAGES只读执行，profile/任务数据不授予这些ACL；不放宽后端环境白名单。显式启用Chromium sandbox，可见原生验收读回renderer为Untrusted/非提升并核验自有进程回收。启动10秒、context/page各8秒有界；初始化失败关闭本次自有浏览器，关闭未确认时提示人工核对，不自动重试。
 

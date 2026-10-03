@@ -92,7 +92,7 @@ class ContextSummary(Params):
 class Application:
     """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
 
-    def __init__(self):
+    def __init__(self, event_sink=None):
         self.session = Session()
         self.store: Store | None = None
         self.registry = ModelRegistry()
@@ -101,6 +101,8 @@ class Application:
         self.computer = ComputerGateway()
         self.graph: MissionGraph | None = None
         self.chat: ChatService | None = None
+        # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
+        self.event_sink = event_sink
 
     async def handle(self, line: bytes) -> dict:
         try:
@@ -114,6 +116,7 @@ class Application:
         methods |= {"browser.read", "browser.search"}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
+        methods |= {"chat.natural", "chat.continue", "chat.fallback.confirm", "chat.material.remove", "chat.revoke", "chat.scan.page"}
         methods |= {"chat.publication.preview", "chat.publication.save"}
         methods |= {"chat.development.context", "chat.development.generate", "chat.development.draft", "chat.development.apply"}
         methods |= {"chat.cleanup.scan", "chat.cleanup.plan", "chat.cleanup.execute", "chat.cleanup.restore"}
@@ -155,6 +158,8 @@ class Application:
                     await store.recover_operations()
                     await graph.__aenter__()
                     chat = ChatService(store, self.computer, graph, self.registry, self.browser)
+                    if self.event_sink is not None:
+                        chat.set_event_sink(self.event_sink)
                     await chat.open()
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。

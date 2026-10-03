@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, session, safeStorage } from 'electron';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import {stat} from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
 import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, chatPublicationPreviewSchema, chatPublicationSaveSchema, developmentContextRequestSchema, developmentGenerateRequestSchema, developmentDraftRequestSchema, developmentApplyRequestSchema, cleanupPlanRequestSchema, cleanupExecuteRequestSchema, cleanupRestoreRequestSchema, type DevelopmentContext, type DevelopmentDraft, type CleanupPlan, type SynthesisPreview, type PublicationPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
@@ -11,6 +12,7 @@ import { synchronizeCredentials, CredentialSynchronizationError } from './creden
 import { credentialInputSchema, missionCreateSchema, credentialRoleSchema, computerCallSchema } from './contracts';
 import {registerM18} from './m18-ipc';
 import {windowPresentation,attachWindowPresentation,taskbarAppId} from './window-presentation';
+import {naturalInput,continuationInput,materialRemoveInput,revokeInput,scanPageInput,streamPullInput,streamAckInput,attachmentInput,fallbackConfirmInput} from './m20-contracts';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -50,6 +52,7 @@ app.whenReady().then(async () => {
   let developmentDraftAuthorization: {id:string;draft:DevelopmentDraft} | undefined;
   let cleanupAuthorization: {id:string;plan:CleanupPlan} | undefined;
   let activeSend: { id: string; request_id: string } | undefined;
+  let materialProcessing:{id:string;items:{title:string;status:'pending'|'parsing'|'ready'|'failed'|'cancelled'}[]}|undefined;
   let m18Authorization: {clear:()=>void} | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
@@ -77,7 +80,7 @@ app.whenReady().then(async () => {
       }
       if (quitting || (reconnecting && channel !== 'orvia:connection-status')) return { ok: false, message: '本地服务正在重连或退出，请稍候。' };
       // 防止短超时设置请求排在模型规划后，使正常规划被误判为后端失联。
-      const control = ['orvia:connection-status', 'orvia:chat-cancel','orvia:m18-cancel','orvia:m18-script-status','orvia:m18-browser-pending','orvia:m18-browser-close','orvia:m18-history'].includes(channel);
+      const control = ['orvia:connection-status', 'orvia:chat-cancel','orvia:chat-get','orvia:chat-list','orvia:chat-scan-page','orvia:chat-stream-pull','orvia:chat-stream-ack','orvia:m18-cancel','orvia:m18-script-status','orvia:m18-browser-pending','orvia:m18-browser-close','orvia:m18-history'].includes(channel);
       if (chatBusy && !control) return { ok: false, message: '任务正在处理，请等待完成或取消本次规划。' };
       if (channel === 'orvia:reconnect' && ordinaryRequests) return {ok: false, message: '还有请求正在收尾，请稍候再重新连接。'};
       if (!control) ordinaryRequests++;
@@ -88,7 +91,7 @@ app.whenReady().then(async () => {
   }
   handle('orvia:health', 0, () => backend.health());
   handle('orvia:connection-status', 0, async () => ({state: reconnecting ? 'starting' : backend.connectionState,
-    busy: chatBusy || reconnecting, cancellable: !!activeSend && backend.connectionState === 'ready', ...(activeSend ? {activeSend} : {})}));
+    busy: chatBusy || reconnecting, cancellable: !!activeSend && backend.connectionState === 'ready', ...(activeSend ? {activeSend} : {}),...(materialProcessing?{materialProcessing}:{})}));
   handle('orvia:reconnect', 0, async () => {
     reconnecting = true;
     try {
@@ -103,6 +106,7 @@ app.whenReady().then(async () => {
       developmentDraftAuthorization=undefined;
       cleanupAuthorization=undefined;
       m18Authorization?.clear();
+      materialProcessing=undefined;
       backend = createBackend();
       await backend.start();
       return {connected: true};
@@ -110,7 +114,7 @@ app.whenReady().then(async () => {
   });
   handle('orvia:chat-cancel', 1, async input => {
     const request = chatCancelSchema.parse(input);
-    if (!activeSend || request.id !== activeSend.id || request.request_id !== activeSend.request_id) return {cancelled: false};
+    // 等待资料的M20请求也可取消；后端核对会话和请求，旧接续身份由它一次性失效。
     return backend.chatCancel(request);
   });
   // 串行会话操作防止多次点击原生选择器及写动作；后台仍独立检查归属、版本和状态。
@@ -120,9 +124,51 @@ app.whenReady().then(async () => {
     try { return await action(); } finally { chatBusy = false; }
   }
   m18Authorization=registerM18({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
-  handle('orvia:chat-list', 0, () => chatAction(() => backend.chatList()));
+  handle('orvia:chat-list', 0, () => backend.chatList());
   handle('orvia:chat-create', 1, input => chatAction(() => backend.chat('chat.create', chatCreateSchema.parse(input))));
-  handle('orvia:chat-get', 1, input => chatAction(() => backend.chat('chat.get', chatIdSchema.parse(input))));
+  handle('orvia:chat-get', 1, input => backend.chat('chat.get', chatIdSchema.parse(input)));
+  handle('orvia:chat-natural',1,input=>chatAction(async()=>{
+    const request=naturalInput.parse(input);activeSend={id:request.id,request_id:request.request_id};
+    try{return await backend.chat('chat.natural',request);}finally{activeSend=undefined;}
+  }));
+  handle('orvia:chat-continue',1,input=>chatAction(async()=>{
+    const request=continuationInput.parse(input);activeSend={id:request.id,request_id:request.request_id};
+    try{return await backend.chat('chat.continue',request);}finally{activeSend=undefined;}
+  }));
+  handle('orvia:chat-fallback-confirm',1,input=>chatAction(async()=>{
+    const request=fallbackConfirmInput.parse(input),fresh=await backend.chat('chat.get',{id:request.id}),wf=fresh.workflow;
+    if(!wf||wf.action!=='stream_fallback'||wf.request_id!==request.request_id||wf.continuation_id!==request.continuation_id||wf.input?.purpose==='synthesis')throw new BackendRequestError('STALE_APPROVAL');
+    const confirmation=await dialog.showMessageBox(window!,{type:'question',title:'明确批准固定Main非流式新请求',message:'向同一deepseek-flash模型发起一次非流式新请求？',detail:'保留固定 https://api.deepseek.com，不更换供应商。此前请求可能已产生费用；本次是明确批准的新请求，可能重复收费。失败或未知结果不会自动重试。',buttons:['取消','批准此次非流式请求'],defaultId:0,cancelId:0,noLink:true});
+    if(confirmation.response!==1)return{cancelled:true};
+    activeSend={id:request.id,request_id:request.request_id};try{return{cancelled:false,conversation:await backend.chat('chat.fallback.confirm',request)};}finally{activeSend=undefined;}
+  }));
+  handle('orvia:chat-stream-pull',1,async input=>backend.streamPull(streamPullInput.parse(input)));
+  handle('orvia:chat-stream-ack',1,async input=>backend.streamAck(streamAckInput.parse(input)));
+  handle('orvia:chat-scan-page',1,input=>backend.scanPage(scanPageInput.parse(input)));
+  function invalidatePreviews(){documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
+  handle('orvia:chat-material-remove',1,input=>chatAction(async()=>{invalidatePreviews();return backend.chat('chat.material.remove',materialRemoveInput.parse(input));}));
+  handle('orvia:chat-revoke',1,input=>chatAction(async()=>{invalidatePreviews();m18Authorization?.clear();return backend.chat('chat.revoke',revokeInput.parse(input));}));
+  handle('orvia:chat-add-files',1,input=>chatAction(async()=>{
+    const request=attachmentInput.parse(input);await backend.chat('chat.get',{id:request.id});
+    const selection=await dialog.showOpenDialog(window!,{title:'添加本地资料（最多3个，每个10 MiB；不上传云端）',buttonLabel:'添加并在本机解析',properties:['openFile','multiSelections'],filters:[{name:'文档与图片',extensions:['pdf','docx','pptx','png','jpg','jpeg']}]});
+    if(selection.canceled||!selection.filePaths.length)return{cancelled:true,items:[]};
+    if(selection.filePaths.length>3)throw new BackendRequestError('OUTPUT_LIMIT');
+    // 路径只来自原生选择器；预算先查全批，解析仍由后端受限网关复核，不授予父目录。
+    const sizes=await Promise.all(selection.filePaths.map(async file=>{const value=await stat(file);if(!value.isFile()||value.size>10*1024*1024)throw new BackendRequestError('OUTPUT_LIMIT');return value.size;}));
+    if(sizes.reduce((sum,value)=>sum+value,0)>30*1024*1024)throw new BackendRequestError('OUTPUT_LIMIT');
+    const items:{title:string;status:'ready'|'failed'|'cancelled'}[]=[];let conversation;
+    materialProcessing={id:request.id,items:selection.filePaths.map(file=>({title:path.basename(file),status:'pending' as const}))};
+    try{for(const [index,file] of selection.filePaths.entries()){
+      materialProcessing.items[index].status='parsing';
+      try{const parseRequestId=randomUUID();activeSend={id:request.id,request_id:parseRequestId};
+        conversation=await backend.chat('chat.document.attach',{id:request.id,request_id:parseRequestId,path:file});const message=conversation.messages.at(-1),cancelled=message?.data?.code==='REQUEST_CANCELLED',failed=message?.kind==='error'||!!message?.data?.error,status=cancelled?'cancelled' as const:failed?'failed' as const:'ready' as const;items.push({title:path.basename(file),status});materialProcessing.items[index].status=status;
+        if(cancelled){if(conversation.workflow)await backend.chatCancel({id:request.id,request_id:conversation.workflow.request_id});for(const remaining of selection.filePaths.slice(index+1))items.push({title:path.basename(remaining),status:'cancelled'});for(const remaining of materialProcessing.items.slice(index+1))remaining.status='cancelled';break;}
+      }
+      catch(error){if(error instanceof BackendConnectionError)throw error;items.push({title:path.basename(file),status:'failed'});materialProcessing.items[index].status='failed';}
+      finally{activeSend=undefined;}
+    }
+    conversation=await backend.chat('chat.get',{id:request.id});return{cancelled:false,conversation,items};}finally{materialProcessing=undefined;}
+  }));
   handle('orvia:chat-send', 1, input => chatAction(async () => {
     const request = chatSendSchema.parse(input);
     activeSend = {id: request.id, request_id: request.request_id};
@@ -182,7 +228,7 @@ app.whenReady().then(async () => {
     if(fresh.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
     // 产品正文上云必须再次经原生确认；renderer 调接口或选择附件本身均不能直接发送。
     const confirmation=await dialog.showMessageBox(window!,{type:'question',title:'确认向固定 Main 模型发送证据片段',
-      message:`向 deepseek-flash 发送 ${fresh.fragments.length} 个片段（${fresh.fragments.reduce((n,item)=>n+Array.from(item.text).length,0)} 字）？`,
+      message:request.stream_mode==='confirmed_nonstream'?`固定Main流式不兼容。明确发起同一deepseek-flash非流式新请求，可能产生第二次费用；发送${fresh.fragments.length}个片段？`:`向 deepseek-flash 发送 ${fresh.fragments.length} 个片段（${fresh.fragments.reduce((n,item)=>n+Array.from(item.text).length,0)} 字）？`,
       detail:'仅发送预览中列出的当前会话证据片段、定位和本次问题；可能产生模型费用。截断、OCR 与来源冲突需自行核对。',
       buttons:['取消','确认发送并生成'],defaultId:0,cancelId:0,noLink:true});
     if(confirmation.response!==1)return {cancelled:true};
@@ -305,9 +351,18 @@ app.whenReady().then(async () => {
     const plan=await backend.cleanupRestore(request);
     return {cancelled:false,plan};
   }));
-  handle('orvia:chat-approve', 1, input => chatAction(() => backend.chat('chat.approve', chatApprovalSchema.parse(input))));
-  handle('orvia:chat-resume', 1, input => chatAction(() => backend.chat('chat.resume', chatApprovalSchema.parse(input))));
-  handle('orvia:chat-undo', 1, input => chatAction(() => backend.chat('chat.undo', chatApprovalSchema.parse(input))));
+  async function approvedFileAction(method:'chat.approve'|'chat.resume'|'chat.undo',input:unknown){
+    const request=chatApprovalSchema.parse(input),fresh=await backend.chat('chat.get',{id:request.id}),operation=fresh.operation;
+    if(!operation||operation.operation_id!==request.operation_id||operation.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
+    const title=method==='chat.approve'?'确认此版本文件变更':method==='chat.resume'?'确认核验并恢复此文件任务':'确认受限撤销最近文件变更';
+    // 对话“同意”、模型计划与renderer均不能代替此版本原生批准；后端仍复核根和文件身份。
+    const confirmation=await dialog.showMessageBox(window!,{type:'question',title,message:`${title}（${operation.actions.length}个动作）？`,detail:`版本 ${operation.revision}\n`+operation.actions.map((action,index)=>`${index+1}. ${action.kind}: ${action.source??''} → ${action.destination}`).join('\n')+'\n拒绝覆盖、删除和跨卷移动；执行后须查看程序核验。',buttons:['取消','确认此版本'],defaultId:0,cancelId:0,noLink:true});
+    if(confirmation.response!==1)return fresh;
+    return backend.chat(method,request);
+  }
+  handle('orvia:chat-approve', 1, input => chatAction(() => approvedFileAction('chat.approve',input)));
+  handle('orvia:chat-resume', 1, input => chatAction(() => approvedFileAction('chat.resume',input)));
+  handle('orvia:chat-undo', 1, input => chatAction(() => approvedFileAction('chat.undo',input)));
   handle('orvia:chat-choose-directory', 1, input => chatAction(async () => {
     const { id } = chatIdSchema.parse(input);
     await backend.chat('chat.get', { id });

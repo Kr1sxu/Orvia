@@ -9,10 +9,10 @@ export function PublicationResult({message}:{message:ChatMessage}){
   return <section aria-label="成品核验结果"><strong>{value.format.toUpperCase()} 已创建并读回核验</strong><p>文件名：{value.filename} · {value.pages} {value.format==='pptx'?'张幻灯片':'页规划'}</p><small>版本 {value.revision.slice(0,12)}。保存位置仅在原生对话框中显示；不属于整理撤销。</small></section>;
 }
 
-export function PublicationComposer({cid,message,disabled,close,saved,notice}:{cid:string;message:ChatMessage;disabled:boolean;close:()=>void;saved:(reply:Reply<Conversation>,id:string)=>void;notice:(text:string)=>void}){
+export function PublicationComposer({cid,message,initialFormat,disabled,close,saved,notice}:{cid:string;message:ChatMessage;initialFormat?:'docx'|'pptx'|'pdf';disabled:boolean;close:()=>void;saved:(reply:Reply<Conversation>,id:string)=>void;notice:(text:string)=>void}){
   const parsed=synthesisMessageSchema.safeParse(message.data);
   const source=parsed.success?parsed.data:undefined;
-  const [format,setFormat]=useState<'docx'|'pptx'|'pdf'>('docx');
+  const [format,setFormat]=useState<'docx'|'pptx'|'pdf'>(initialFormat??'docx');
   const [title,setTitle]=useState('资料简报');
   const [answer,setAnswer]=useState(source?.answer??'');
   const [claimTexts,setClaimTexts]=useState(source?.claims.map(item=>item.text)??[]);

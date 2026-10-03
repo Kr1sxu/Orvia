@@ -1,3 +1,5 @@
 # M19资源身份按原字节固定，Windows autocrlf不得改变源SVG或上游原许可。
 apps/desktop/resources/icons/brand.svg -text
 apps/desktop/src/renderer/assets/fonts/*-OFL.txt -text whitespace=-blank-at-eol
+# M20补齐的上游原许可按来源字节校验，保留原换行及空格。
+packaging/third-party-licenses/*.txt -text whitespace=-blank-at-eol

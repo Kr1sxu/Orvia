@@ -1,5 +1,11 @@
 # M02 跨语言数据契约
 
+M02导出Schema和下述草稿定义保留。M20真实会话/事件契约由后端`chat/contracts.py`、`chat/streaming.py`与桌面`main/m20-contracts.ts`同时strict验证；没有扩大此目录的Mission草稿权限。事件带`v=1`、私有传输`id`、`conversation_id`、业务`request_id`、`stream_id`、递增`seq`和固定`kind/payload`，状态/扫描批次/模型增量/终态分别验证，完整事件12KiB、stdio帧64KiB。
+
+`chat.natural/continue/material.remove/revoke`等固定接口不接受路径、命令、工具名、模型、approved字段；目录/文件选择仍仅主进程可提供。`chat.stream.pull/ack`是主进程有界传输回收，不能授予业务权限、重发请求或确认执行。扫描分页绑定当前会话不可变`scan_id`和实际游标，不重新扫描。公共快照的`model_partial`带原流身份/seq和未核验标记，不能成为成功引用或M16来源。字段和预算以源契约为准，见[对话README](../backend/src/orvia_backend/chat/README.md)。
+
+M20测试入口是`apps/desktop/tests/m20-contracts.test.ts`、`m20-transport.test.ts`与`backend/tests/test_m20_transport.py`；实际stdio、重复/乱序/帧预算、权限和重启证据在[PROGRESS](../docs/PROGRESS.md)。模型mock、真实供应商和安装验收分别记录，不由Schema通过推断整模块完成。
+
 ## 用途与目录结构
 
 `m02.schema.json` 是从 Python Pydantic 数据模型导出的 JSON Schema 集合，顶层包含 `ModelProfile`、`MissionCreate` 和 `Mission`。本目录不包含服务端执行代码。

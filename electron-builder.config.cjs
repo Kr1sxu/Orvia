@@ -1,18 +1,21 @@
 const path = require('node:path');
 const root = __dirname;
-const build = path.join(root, 'artifacts/test-results/M14/build');
+const build = path.join(root, 'artifacts/test-results/M20/build');
 
 // 白名单仅发布编译后的桌面代码与明确生成的资源，禁止将仓库根作为 files 通配目录。
 module.exports = {
   appId: 'cn.orvia.desktop', productName: 'Orvia',
   extraMetadata:{orviaAppId:'cn.orvia.desktop'},
-  directories: { app: 'apps/desktop', output: 'artifacts/test-results/M14/release' },
+  directories: { app: 'apps/desktop', output: 'artifacts/test-results/M20/production-release' },
   files: ['dist/main/**/*', 'dist/renderer/**/*', 'package.json'],
   extraResources: [
     { from: path.join(root, 'apps/desktop/resources/icons'), to: 'icons', filter: ['orvia.ico'] },
     { from: path.join(root, 'apps/desktop/src/renderer/assets/fonts'), to: 'font-licenses', filter: ['*-OFL.txt'] },
     { from: path.join(build, 'python/orvia-backend'), to: 'backend', filter: ['**/*'] },
+    // 冻结服务不执行任意源码；M18脚本使用另行核验的私有CPython标准库资源。
+    { from: path.join(build, 'script-runtime'), to: 'script-runtime', filter: ['**/*'] },
     { from: path.join(build, 'chromium'), to: 'chromium', filter: ['**/*'] },
+    { from: path.join(build, 'third-party-licenses'), to: 'third-party-licenses', filter: ['**/*'] },
     { from: path.join(build, 'runtime-manifest.json'), to: 'runtime-manifest.json' },
     { from: path.join(build, 'LICENSE.txt'), to: 'LICENSE.txt' },
   ],

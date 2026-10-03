@@ -107,7 +107,7 @@ def test_storage_fault_mapping_never_leaks_detail(tmp_path, kind, expected):
 def test_stdio_cancel_bypasses_serial_send_but_ordinary_requests_stay_ordered(monkeypatch):
     events = []
     class FakeApplication:
-        def __init__(self):
+        def __init__(self, event_sink=None):
             self.release = asyncio.Event()
         async def handle(self, line):
             request = json.loads(line)
@@ -240,6 +240,8 @@ def test_later_approval_and_undo_supersede_failed_request_status(tmp_path):
 def test_stdio_runtime_error_and_broken_output_are_sanitized(monkeypatch):
     class BrokenApplication:
         closed = False
+        def __init__(self, event_sink=None):
+            pass
         async def handle(self, line):
             raise RuntimeError("private provider and path")
         async def close(self):

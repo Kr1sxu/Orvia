@@ -1,4 +1,36 @@
-# M10–M18 会话与桌面任务应用服务
+# M10–M20 会话与桌面任务应用服务
+
+## M20 统一自然交互与真实结果流
+
+`coordinator.py`接收固定`chat.natural({id,request_id,text})`，无需用户先选文件/网页/文档模式。明显目录枚举、文件名搜索、空间和原文检索由程序直接呈现；歧义或其他自然语言由该Mission固定Main返回有界类型化步骤，不自动上传证据正文。只发送用户指令、同会话有界用户上下文和有效资料元数据。复合请求最多4步，依赖已有/已计划的综合回答，不重复生成；超额须澄清拆分，不截掉目标。裸网址或仅提及链接不构成访问意图。普通概念解释不强制要求附件。文件名、资料、网页和模型结果均不能授予权限。
+
+`chat.continue({id,request_id,continuation_id,answer?})`一次性接续已保存原请求：目录或资料原生选择成功后无需重发文字。暂停先落库并释放会话锁；接续在同一会话锁中检查token和当前事实，内部直接调用业务方法，不重入`handle`。歧义只补必要信息，资料候选可用当前有效证据ID或准确名称；同名版本须选ID。取消、切换会话、重启/重连使旧接续失效，不能串任务或自动重放。每个实际工作阶段50秒总预算，单模型30秒等待、20秒网络、0重试；意图理解/普通回答1024输出token，M15结构化证据回答保持原有4096输出token（流式与另行确认非流式相同）。用户等待资料/审批不计工作时间，已审批文件写事务不被外层计时器取消。
+
+独立`m20_materials`有效集合最多3份、单附件10MiB/合计30MiB；单文件本地解析继续M13的45秒/50单元/8000字边界，父请求在一批全部返回后才显式接续。解析可取消，失败状态明确，原文件不修改。`chat.material.remove({id,kind,evidence_id})`仅解绑有效集合，保留原文件、历史证据和引用；当前检索、正文生成都排除已移除版本。旧会话一次性映射最近3份已保存版本作为有效资料，不重新读取原路径或访问网页；历史20项目录与按ID回查保留，移除后不会重新激活。原文引用或旧文件名不恢复父目录权限。`chat.revoke({id})`撤销后续目录读取，已发现清单可继续离线回查。
+
+M15正文发送仍必须准确预览和原生确认；M16简报只从真实已保存的带引用回答预览/保存；M17草稿与清理、M18脚本/UIA/浏览器分别暂停在原有独立原生权限/审批入口。workflow中只有有界业务输入，无自由方法、批准字段、绝对用户路径或执行器。子业务用独立幂等请求，接续父请求只核对基线之后同会话、同来源/消息/操作ID的真实已保存结果和M18核验账本，不接收renderer自述成功。未知副作用不自动重试。
+
+网页步骤的`input.success_rule`固定有限的控件动作、外发类别、准确origin及本轮创建时间。“填写并发送消息”需要本轮fill读回和message实际外发，不会在填写局部核验后声称发送完成。后端按真实M18操作账本验证，外发还需同类别/站点的原生批准摘要、对应正文SHA256、2xx回执、响应/页面/期待文本SHA256与新期待文本匹配；仅HTTP成功、旧会话事实、错站点或未批准请求均不能接续。核验仍不证明远端业务语义或交易结算，未知结果需人工核对，不重放。
+
+桌面“输入…然后点击…”编译为两个步骤，同原请求分别建立一次性token和新消息/操作创建基线、分别原生选择与批准；每步只核对本轮新M18账本的准确action、local类别、真实verification及明确输入SHA/点击目标名。M18后台先提交终态账本再追加会话摘要，接续直接核验账本，不依赖较晚出现的摘要消息；不因此重试动作。填写成功不能完成后续点击，旧步骤事实和错误值/按钮均不能推进。程序识别连接词和动词时屏蔽代码围栏和字符串数据；Python正文或待输入文字内的“然后点击”等不会添加任务步骤。意图理解与普通回答实际显式输出预算均为1024token，适配器256默认值不是业务上限。
+
+`scans.py`复用Computer授权和PathPolicy：默认所选根第一层，明确递归默认3层、最多8层；每次最多5000已访问项、10秒扫描墙钟总耗时（包含SQLite保存与流式背压等待）、4MiB已发现清单。批次输出后到限即停止访问下一条；外层50秒工作阶段仅给取消/落盘/退出留裕度，不扩扫描范围。真实批次最多40条/12KiB，先保存SQLite再发布；分类仅依据扩展名/目录属性，不冒充正文理解。最终`directory_result`消息直接给条目、范围/深度、已访问/发现/展示数量、分类、不可访问与截断；`chat.scan.page({id,scan_id,offset=0})`最多100项/48KiB，用实际返回数接next_offset，覆盖全部已发现条目。分页读取不可变已发现快照，不重扫磁盘、不把尚未扫描范围称全部。
+
+扫描批次提交、事件seq提交和历史回答插入是不同事务，存在“已保存条目尚未发布/写入历史”窗口。重启或失败后`chat.get`按scan_id幂等补一条已发现前缀的`directory_result`历史入口（partial/recovered标记、完整已发现分页），并明确中断/截断；不重扫、不重发旧事件、不恢复授权或接续原请求。并发读取与再次重启不会重复补消息；仍执行中的请求不提前补终态历史。输出管道失败立即停止扫描，不能当作不可访问目录跳过后继续。
+
+`streaming.py`生成固定`chat.stream`事件（会话/request/stream UUID、递增seq、kind、受限payload），stdio只补运输请求身份。类型为started/tool_status/scan_batch/model_delta/paused/completed/failed/cancelled。seq与状态先持久化，暂停接续复用同一stream_id；快照返回最后实际状态。M15子请求的事件只使用子运输身份，更新父等待信息只落库并经返回快照呈现，禁止混用父子事件破坏严格协议。`chat.get`和分页读取不等待长模型锁。
+
+模型增量来自固定Main真实SSE，仅解码顶层answer为临时文字；每次真实前缀和seq在同一UPDATE中先落SQLite，再等待事件输出，完整结束后才校验JSON/引用并保存成功回答，无定时伪打字。前缀最多16000字且JSON编码24KiB，超限前拒绝继续追加/显示，已显示部分完整保留；适配器SSE的64KiB输出限制独立。失败、取消、暂停或重启只恢复一个幂等`model_partial`历史记录，data含request_id/stream_id/last_seq/state/text/provisional，明确为未核验事实且不能作为synthesis或制作成品；公开stream metadata不重复返回内部model_text。不重放旧事件、模型或目录权限。固定模型断流/不支持可另行原生确认一次同模型非流式请求，可能再次计费；routing/普通回答使用固定`chat.fallback.confirm`，M15只能重新确切片段预览/原生生成审批并显式`confirmed_nonstream`。批准在调用前一次消费，失败也不能重复使用；取消/未知浏览器或桌面结果不走此降级。
+
+成功答案保存时关联request_id和已校验stream_prefix_chars。若完整结果/请求终态已落库但completed事件尚未输出，重启按已保存请求成功事实修正流metadata，seq不增长、不补发事件；已保存答案不会再误报为“未核验”partial。复合请求尚有后续步骤时，只保留已校验边界之后的新未完成文字，父workflow仍中断且不能自动接续。
+
+收到合法SSE结束后，先核对真实finish_reason/tool_calls，再完成JSON/引用校验。length明确记为GENERATION_TRUNCATED及实际业务输出预算截断（M15为4096，普通回答为1024）；stop但JSON未闭合/结构非法明确记为INVALID_GENERATION，不把格式失败说成供应商超时或不可用。两者只保留未核验前缀，不保存成功回答、不自动降级或重试。
+
+运行：`npm run build`、`npm start`，输入“列出目录”→＋原生选目录→原请求接续→批次与完整清单；输入“总结这份附件”→＋选资料→本地解析→确切正文预览/原生确认→临时真实增量→带引用保存结果。设置中的固定三角色与safeStorage保持。
+
+测试代码在`backend/tests/test_m20_natural.py`、`test_m20_model_stream.py`，stdio/Electron由集成和E2E目录提供。`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m20_natural.py backend/tests/test_m20_model_stream.py -q --basetemp=artifacts/test-results/M20/backend-final-temp --junitxml=artifacts/test-results/M20/backend-final.xml`。全部日常验证使用合成目录、真实SQLite、异步模型/网络替身；实际命令、最终结果、真实供应商流与安装版证据须分别查PROGRESS，mock通过不等于模块完成。
+
+已知限制：有界浅层/递归扫描和扩展名分类不保证全盘或语义理解；源文本/M06关键词检索仍有提取与召回限制，结构化引用不证明语义真值。通用聊天由模型生成，明确与工具事实分开。M18只支持既有受限任务，目标/控件/业务核验仍需原生明确选择，不能由意图开放通用执行或个人浏览器。历史列表裁剪不会删除账本；暂停和部分结果不等于恢复授权或继续执行。
 
 M18新增`ChatService.automation`，固定`chat.automation.*`由Application分发，open初始化单独SQLite状态账本，close先回收自有脚本/UIA/浏览器资源再关数据库。长动作立即返回步骤身份；控制/状态/待外发审批可旁路普通串行请求，避免执行等待未来审批死锁。消息kind=automation只放身份/hash/核验摘要，排除在Main text规划上下文。脚本、桌面与站点分别原生授权，不继承目录或旧文件审批；结构、输入输出、固定模型、示例和限制见[automation README](../automation/README.md)。
 
@@ -14,9 +46,9 @@ M18新增`ChatService.automation`，固定`chat.automation.*`由Application分�
 
 `synthesis.py` 从当前会话显式选定的 1–3 个 `document/browser` 不可变版本组装有界证据包；文档按页/段/幻灯片单元切块，网页按正文切块，问答复用 M06 FTS 命中。`chat.synthesis.preview({id,mode,question,sources})` 只读返回确切拟发送片段、覆盖与 SHA256 revision，不调用模型。`chat.synthesis.generate` 另需 request_id/revision；主进程只接受最近实际预览的同一输入，重算版本并弹原生正文发送确认。后端再核对版本，调用该 Mission 固定 Main 一次，不提供工具。会话生成消息持久化回答、结论类别、引用版本与定位、覆盖、模型及用量；同一请求不重复调用，中断/取消不重放。资料中的指令不会进入文件任务的 `text` 历史或取得授权。
 
-每源最多3个600字片段，最多5400字正文；模型20秒网络超时、30秒本轮等待、1024输出token、0自动重试。输出必须是 `answer` 与 `claims` 的 JSON；`fact/inference` 需有本轮引用，`conflict` 需两个，`unknown` 不带引用。结构校验不等于事实核实。原文截断、缺失与 OCR 风险通过 coverage 返回。输入与输出无绝对路径、密钥和任意写操作；每会话100次请求预算沿用。示例：在当前会话保存文档和网页 → 选版本与问题 → 预览片段 → 主进程确认 → 查生成卡片及证据详情。源码试用需 `npm run build`、`npm start`；M14安装包未更新。
+每源最多3个600字片段，最多5400字正文；模型20秒网络超时、30秒本轮等待、4096输出token、0自动重试，M20流式与另行确认非流式均保留M15既有预算。输出必须是 `answer` 与 `claims` 的 JSON；`fact/inference` 需有本轮引用，`conflict` 需两个，`unknown` 不带引用。结构校验不等于事实核实。原文截断、缺失与 OCR 风险通过 coverage 返回。输入与输出无绝对路径、密钥和任意写操作；每会话100次请求预算沿用。示例：在当前会话保存文档和网页 → 选版本与问题 → 预览片段 → 主进程确认 → 查生成卡片及证据详情。源码试用需 `npm run build`、`npm start`；旧M14安装包不含M15后续能力，M20完整候选包版本和验收事实以PROGRESS为准。
 
-测试：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m15_synthesis.py -q`、`npx vitest run apps/desktop/tests/m15-contracts.test.ts tests/integration/m15.test.ts`、构建后 `ORVIA_TEST_MODULE=M15` 与 `ORVIA_TEST_RESULTS=artifacts/test-results/M15` 下运行 `npx playwright test tests/e2e/m15.spec.ts`。以上均用合成数据及模型 mock；显式 `backend/tests/live_m15_synthesis.py --run-live` 才在当前测试进程读取根开发 Key 并调用真实固定 Main，输出仅状态和用量。结果目录 Git 忽略。长文采样不是全文摘要，旧 M06 AND 关键词检索可漏召回，模型可产生语义错误；没有流式输出和自动检索全部资料。
+测试：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m15_synthesis.py -q`、`npx vitest run apps/desktop/tests/m15-contracts.test.ts tests/integration/m15.test.ts`、构建后 `ORVIA_TEST_MODULE=M15` 与 `ORVIA_TEST_RESULTS=artifacts/test-results/M15` 下运行 `npx playwright test tests/e2e/m15.spec.ts`。以上均用合成数据及模型 mock；显式 `backend/tests/live_m15_synthesis.py --run-live` 才在当前测试进程读取根开发 Key 并调用真实固定 Main，输出仅状态和用量。结果目录 Git 忽略。长文采样不是全文摘要，旧 M06 AND 关键词检索可漏召回，模型可产生语义错误；M15初版没有流式输出，M20已增加真实SSE临时答案和最终完整引用校验，仍不自动检索全部资料。
 
 ## M13 文档请求
 

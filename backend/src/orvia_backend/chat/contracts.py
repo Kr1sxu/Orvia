@@ -29,6 +29,22 @@ class Send(Cancel):
     text: str = Field(min_length=1, max_length=2000)
 
 
+class Continue(Cancel):
+    """一次性接续原请求；文字只补必要信息，不包含批准或绝对路径。"""
+    continuation_id: UUID
+    answer: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
+class MaterialRemove(Conversation):
+    kind: Literal["document", "browser"]
+    evidence_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ScanPage(Conversation):
+    scan_id: UUID
+    offset: int = Field(default=0, ge=0, le=5000, strict=True)
+
+
 class Grant(Conversation):
     root: str = Field(min_length=1, max_length=1000)
 
@@ -91,6 +107,7 @@ class SynthesisPreview(Conversation):
 class SynthesisGenerate(SynthesisPreview):
     request_id: UUID
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    stream_mode: Literal["stream", "confirmed_nonstream"] | None = None
 
 
 class PublicationPreview(Conversation):

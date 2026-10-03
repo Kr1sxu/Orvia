@@ -1,6 +1,8 @@
-# Orvia Python 后端（M01–M18）
+# Orvia Python 后端（M01–M20）
 
-M18 `automation/`接入Application/ChatService固定私有接口，分别提供LPAC+Job的Python私有运行时、普通应用UIA、专用Chromium准确站点写入。复用Computer gateway/PathPolicy、SQLite、会话和固定Computer模型适配；每步审批与实际外发分开，后端再复核并先记账，控制请求不等待长任务。用途、文件、输入输出、预算、配置、运行、示例及风险见[automation README](src/orvia_backend/automation/README.md)。M19–M20未实施，最新M14安装包无M15–M18。
+M20 `chat/` 增加统一自然请求、一次性授权后接续、当前有效资料、真实扫描与模型增量，复用M15–M18固定业务接口和权限链。接口、预算、持久化、澄清与降级见[对话模块](src/orvia_backend/chat/README.md)，固定供应商SSE及JSON增量见[模型模块](src/orvia_backend/configuration/README.md)。M19视觉沿用。完整安装包验收状态以[进度](../docs/PROGRESS.md)为准。
+
+M18 `automation/`接入Application/ChatService固定私有接口，分别提供LPAC+Job的Python私有运行时、普通应用UIA、专用Chromium准确站点写入。复用Computer gateway/PathPolicy、SQLite、会话和固定Computer模型适配；每步审批与实际外发分开，后端再复核并先记账，控制请求不等待长任务。用途、文件、输入输出、预算、配置、运行、示例及风险见[automation README](src/orvia_backend/automation/README.md)。M14历史包无M15–M18；M19定向包复用旧后端，仅用于视觉资源验收。
 
 当前入口是对话式应用；下方M01–M07段落保留历史接口说明，当前授权与UI以 `chat/README.md` 为准。M13 `documents/` 提供显式附件本地提取、版本引用、M06检索与Markdown/JSON导出，依赖/预算/运行/测试见 [文档模块](src/orvia_backend/documents/README.md)。固定子进程解析不接收路径或凭据，Computer gateway复用PathPolicy完成单文件读与新建导出；不上传文件，不扩大目录权限。
 
@@ -28,7 +30,7 @@ M17 `development/` 提供代码草稿、逐文件差异/版本写入和结构化
 
 ## 输入输出与公共接口
 
-stdin 每行一个 UTF-8 JSON 对象，stdout 每行一个响应，诊断仅写 stderr。
+stdin 每行一个 UTF-8 JSON 对象；stdout 包含响应及M20实际事件，诊断仅写 stderr。
 请求格式为 `{ "v": 1, "id": "非空字符串", "method": "hello", "params": {} }`。
 完整行最多 64 KiB（含 CR/LF）；超限帧分块消费到下一换行，返回 `INVALID_REQUEST`，不回显输入。
 EOF 时最后一个没有换行的完整 JSON 也可处理，随后干净退出。
@@ -43,7 +45,7 @@ EOF 时最后一个没有换行的完整 JSON 也可处理，随后干净退出�
 M02 的 `Application.handle(bytes)` 在 hello 后接受主进程私有 `initialize({data_directory,credentials})`，一次连接仅初始化一次。`credentials.replace` 更新内存 Key；二者不对渲染进程公开。M03 增加 `computer.grant/revoke/status/execute`，只读请求必须带 Mission 与当前连接的 `grant_id`，角色固定为 Computer。
 初始化后 `configuration.status({})` 仅返回无 Key 配置和存在性；`missions.create({client_request_id,title})` 保存草稿；`missions.list({})` 返回最新 20 条；`missions.get({id})` 返回指定草稿。M03 文件工具只能通过 Computer 网关调用，不开放 SQL 或任意命令。
 错误增加 `NOT_INITIALIZED`、`ALREADY_INITIALIZED`、`INVALID_PARAMS`、`CONFLICT`、`NOT_FOUND`、`STORAGE_UNAVAILABLE`。接口错误只含固定说明，不序列化 Pydantic 输入或供应商原始错误。
-阻塞读取通过 `asyncio.to_thread` 与主协程分离；单连接依次处理，不并行执行请求。
+阻塞读取通过 `asyncio.to_thread` 与主协程分离；业务操作串行，健康、取消、历史读取和保存扫描分页可旁路。输出单一写入器队列32帧，真实写入／背压等待总限10秒；事件含完整信封最多12KiB，响应最多64KiB。过预算或断线不自动重放。
 
 ## 依赖与配置
 
@@ -85,4 +87,4 @@ M07 增加 browser.read / browser.search，须存在的 mission_id；来源与�
 
 ## M14 本机打包验证
 
-最新未签名候选版为0.2.0-rc.1，包含对话及文档能力；上文“安装包未重建”描述保留为历史模块状态。PDF/OCR冻结资源、安装包流程、升级/卸载的命令与边界见根目录 packaging/README.md、docs/PROGRESS.md。测试产物统一为 artifacts/test-results/M14/。真实本地组件测试不等于云模型/Tavily验证；生产签名和独立Windows验收经用户确认暂缓。
+历史M14未签名候选版0.2.0-rc.1只含M10–M13；当时“安装包未重建”的状态保留为历史。本轮完整0.3.0-rc.1冻结、资源、安装／升级／卸载和开发对照以packaging/README.md与PROGRESS实际证据为准，产物在M20，不覆盖M14。真实本地组件不等于供应商或Tavily验证，生产签名和独立Windows继续暂缓。

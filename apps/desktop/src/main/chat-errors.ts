@@ -1,6 +1,14 @@
 /** 错误码映射为固定中文，不展示供应商正文、路径或异常输入。 */
 export function chatErrorMessage(code: string): string {
   const messages: Record<string, string> = {
+    STREAM_UNSUPPORTED:'固定Main未支持本次所需流式；请明确确认同模型非流式新请求，可能再次收费。',
+    STREAM_INTERRUPTED:'流式回答中断；部分文本尚未完成引用校验，未自动重试或制作成品。',
+    STREAM_INVALID:'固定模型增量格式无效，结果未通过校验；请查看已保存事实。',
+    UNSUPPORTED_TASK:'当前尚不支持这项任务；没有执行或编造结果。',
+    SOURCE_REQUIRED:'这项任务需要当前会话有效资料或已保存的带引用回答。请添加或明确选择资料。',
+    STEP_NOT_VERIFIED:'本步骤尚未满足原需求的真实核验条件，仍等待确认；请核对执行账本、准确目标与后续步骤。',
+    MATERIAL_LIMIT:'本次有效资料最多3项、附件合计30 MiB；请先移除不需要的关联。历史引用仍保留。',
+    OUTPUT_LIMIT:'本次输入、输出或附件超出预算；未继续扩大范围。',
     M18_ISOLATION_UNAVAILABLE: 'Windows 脚本隔离无法核验，已停止；不会退回普通进程执行。',
     M18_ISOLATION_INVALID: '隔离任务路径或运行时身份不符合要求，执行已停止。',
     M18_RUNTIME_UNAVAILABLE: '经校验的 Python 3.12 私有运行时不可用。',
@@ -33,7 +41,7 @@ export function chatErrorMessage(code: string): string {
     REQUEST_INTERRUPTED: '上次消息处理已中断，请检查现有结果后用新消息继续。',
     NOT_FOUND: '会话或任务不存在，请刷新会话列表。',
     MISSING_CREDENTIAL: '缺少固定模型凭据，请在设置中检查配置。',
-    MODEL_UNAVAILABLE: '固定模型暂不可用，本轮未执行文件动作。',
+    MODEL_UNAVAILABLE: '固定模型暂不可用；请核对本步骤已保存的事实，未自动重试。',
     BUDGET_EXCEEDED: '已达到本次任务预算，请停止并检查任务结果。',
     INVALID_PARAMS: '请求参数不符合当前业务接口。',
     STORAGE_BUSY: '本地数据库正在使用中，请稍后刷新；不要重复批准文件动作。',
@@ -43,7 +51,7 @@ export function chatErrorMessage(code: string): string {
     BACKEND_TIMEOUT: '本地服务响应超时，连接已停止。请重新连接并核对任务事实，不要重复审批。',
     BACKEND_DISCONNECTED: '本地后端已退出。请重新连接，重新授权目录后核对任务状态。',
     BACKEND_PROTOCOL: '本地通信协议异常，连接已停止。请重新连接；业务请求不会自动重放。',
-    REQUEST_CANCELLED: '本次模型规划已取消；已返回的观察保留，未批准的计划不会执行。',
+    REQUEST_CANCELLED: '当前步骤已取消；已保存观察与事实保留，未批准步骤不会执行。',
     UNDO_CONFLICT: '文件已变化，撤销停止；请查看最新账本状态。',
     CODE_CHANGED: '项目文件在预览后变化，拒绝覆盖；请重新生成并核对差异。',
     CODE_PATH_DENIED: '生成路径不在授权项目和允许的文本文件范围。',
@@ -59,5 +67,5 @@ export function chatErrorMessage(code: string): string {
     RESTORE_CHANGED: '隔离文件身份或内容已变化，拒绝恢复。',
     RESTORE_EXPIRED: '受限恢复期限已过；隔离文件未自动永久删除。',
   };
-  return messages[code] ?? '操作未完成，请刷新会话查看事实状态；不会自动重放文件动作。';
+  return messages[code] ?? '操作未完成，请刷新会话查看事实状态；任务步骤不会自动重放。';
 }

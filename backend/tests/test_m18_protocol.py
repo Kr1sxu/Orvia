@@ -9,6 +9,8 @@ import orvia_backend.server as server
 
 def test_output_json_escape_budget_keeps_connection(monkeypatch):
     class SyntheticApplication:
+        def __init__(self, event_sink=None):
+            pass
         async def handle(self, line):
             q=json.loads(line)
             return {"v":1,"id":q["id"],"ok":True,"result":{"text":"\x00"*16384} if q["method"]=="synthetic-output" else {"status":"ok"}}

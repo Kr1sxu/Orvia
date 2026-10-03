@@ -1,6 +1,10 @@
 # 开发进度与验证证据
 
-## 当前状态（2026-09-30，M19预检与候选设计）
+## 当前状态（2026-10-03，M20功能及完整包本机验收完成）
+
+M15–M19已实现、验证并提交；M19提交 `6f87fe016f922846cbdabaa83f3796fd0861c8ec` 用户手动push，10月3日实际fetch/ls-remote再次确认远端默认main与基线一致、0/0。M20四项确认A已完整实现，开发L0–L4对应验证、原生框/IME和真实stdio持久化通过；安装版目录/OCR/引用导出/三格式成品、私有Python LPAC/UIA/可见Chromium对照通过。完整0.3.0-rc.1两种身份未签候选已重建并审计，隔离旧0.2→0.3升级保留历史、旧授权失效。真实Main开发首次失败保留，安装独立1次成功11增量/2引用/三格式；总2次预算已耗尽。自有卸载及配置保留验证通过；本轮代码与记录统一本地交付，提交定位见文末；待用户手动push。旧M14/M19包、.zcodeignore和LICENSE历史状态保留；生产签名/独立Windows验收暂缓，Agent不push。见[M20方案](M20_DESIGN.md)、[验收矩阵](M20_TEST_MATRIX.md)及末节实际证据。
+
+## 历史状态（2026-09-30，M19预检与候选设计）
 
 M18三项已实现/验证/提交，用户手动push已完成。本轮`git fetch origin`及`git ls-remote --symref origin HEAD refs/heads/main`实时核对，本地HEAD、origin/main和远端main均为`9195d209d3d036b6d66d5c74068832a991a6a6d6`，ahead/behind=0/0。M19已授权，仅完成预检、独立候选设计与原生窗口实验，五项用户设计决策待确认，整个模块未完成；未暂存/提交，不开始M20。详细候选见[M19_DESIGN](M19_DESIGN.md)，本轮证据见末节。M14生产签名/独立Windows验收和M20后全功能安装版对照待办仍保留。
 
@@ -912,3 +916,119 @@ M19定向安装器仅用于本轮视觉/窗口资源验证，不是M20后完整�
 首次实际index卫生检查71文件/5816普通产物文件，禁入/密钥/私钥块均0（`hygiene-staged.log`）。cached diff发现JetBrains原OFL上游行尾空格，保留原文而不修剪；同时发现core.autocrlf会在重新检出时改变SVG/许可hash。新增精确`.gitattributes -text`保护源SVG与三原许可，只对原许可允许上游行尾空格，其他文件仍执行diff --check；测试卫生脚本新增实际index资源字节/manifest校验。重新暂存原字节后做最终L0复核，原生产资源字节和已经验收包均未变化，不重复无关功能测试。
 
 最终L0：`git diff --cached --check`退出0、工作树diff为空；`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m19_hygiene.py`退出0，72个实际暂存文件、5818个普通产物文件，禁入/密钥/私钥块/产物密钥匹配/资源manifest失配全部0（`hygiene-staged-final.log`）。提交前重新暂存本段并再执行同一审查，结果见`hygiene-staged-commit.log`；源码资源原字节受到固定Git属性保护，未提交测试产物。当前完成状态与历史待验收状态分开保留。
+
+## M20 实施与开发版验收（2026-10-02至10-03）
+
+本轮用户明确授权M20和既定完整安装包待办，随后确认四项A。先实际核对目录、status、main、log、默认分支、fetch和ls-remote：本地HEAD、origin/main、远端main同为M19 `6f87fe016f922846cbdabaa83f3796fd0861c8ec`，0/0；用户手动push事实成立，历史“待push”仅代表当时状态。初始只有未跟踪`.zcodeignore`，LICENSE无差异；两者保持不动、不提交。已阅读根AGENTS/README、架构、两开发清单、PROGRESS、桌面/对话/协议/模型/相关业务/打包README及旧技术设计；本轮最新授权优先于旧AGENTS中“M20未获授权”。
+
+反馈图初始搜索未找到；10月3日在当前用户Temp顶层取得并实际查看指定PNG，副本`M20/design/reference.png`。只解决图中的技术模式、两入口、要求重发和折叠结果问题；沿用M19雾蓝#335FC7、原创折帆、离线三字体、Win11原生圆角，不复刻图中旧绿色“序”。目标、涉及文件、复用组件、测试和停止点已用中文说明，独立后端/前端/打包分工无并发文件覆盖、不传Key。
+
+### 实现和权限
+
+唯一输入提示“你想做些什么”，后台结合指令、显式附件/URL、有效资料和权限、当前会话证据理解需求；明显只读列表不新增模型调用，唯一对象直接处理，必要歧义精简澄清。复合请求最多4步，保留依赖和每步真实核验；不支持业务、缺凭据、Tavily不可用明确说明。固定Main理解不能授予权限，文件名/正文/网页/代码/模型输出不会成为新命令。
+
+可访问“＋”统一原生文件/文件夹入口。最多3文件、每个10MiB/合计30MiB、逐个本地解析；移除仅解绑，历史证据/引用及原文件保留，另有目录撤权。先发需求再授权时同一原请求一次接续；取消/切会话/重启/断线/过期token都失效，不串任务，不重放权限或副作用。
+
+目录默认一级；明确递归默认3层/最高8层。5000访问项、10秒扫描墙钟总时限（含SQLite保存及发送等待）、4MiB元数据任一到限停止取下一项，说明截断、深度、拒绝及不可访问。真实批次最多40条且完整事件12KiB，全部已发现快照按最多100条/实际字节游标分页；扩展名/元数据分类不会冒充正文理解。
+
+真实扫描批次和httpx SSE文本增量分别实现，事件绑定会话/业务请求/传输请求/流/seq。stdio每帧64KiB、Python32项单写队列/10秒背压，主进程80项/128KiB缓冲、40项/48KiB拉取、16项乱序窗口/2秒缺口超时及ACK；renderer有界保留20流。没有完成文本定时切字。模型完整JSON和M15引用核验前只有临时正文，无成功成品；流式不支持/失败须单次原生确认向同模型新发非流式请求，说明重复费用。固定三个角色/地址不变，未知结果无自动重试。
+
+扫描批次事务、seq、历史消息分别落盘，不宣称全链原子。模型临时前缀和seq同次UPDATE先保存，16000字符且JSON编码24KiB上限；中断读取幂等恢复一条不可引用/不可成品的model_partial，无事件/模型/扫描重放。已保存成功但终态事件未输出时，根据request_id/核验前缀只协调持久状态，不把已成功文字再次说成partial、不完成剩余复合步骤；合法NUL/汉字/astral按Python长度定位。历史阅读保持逐会话草稿、滚动和焦点；底部跟随与主动查看最新结果分离。
+
+M15发送片段预览/原生上云审批、M16三格式简报、M17代码/原型/Temp隔离、M18 LPAC/UIA/专用Browser均复用原模块契约和后端复核。UIA输入和点击使用各自新步骤token/操作基线；只推进真实completed账本，不依赖稍后写入的会话摘要。Browser填写不冒充发送，实际请求/2xx回执/SHA/指定DOM新文字核验后才完成；业务语义和交易结算仍不能由UI或HTTP证明。
+
+### 实际命令与开发证据
+
+以下均从项目根运行，结果在忽略的`artifacts/test-results/M20/`；后端合成pytest使用`--basetemp`，真实Electron共用`$env:ORVIA_TEST_MODULE='M20'`。日常模型/公网均mock；供应商两次预算另列。不同轮次重跑不累加为唯一用例总数。
+
+| 级别 | 实际命令/最小目标 | 结果和证据 | 实际组件/替身 |
+|---|---|---|---|
+| L0 | `npm run build`；`node_modules/.bin/tsc.cmd`各M20 spec的strict/noEmit参数；PS5.1 Parser/BOM | 最终bundle `index-D7IKVKfL.js`，构建/类型/PS解析通过；对应`build`/`*strict*`/native-ime记录 | 实际TS/Vite/PS，离线M19资源 |
+| L1 | `node_modules/.bin/vitest.cmd run apps/desktop/tests --reporter=json --outputFile=artifacts/test-results/M20/desktop-final.json` | 99 passed、0 failed/skip，`desktop-final.json` | React、IPC、typed事件及缓冲；Electron API mock |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m20_model_stream.py`及受影响chat/configuration目标 | 流目标80 passed；受影响组合127 passed；`stream`/`affected`报告及`backend-agent-report.md` | 实际httpx/严格SSE/JSON；异步mock网络，非供应商 |
+| L1/L2 | `... -m pytest backend/tests/test_m20_natural.py backend/tests/test_m13_documents.py -q` | 30 passed，`natural-refined.xml`；后续UIA复合、概念/引号、迁移最小目标通过 | 实际SQLite/目录/解析，模型/网络mock；拒绝fixture注入 |
+| L1/L2 | `... -m pytest backend/tests/test_m20_stream_persistence.py backend/tests/test_m20_natural.py backend/tests/test_m15_synthesis.py -q` | 42 passed，`model-success-window.xml`；NUL最小目标6 passed，`model-nul-boundary.xml` | 实际SQLite故障窗口，模型合成，不声称跨事务原子 |
+| L1/L2 | `... -m pytest backend/tests/test_m20_natural.py -k 'directory or scan or resource or batch or recursive' -q` | 8 passed，`scan-wall-clock.xml`；真实next(scandir)访问恰40，sink可控clock跨限后不访问第41 | 实际枚举/存储；时间注入非真实sleep |
+| L1/L2 | `... -m pytest backend/tests/test_m20_generation_errors.py backend/tests/test_m15_synthesis.py backend/tests/test_m20_natural.py -q` | 34 passed，`generation-finish.xml`；length明确1024token截断，stop+未闭JSON明确结构失败，partial保留/无成功/无自动补发 | 真ModelClient+异步合法mock SSE；无真实云调用 |
+| L2 | `... -m pytest backend/tests/test_m20_transport.py backend/tests/test_m20_stream_persistence.py -q --junitxml=artifacts/test-results/M20/stdio-persistence-final.xml` | 18 passed/35.05秒；32目标前阶段通过，`transport-natural-final.xml` | 真stdio/Python/SQLite，实际kill/重启；模型mock。40条扫描后kill，3重启页不变；模型可见4字后kill，2重启partial身份/seq稳定、调用数不增/不恢复权限 |
+| L4跨模块 | 受影响chat/M12/M15/M16/M17/M18 protocol目标 | 原组合42 passed/1测试构造器失败；optional EventSink伪服务构造修正后仅失败目标1 passed，`cross-protocol-final.xml` | 复用既有M18/M19结论，不无条件重跑全套 |
+| L3 | `node_modules/.bin/playwright.cmd test tests/e2e/m20.spec.ts`的8项分别最小执行 | 8个不同目标均实际通过，最终`publication-system-fact`、`history-verified`、`references-partial`等日志 | 真Electron/Python/SQLite/合成文件/成品；模型/HTTP/原生决定mock。206条3页/递归207、M15引用、Word、URL、歧义/移除、取消/切会话、慢SSE/草稿、断流一次降级+重启、缺凭据/拒绝 |
+| L3 | `node_modules/.bin/playwright.cmd test tests/e2e/m20-business.spec.ts`的7类最小目标 | rename1、code/prototype/cleanup/Computer4、browser1、desktop1均通过，`business-*.json` | Computer/HTTP/原生决定mock；实际代码差异/写回SHA、两页原型、Temp隔离恢复、LPAC/UIA/可见Chromium。Browser实际POST回执/DOM和桌面两操作新token核验 |
+| L3离线开发对照 | `ORVIA_M20_OFFLINE_MODE=development`运行`m20-installed.spec.ts`三个grep目标 | 最终目录1 passed/25.1秒；附件1/10.7秒；凭据IPC1/4.8秒；`offline-development-results.md` | 真产品后端无ModelClient/工具替换，选择/保存固定合成路径；模型/公网0。6000中发现5000/50页、空0/撤权/重启；真实DOCX/PPTX/PNG OCR0.9758、Markdown992B/JSON1174B、引用2/2、不覆盖/解绑/坏PDF/超限；固定缺3Key/5组非法IPC拒绝 |
+| L3/L4开发运行时 | `ORVIA_M20_PARITY_MODE=development`运行`m20-runtime-parity.spec.ts` | 1 passed/52.3秒，`runtime-parity-development.json/png/metadata.json` | 真后端，2自然脚本各新身份/LPAC/产物批准；越界读/写/runtime写/socket拒绝、环境清洁；真UIA set/invoke；完整可见Chromium动态GET在DNS前暂停/拒绝，外发0/LowIL。原生决定mock，非冻结/安装证据 |
+| L3真实原生框 | `node_modules/.bin/playwright.cmd test tests/e2e/m20-native.spec.ts` | 1 passed/22.1秒，`native-main-cancel.json/log`、`native-C83qsv/` | 真showOpenDialog/showMessageBox返回值无替换；真实目录/文件选择→原请求接续/本机DOCX；Main原生取消后调用0。只控制本轮唯一PID/HWND合成路径，SelectionItem选中+固定BM_CLICK准确按钮；未开放产品能力 |
+| L3真实Windows IME | `ORVIA_M20_IME_PHYSICAL=1`运行`m20-ime.spec.ts`的版本对应组合目标 | 1 passed/6.7秒，`ime-physical-versioned.json/log`、`ime-physical-T4t0eX/`；Electron44.4.5/Chromium152.0.7977.130 | 只自有前台HWND/输入框，OS SendInput固定NIHAO+单独门闩Space共12键；trusted start/update，ordered end实际trusted=false/data你好，草稿你好/请求1→1。无Unicode/Enter/布局切换/候选窗读取；非物理人工键盘，候选Enter只另有合成229覆盖 |
+
+760×560最终Word/引用和URL直接回答截图已实际查看，无横溢；结果卡片作详情/证据/审批/下载，M18手工详情按需展开。真实原生窗口/三字体/折帆沿用M19完成证据，未扩测其他Windows/DPI/VM/AVD。
+
+### 真实Main调用与失败事实
+
+执行前已中文说明固定Main `deepseek-flash`/`https://api.deepseek.com`，合成DOCX，开发/安装各1次、全轮最多2次，网络20秒/生成30秒、零重试、每请求最多1024输出token、合计2048token；失败计次数。只输出增量计数/时间/用量/引用/成品结构，无Key或原始云请求。Computer/Browser真实模型0。测试`m20-live.spec.ts`有独占预算账本，损坏/重复消费关闭调用，不自动重置。安装安全存储使用独立合成profile，不改变用户正常配置。
+
+开发实际命令：`ORVIA_M20_LIVE=1 ORVIA_M20_LIVE_MODE=development node_modules/.bin/playwright.cmd test tests/e2e/m20-live.spec.ts --reporter=line --output=artifacts/test-results/M20/live-development-e2e`。1 failed；2026-10-03 01:02:47 UTC消费1次。SQLite只读证据`live-stream-development-failed.json`：child流`last_seq=66`/failed、111字符已持久化、错误INVALID_GENERATION，成功synthesis及publication各0，父流程保留paused。真实供应商SSE部分增量已收到，但最终严格JSON未通过，不能称成功引用/M16或完整真实生成通过。
+
+该首次测试在成功标签断言之前未保存观察器delta计数/首末时间，失败completion.finish_reason/usage也未持久化，所以不补造数据、不由111字猜截断原因。后续测试仅补元数据finally保存、准确区分length与JSON错误；保持strict引用校验。官方文档说明默认思考启用以及JSON可能受token预算截断；这是兼容性背景，不证明本次具体原因：[Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)、[JSON Output](https://api-docs.deepseek.com/guides/json_mode/)。未更改思考参数、固定角色、供应商或地址，未自动重试/降级。安装剩余1次采用独立请求、同预算、明确30字/1结论的合成问题；实际结果另续记，开发失败账本保留。
+
+### 失败修正与本机覆盖限制
+
+10月2日个别工具长挂起跨夜，10月3日恢复并保留历史日志，不称通过。目录复测初次撤权未结束时Enter不发，测试改等Send enabled；扫描sink错误曾被目录ToolError边界吞掉，修为立即停止保留prefix；UIA completed账本先于消息摘要的窗口只按账本核验，不重执行；Word消息role=system导致未滚到实际成品，显式用户操作只揭示该正确新节点，不抢焦点/影响历史。这些失败与最小通过报告均保留。
+
+Windows原生footer控件未暴露UIA Invoke/Value，测试限定准确PID/HWND/dialog/按钮ID名称后固定BM_CLICK一次，目录/文件仍实际SelectionItem选择/读回；早期launcher PID误匹配/ID和pattern失败不计通过。IME首次严格要求end trusted=true失败，真实OS组合已发生；匹配实际Chromium源码证明end走ScopedEventQueue未设置trusted，与start/update不同。只修测试断言并记录实际false，未伪造DOM输入；官方源码链见`ime-source-investigation.md`，旧失败保留。
+
+权限错误/拒绝fixture注入不能冒充每种真实Windows ACL；UIA仅自有合成WinForms，浏览器合成站点/HTTP，无真实登录/账号/交易。真实输入法只当前HKL0804+NIHAO/Space，不覆盖其他输入法/物理候选Enter；语义/引用一致性验证不是模型事实真值。生产签名与独立Windows环境仍暂缓。
+
+### 完整包验收阶段
+
+2026-10-03源码冻结后正式开始公共后端冻结、旧0.2测试基线、M20 FullTest和普通生产身份0.3候选三组串行构建。78个Python运行分发与uv.lock匹配，CPython3.12.6/PyInstaller6.22.3，完整可见Chromium153.0.8010.12/rev1243与headless/辅助、UIA工作器/私有运行时、OCR和M16库、原字体/图标许可及119分发许可原件/Chromium credits已准备。此处是输入核对，不替代实际冻结/安装证据。
+
+普通候选保留生产AppId但不安装；只使用`cn.orvia.m20.fulltest`/`Orvia M20 Full Test`的唯一隔离目录做旧0.2→0.3真实升级、历史保留/权限失效/无重放，再运行安装离线3项、运行时、固定Main和三格式成品核验。全部完成后才自有卸载，配置保留；旧M14/M19和用户正常Orvia不覆盖。完整包实际命令、hash、NotSigned、安装差异和终态须续记；当前不勾选该待办，不把M19定向视觉包当完整验收。
+
+后续兼容收口：只读`git show HEAD:backend/src/orvia_backend/chat/__init__.py`确认旧M15生成原上限为4096，新流式路径误缩1024，已恢复stream/complete（含明确confirmed_nonstream）两支及M15截断文案4096；普通问题/意图1024不变。`... -m pytest backend/tests/test_m20_generation_errors.py backend/tests/test_m15_synthesis.py backend/tests/test_m20_natural.py -q`再次34 passed/4.62秒，`synthesis-original-budget.xml`，mock真SSE、旧nonstream及明确降级均断言4096；没有降低JSON/引用校验。
+
+因此真实预算已在剩余调用前再次中文说明：开发过去1次1024失败保留，安装剩余独立1次4096，全轮最多2次/5120输出token，网络20秒/生成30秒/零重试，费用按实际用量计。安装短合成问题只给1条结论/30字，不重放开发失败、不改固定模型/供应商/Base URL/思考参数；两个消费记录都保留。
+
+公共freeze首次实际成功但归档比78显式运行依赖图额外涉及锁定lxml-html-clean/Pygments/Setuptools及第三方_pytest。AnyIO测试工具的延迟导入不属产品能力，冻结排除_pytest；按实际归档分发补许可原件/版本复核，未下载/更新依赖。此前freeze作为中间证据保留，M15恢复后重新最小最终freeze再builder，不以旧冻结后端冒充最终源。
+
+开发三格式补证：实际先设`$env:ORVIA_TEST_MODULE='M20'`、`$env:ORVIA_M20_PUBLICATION_MODE='development'`，执行`node_modules/.bin/playwright.cmd test tests/e2e/m20-publication-parity.spec.ts --reporter=line --output=artifacts/test-results/M20/publication-development-output`，1 passed/6.9秒。`m20_publication_seed.py`只读SQLite backup此前已核验mock合成回答/实际DOCX证据，原DB与源文件SHA不变、2单元/1引用、只复制app.sqlite，无Vault或目录授权。真实产品后端无模型/业务替换，三个自然请求各自新M16预览/准确合成路径保存替身/实际新文件核验/父完成，3新publication ledger同source_revision、云和公网0。
+
+`publication-parity-development-FBbb2u/publication-parity.json`记录DOCX37378B/2页规划、PPTX31338B/3幻灯片、PDF28078B/2页；三文件实际重开、标题/全部引用/hash核验通过。PDF两页图主Agent均实际查看，正文、来源附录和页脚无缺字越界。Office未实际渲染打开，Word页数是规划/断页数，不冒充Office最终自动分页；seededAnswerOrigin明确verified mock synthetic answer，不称真实供应商回答。
+
+最终freeze第3次exit0，`freeze-backend-final.log`及`freeze-final-input.json`/`freeze-final-inventory.json`：产品源hash稳定，2864归档模块/2756后端文件，78声明运行分发+3实际归档分发=81、142许可原件（另desktop6/bootloader与NSIS2），完整Chromium credits8296614B；_pytest/项目tests排除。实际后端SHA256 `d660514b5f72b546b2063259f424520d6ecd91a056845afc17f1419c3162bfd2`。三builder按基线→FullTest→普通候选串行，当前真实基线NSIS压缩中，未称已安装。
+
+
+暂停后恢复核对：2026-10-03再次`git fetch origin`、`git rev-list --left-right --count HEAD...origin/main`及`git ls-remote --symref origin HEAD`，HEAD/origin/main/远端默认main仍为6f87fe016f922846cbdabaa83f3796fd0861c8ec，0/0。保留.zcodeignore和LICENSE历史状态，未push。
+
+最后前端竞态收口：创建会话记录视图epoch，延迟create回包仅刷新侧栏，不能覆盖后来明确选择的会话/草稿或自动派发原需求。paused与真正completed/failed/cancelled分开；同请求接续无需新的started，真实顺序事件继续消费。等待pull/ACK后复核最新缓存，队列只操作本次目标对象；paused仅轮询主进程缓存，最多20流，切换不重放任务。不会复活协议错误或真正终态。
+
+`npm run build`通过，最终renderer为index-DOENNuF8.js；只前端变化，复用最终冻结后端。`node_modules/.bin/vitest.cmd run apps/desktop/tests/m20-stream.test.ts --reporter=json --outputFile=artifacts/test-results/M20/stream-race-unit-final.json`8 passed。新增测试初次payload缺必要label/stage失败，补齐严格fixture后通过，失败报告保留。`ORVIA_TEST_MODULE=M20 node node_modules/@playwright/test/cli.js test tests/e2e/m20.spec.ts --grep '延迟创建|未返回的旧paused|模型流期间' --reporter=line --output=artifacts/test-results/M20/race-e2e`3 passed/24.9秒：真实Electron/stdio/SQLite，create或pull回包门闩、mock模型/原生选择，旧paused与新接续重叠后最终ACK>8；草稿/焦点/历史阅读保持、无错会话自然请求。最初通过.cmd转发正则被Windows管道解析，未执行测试；改直接node CLI，错误日志保留。
+
+D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留原包；最终FullTest与普通候选按最新renderer重新构建。旧0.2基线保持不变，完整新后端SHA不变，安装记录以随后的实际结果为准。
+
+
+完整最终包：`node node_modules/electron-builder/cli.js --config packaging/m20-full.config.cjs --win --publish never`及根`electron-builder.config.cjs`均exit0，`builder-full-test-final.log`/`builder-production-final.log`。普通候选521447957B/SHA256 ff419e90e6623aa2e1915cf1699d8ce14df6d7de8dc8058bc6711382ae6d090e；FullTest521447927B/dad5b9278af02c26df879fcda3e510ba8e65858ba4e2270bf6a85b26823cca68。实际Get-AuthenticodeSignature核对两安装器及两EXE均NotSigned，`signatures-final-packages.json`。`node tests/integration/m20-candidate-parity.cjs`逐文件比较22份ASAR dist与当前build完全一致、runtime-manifest一致；测试AppId/PE安装身份与普通候选不同，普通身份从未安装。最初临时比较未归一Windows路径得到0项，另次statFile路径失败，均不算证据；正式入口增加最低文件数和当前build逐字节断言，最终`candidate-business-parity-verified.json`通过。59份冻结输入源/打包文件hash仍匹配，`freeze-input-final-verification.json`；renderer单独更新不重冻后端。
+
+实际`powershell -NoProfile -File tests/integration/m20-install.ps1 -Stage Preflight`无既有测试安装；随后InstallBaseline exit0，`ORVIA_M20_UPGRADE_STAGE=seed node node_modules/vitest/vitest.mjs run tests/integration/m20-upgrade.test.ts --reporter=json --outputFile=artifacts/test-results/M20/upgrade-seed-test.json`1 passed/另2阶段skip。Upgrade实际exit0；再设verify，`upgrade-verify-test.json`1 passed/另2阶段skip。完整资源4183文件/1298858022B与目录包逐字节hash一致，原注册身份不变、快捷方式准确，0.2→0.3是实际版本升级。5历史消息、DOCX证据/引用、Mission固定配置保留；旧目录grant为空/inspect拒绝、无自动执行。此前资源审计与正在升级的EXE替换重叠失败FileNotFound，日志保留；后续资源审计等升级完成后独立执行。
+
+安装离线命令：`ORVIA_TEST_MODULE=M20 ORVIA_M20_OFFLINE_MODE=installed node node_modules/@playwright/test/cli.js test tests/e2e/m20-installed.spec.ts --reporter=line --output=artifacts/test-results/M20/offline-installed-output`，3 passed/34.8秒，`offline-installed.log`。真实安装EXE/冻结服务、清空开发凭据及PATH仅System32；原生选择/保存为准确合成路径替身，模型/公网0。目录空/5000上限及全部分页/重启/权限、真实DOCX/PPTX/OCR/引用导出/解绑/坏文件/超限、固定缺凭据/strict IPC均通过。
+
+安装运行时命令：`ORVIA_M20_PARITY_MODE=installed`同node Playwright执行`tests/e2e/m20-runtime-parity.spec.ts --reporter=line --output=artifacts/test-results/M20/runtime-installed-output`，1 passed/30.8秒，`runtime-parity-installed.json`。两同会话新脚本operation与准确接续、LPAC/Job真实执行与逐个导出、越界读/写/runtime写/socket均拒绝、环境清洁；真实UIA工作器控自有WinForms；完整可见Chromium153 LowIL/无提权，无no-sandbox，动态GET在DNS前暂停/拒绝，外发0/进程回收。原生决定合成替身，无模型或HTTP替换；浏览器目标未加载，不冒充公网写操作或独立Windows。
+
+
+安装三格式命令：`ORVIA_TEST_MODULE=M20 ORVIA_M20_PUBLICATION_MODE=installed node node_modules/@playwright/test/cli.js test tests/e2e/m20-publication-parity.spec.ts --reporter=line --output=artifacts/test-results/M20/publication-installed-output`，1 passed/14.3秒。`publication-parity-installed-s8EwdB/publication-parity.json`，使用与开发版同合法mock合成seed、3自然请求/3新成品账本、相同source_revision；无新模型生成、云/公网0。DOCX37378B/两页规划，PPTX31338B/3slides，PDF28078B/2页，独立重开/引用/标题全通过；PDF2页主Agent实际查看无缺字越界，Office未实际渲染。开发/安装尺寸和结构一致，容器时间元数据不要求SHA相同。
+
+安装真实Main命令：`ORVIA_TEST_MODULE=M20 ORVIA_M20_LIVE=1 ORVIA_M20_LIVE_MODE=installed node node_modules/@playwright/test/cli.js test tests/e2e/m20-live.spec.ts --reporter=line --output=artifacts/test-results/M20/live-installed-e2e`，1 passed/13.9秒，`live-installed.log`。2026-10-03 02:00:12.973 UTC独立消费剩余1次、4096上限，固定Main/原BaseURL、合成DOCX、20秒网络/30秒生成/0重试；先确切预览，原生批准为固定测试决定，safeStorage仅隔离profile。`live-stream-installed.json`记录11个真实文本delta/20字符、同stream/request seq2–12，首增量1790992816708ms、末增量1790992816734ms、完成1790992817051ms；增量产生在完成前，不是逐字动画。真实usage输入680/输出713/总1393token，2条引用核验、成功回答持久化；不记录原始云请求或凭据。
+
+该真实结果随后本地生成DOCX37385B/两页规划、PPTX31391B/3slides、PDF27604B/2页，三个文件均独立重开/2引用/标题/SHA核验；`live-installed-svtBKP/`中PDF2页主Agent实际查看，无中文缺字或定位越界。所有成品共用一次成功模型结果，未新增云调用。开发首次INVALID_GENERATION/111字符/seq66失败原样保留；不是同输入同预算A/B成功率比较，未猜首次失败finish_reason/usage，也未补发开发请求。总账2次已耗尽，Computer/Browser真实模型0。
+
+逐项对照见`artifacts/test-results/M20/development-installed-comparison.md`：目录/解析OCR/导出/资料/权限/LPAC/UIA/可见Chromium/三格式行为一致；开发launcher版本返回Electron44.4.5而实际安装产品版本0.3.0-rc.1，差异明确记录。安装实际EXE及卸载器也均Get-AuthenticodeSignature=NotSigned，`signatures-installed.json`。生产签名和独立Windows验收仍暂缓，不称正式发行。
+
+最终安装资源审计`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m20_package_audit.py --installed --check-local-secrets`exit0：实际安装4257文件、142Python原许可、4PE、版本/后端/私有解释器/完整浏览器/工作器/OCR/字体图标全匹配，credentialsChecked=true；包及当次78623产物文件凭据匹配均0，禁入文件0（此时尚未暂存，不代替index检查）。普通候选`--production`资源审计亦exit0、4255文件；其秘密检查由本轮末尾全产物/index审计补齐。
+
+
+`powershell -NoProfile -File tests/integration/m20-install.ps1 -Stage Uninstall`实际exit0，`install-uninstall.log`/`uninstallation.json`：只核验过hash的自有卸载器，无提权，测试EXE/注册项/快捷方式均移除，合成profile保留，正常Orvia/用户配置未检查或删除。随后`ORVIA_M20_UPGRADE_STAGE=preserved node node_modules/vitest/vitest.mjs run tests/integration/m20-upgrade.test.ts --reporter=json --outputFile=artifacts/test-results/M20/uninstall-preserved-test.json`1 passed/另2阶段skip，真实保留sentinel和app.sqlite、测试EXE不存在。至此功能验收、完整包本机安装/升级/卸载/开发对照两类授权目标均通过；生产签名及独立Windows发布验收继续未完成。最终包保留，不重新安装用户正常身份。
+
+
+本轮交付提交定位：`feat(M20): unify natural chat streaming and verify full Windows candidates`，具体哈希可用`git log -1 --format="%H %s"`核对（提交哈希不写入自身内容）；push状态为待用户手动执行，Agent没有push、Release或历史改写。显式暂存116个本轮源码/测试/文档/许可文件，.zcodeignore保持未跟踪，LICENSE无差异且未暂存。测试产物、数据库、配置、安装包均在忽略树；最终index及全产物敏感审计另附计数记录。
+
+
+提交前最终卫生审查：`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m20_hygiene.py`修正Windows超长路径入口后exit0，`hygiene-staged-longpath.log`/`hygiene-staged.json`：actual staged index 116文件，禁止路径0、凭据匹配0、私钥块0、图标/字体manifest差异0；86024份保留产物凭据匹配0。初次普通路径扫描在归档Chromium深路径lstat失败，没有跳过文件或计通过；仅测试入口改为Windows长路径，再完整扫过。`final-index-check.json`另核对7份补充上游许可原字节、最终暂存内容及tree；无Key/数据库/日志/用户文件/构建产物入index。`git diff --check`、`git diff --cached --check`通过；除.zcodeignore外所有本轮变更显式暂存，LICENSE未动。本轮按上述提交标题正常提交后立即停止，待用户手动push。

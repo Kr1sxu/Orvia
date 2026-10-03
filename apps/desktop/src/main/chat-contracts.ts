@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {workflowSchema,materialSchema,streamStateSchema} from './m20-contracts';
 
 /** 会话业务契约不包含根路径、命令或模型覆盖字段，跨进程边界拒绝额外参数。 */
 export const chatIdSchema = z.object({ id: z.string().uuid() }).strict();
@@ -29,7 +30,7 @@ export const chatDocumentExportSchema = chatDocumentPreviewSchema.extend({revisi
 /** 生成只能引用当前会话证据 ID；正文范围由后端计算并经主进程预览确认。 */
 export const synthesisSourceSchema=z.object({kind:z.enum(['document','browser']),evidence_id:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
 export const chatSynthesisPreviewSchema=chatIdSchema.extend({mode:z.enum(['summary','answer']),question:z.string().trim().min(1).max(300),sources:z.array(synthesisSourceSchema).min(1).max(3)}).strict();
-export const chatSynthesisGenerateSchema=chatSynthesisPreviewSchema.extend({request_id:z.string().uuid(),revision:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
+export const chatSynthesisGenerateSchema=chatSynthesisPreviewSchema.extend({request_id:z.string().uuid(),revision:z.string().regex(/^[a-f0-9]{64}$/),stream_mode:z.enum(['stream','confirmed_nonstream']).optional()}).strict();
 export const synthesisFragmentSchema=z.object({citation:z.string(),kind:z.enum(['document','browser']),evidence_id:z.string(),locator:z.string(),unit:z.number().optional(),chunk:z.number(),text:z.string().max(600),method:z.string().optional(),confidence:z.number().nullable().optional()});
 export const synthesisCoverageSchema=z.object({kind:z.enum(['document','browser']),evidence_id:z.string(),title:z.string(),accessed_at:z.string().nullable(),selected_chunks:z.number(),available_chunks:z.number(),source_truncated:z.boolean(),missing_units:z.array(z.number()),ocr_available:z.boolean(),ocr_selected:z.boolean()});
 export const synthesisPreviewSchema=z.object({mode:z.enum(['summary','answer']),question:z.string(),supplier:z.string(),fragments:z.array(synthesisFragmentSchema).max(9),coverage:z.array(synthesisCoverageSchema).max(3),revision:z.string().regex(/^[a-f0-9]{64}$/)});
@@ -86,14 +87,17 @@ export function parseInspect(input: unknown) {
 }
 export const actionSchema = z.object({ kind: z.enum(['mkdir', 'move', 'rename']), source: z.string().nullable().optional(), destination: z.string(), sequence: z.number().optional() });
 export const operationSchema = z.object({ operation_id: z.string().uuid(), revision: z.string(), status: z.string(), actions: z.array(actionSchema), error: z.string().nullable().optional(), can_undo: z.boolean().optional() });
-export const taskStatusSchema = z.enum(['draft','running','awaiting_approval','completed','failed','interrupted','cancelled','undone','partially_undone']);
+export const taskStatusSchema = z.enum(['draft','running','waiting_input','waiting_approval','awaiting_approval','completed','failed','interrupted','cancelled','undone','partially_undone']);
 export const operationHistorySchema = z.object({operation_id:z.string().uuid(),revision:z.string(),status:z.string(),created_at:z.string(),updated_at:z.string(),can_undo:z.boolean()});
-export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','source','source_request','document_request','document','export','synthesis_request','synthesis','publication_request','publication','development','cleanup','automation','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() }).superRefine((message,ctx)=>{
+/** 中断前缀仍是未核验数据；strict身份和编码预算不能让其成为M15成功结果。 */
+export const modelPartialSchema=z.object({request_id:z.string().uuid(),stream_id:z.string().uuid(),last_seq:z.number().int().min(0),state:z.enum(['running','paused','completed','failed','cancelled','interrupted']),text:codepoints(16000).refine(value=>new TextEncoder().encode(JSON.stringify(value)).length<=24*1024),provisional:z.literal(true)}).strict();
+export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user','assistant','system']), text: z.string(), kind: z.enum(['text','scan','directory_result','natural_request','natural_answer','model_partial','clarification','material_removed','source','source_request','document_request','document','export','synthesis_request','synthesis','publication_request','publication','development','cleanup','automation','workflow','plan','result','error']), data: z.record(z.unknown()).nullable(), created_at: z.string() }).superRefine((message,ctx)=>{
   if(message.kind==='document'&&!documentMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'文档消息不符合契约'});
   if(message.kind==='export'&&!documentExportMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'导出消息不符合契约'});
   if(message.kind==='source'&&!browserMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'来源消息不符合契约'});
   if(message.kind==='synthesis'&&!synthesisMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'生成回答不符合契约'});
   if(message.kind==='publication'&&!publicationMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'成品核验消息不符合契约'});
+  if(message.kind==='model_partial'&&!modelPartialSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'部分模型文字不符合身份或预算契约'});
 });
 export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.string(), mission_id: z.string().uuid(), messages: z.array(chatMessageSchema),
   grant: z.object({ root_label: z.string().nullable(), grant_id: z.string().uuid(), calls_remaining: z.number() }).nullable(), operation: operationSchema.nullable(),
@@ -101,6 +105,7 @@ export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.str
   documents:z.array(documentEvidenceSchema).max(20).optional(),documents_truncated:z.boolean().optional(),
   sources: z.array(browserEvidenceSchema).max(20).optional(), sources_truncated:z.boolean().optional(),
   status: taskStatusSchema.optional(), operations: z.array(operationHistorySchema).max(10).optional(), operations_truncated: z.boolean().optional(),
+  workflow:workflowSchema.nullable().optional(),materials:z.array(materialSchema).max(3).optional(),stream:streamStateSchema.nullable().optional(),
 });
 export const chatListSchema = z.object({ conversations: z.array(z.object({ id: z.string().uuid(), title: z.string(), status: taskStatusSchema.optional() })) });
 export type ConversationSummary = z.infer<typeof chatListSchema>['conversations'][number];

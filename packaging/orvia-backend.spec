@@ -23,7 +23,9 @@ binaries = collect_dynamic_libs('pypdfium2_raw') + collect_dynamic_libs('onnxrun
 
 a = Analysis([str(root / 'packaging/backend_entry.py')], pathex=[str(root / 'backend/src')],
              binaries=binaries, datas=datas, hiddenimports=hidden,
-             excludes=['pytest', 'tkinter', 'unittest'], noarchive=False)
+             # AnyIO的TestRunner延迟导入_pytest，仅第三方测试助手使用；
+             # 产品不运行测试，不能因安装了开发依赖而把它带入冻结归档。
+             excludes=['pytest', '_pytest', 'tkinter', 'unittest'], noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='orvia-backend',
           debug=False, bootloader_ignore_signals=False, strip=False, upx=False, console=True)

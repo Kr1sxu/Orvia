@@ -1,9 +1,10 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { backendLaunch, type PackagedRuntime } from './runtime';
 import { JsonLines, VERSION, MAX_LINE_BYTES, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
 import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema, developmentContextSchema, developmentDraftSchema, cleanupPlanSchema } from './chat-contracts';
+import { m20StreamEventSchema, m20ScanPageSchema, streamPullInput, streamAckInput, type M20StreamEvent, type StreamPull } from './m20-contracts';
 
 /** 仅传递后端固定错误码；正文可能含输入或供应商回显，禁止转发。 */
 export class BackendRequestError extends Error {
@@ -17,7 +18,9 @@ import { configurationSchema, missionSchema, missionCreateSchema, grantStatusSch
 type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily', string>>;
 type Initialization = { dataDirectory: string; credentials: () => Secrets };
 
-type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout };
+type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout; business?: {id:string;request_id:string} };
+type BufferedStream = { events:M20StreamEvent[]; reorder:Map<number,M20StreamEvent>; recent:Map<number,string>; streamId:string; lastSeq:number; acked:number; delivered:number; terminal:boolean; finished:boolean; gapTimer?:NodeJS.Timeout };
+const STREAM_EVENTS=80, STREAM_BYTES=128*1024, STREAM_PULL_BYTES=48*1024;
 
 /** 开发使用固定虚拟环境，发布使用 ASAR 外的自带后端；失败不会回退系统 Python。 */
 export class BackendClient {
@@ -29,6 +32,10 @@ export class BackendClient {
   private exited?: Promise<void>;
   private connected = false;
   private stopped?: Promise<void>;
+  private streams=new Map<string,BufferedStream>();
+  private streamBytes=0;
+  private streamCount=0;
+  private consumerWait?:{resolve:()=>void;reject:(error:Error)=>void;timer:NodeJS.Timeout};
   /** 只投影连接事实，不暴露子进程、路径或待处理请求内容。 */
   get connectionState(): 'ready' | 'starting' | 'disconnected' {
     return this.failed || this.closing ? 'disconnected' : this.connected ? 'ready' : 'starting';
@@ -53,16 +60,13 @@ export class BackendClient {
     this.child.on('error', () => this.fail(new Error(this.packaged ? '安装包后端无法启动，请检查安装文件完整性' : '无法启动本地 Python 3.12 后端，请先按 README 安装环境')));
     this.child.stdin.on('error', () => this.fail(new Error('本地后端输入管道已关闭')));
     this.child.stdout.on('data', (chunk: Buffer) => {
+      // 一次只解析一个Node输入块；有界事件队列满时保持pause，将背压传回Python管道。
+      // 除128KiB队列外仅持有当前输入块与操作系统管道，不向renderer无限发送IPC。
+      this.child!.stdout.pause();
       try {
-        for (const value of lines.push(chunk)) {
-          const response = responseSchema.parse(value);
-          const pending = response.id ? this.pending.get(response.id) : undefined;
-          if (!pending) throw new Error('响应 ID 不匹配');
-          this.pending.delete(response.id!);
-          clearTimeout(pending.timer);
-          if (response.ok) pending.resolve(response.result);
-          else pending.reject(new BackendRequestError(response.error.code));
-        }
+        void this.consumeFrames(lines.push(chunk)).then(()=>{
+          if(!this.failed&&!this.closing)this.child?.stdout.resume();
+        }).catch(()=>this.fail(new BackendConnectionError('BACKEND_PROTOCOL','本地事件身份、顺序或消费预算无效；未自动重放')));
       } catch { this.fail(new BackendConnectionError('BACKEND_PROTOCOL', '本地后端协议无效或版本不兼容')); }
     });
     // 持续消费 stderr，避免管道堵塞；不把原始后端内容泄漏到 UI 或日志。
@@ -97,6 +101,106 @@ export class BackendClient {
     await this.start();
     return z.object({ cancelled: z.boolean() }).strict().parse(await this.request('chat.cancel', params));
   }
+  private async consumeFrames(values:unknown[]) {
+    for(const value of values){
+      if(typeof value==='object'&&value!==null&&'event' in value){
+        const event=m20StreamEventSchema.parse(value);
+        const pending=this.pending.get(event.id);
+        if(!pending?.business||pending.business.id!==event.conversation_id||pending.business.request_id!==event.request_id)
+          throw new Error('事件不属于活动请求');
+        await this.bufferEvent(event);
+        continue;
+      }
+      const response=responseSchema.parse(value);
+      const pending=response.id?this.pending.get(response.id):undefined;
+      if(!pending)throw new Error('响应ID不匹配');
+      this.pending.delete(response.id!);clearTimeout(pending.timer);
+      if(response.ok)pending.resolve(response.result);else pending.reject(new BackendRequestError(response.error.code));
+    }
+  }
+  private streamKey(id:string,requestId:string){return `${id}:${requestId}`;}
+  private eventBytes(event:M20StreamEvent){return Buffer.byteLength(JSON.stringify(event),'utf8');}
+  private async bufferEvent(event:M20StreamEvent){
+    const key=this.streamKey(event.conversation_id,event.request_id);
+    let state=this.streams.get(key);
+    if(!state){
+      // 已ACK的旧终态只保留有限数量；waiting阶段保留序号供一次性continue核对。
+      if(this.streams.size>=16){
+        for(const [oldKey,old] of this.streams){
+          if(old.finished&&old.events.length===0&&old.reorder.size===0){this.streams.delete(oldKey);break;}
+        }
+      }
+      if(this.streams.size>=16)throw new Error('流身份预算已满');
+      state={events:[],reorder:new Map(),recent:new Map(),streamId:event.stream_id,lastSeq:0,acked:0,delivered:0,terminal:false,finished:false};
+      this.streams.set(key,state);
+    }
+    if(state.streamId!==event.stream_id)throw new Error('同请求流身份已变化');
+    if(event.seq<=state.lastSeq){
+      const prior=state.recent.get(event.seq);
+      // ACK不意味着可以改变旧事实；仅在16项有界重复窗口内容忍相同事件。
+      // 更早的帧停止连接，不为未知来源猜测、接续或自动重放。
+      if(!prior||prior!==createHash('sha256').update(JSON.stringify(event)).digest('hex'))throw new Error('重复事件内容不一致或超出窗口');
+      return;
+    }
+    if(state.reorder.has(event.seq)){
+      if(JSON.stringify(state.reorder.get(event.seq))!==JSON.stringify(event))throw new Error('重复乱序事件不一致');
+      return;
+    }
+    if(event.seq-state.lastSeq>16||state.reorder.size>=16)throw new Error('事件缺口超过有界重排预算');
+    const bytes=this.eventBytes(event);
+    while(this.streamCount>=STREAM_EVENTS||this.streamBytes+bytes>STREAM_BYTES){
+      clearTimeout(state.gapTimer);state.gapTimer=undefined;
+      await new Promise<void>((resolve,reject)=>{
+        if(this.consumerWait){reject(new Error('并行消费等待无效'));return;}
+        const timer=setTimeout(()=>{
+          this.consumerWait=undefined;
+          reject(new Error('流式消费超时'));
+        },10000);
+        this.consumerWait={resolve,reject,timer};
+      });
+      if(this.failed||this.closing)throw new Error('连接不可用');
+    }
+    this.streamBytes+=bytes;this.streamCount++;
+    state.reorder.set(event.seq,event);
+    while(state.reorder.has(state.lastSeq+1)){
+      const next=state.reorder.get(state.lastSeq+1)!;state.reorder.delete(next.seq);
+      state.events.push(next);state.lastSeq=next.seq;
+      state.recent.set(next.seq,createHash('sha256').update(JSON.stringify(next)).digest('hex'));
+      if(state.recent.size>16)state.recent.delete(state.recent.keys().next().value!);
+      state.terminal=['paused','completed','failed','cancelled'].includes(next.kind);
+      state.finished=['completed','failed','cancelled'].includes(next.kind);
+    }
+    if(state.reorder.size&&!state.gapTimer){
+      state.gapTimer=setTimeout(()=>this.fail(new BackendConnectionError('BACKEND_PROTOCOL','流式事件序号缺口超时；请读取历史事实，未自动重发')),2000);
+    }else if(!state.reorder.size&&state.gapTimer){clearTimeout(state.gapTimer);state.gapTimer=undefined;}
+  }
+  /** 只拉取本机已经收到的真实事件；不向后端重发任务或执行工具。 */
+  streamPull(params:{id:string;request_id:string;after_seq:number;limit?:40}):StreamPull {
+    const input=streamPullInput.parse(params),state=this.streams.get(this.streamKey(input.id,input.request_id));
+    if(!state)return {events:[],last_seq:0,terminal:false,gap:false};
+    const events:M20StreamEvent[]=[];
+    for(const event of state.events){
+      if(event.seq<=input.after_seq)continue;
+      if(events.length>=40||Buffer.byteLength(JSON.stringify({events:[...events,event]}),'utf8')>STREAM_PULL_BYTES-512)break;
+      events.push(event);
+    }
+    if(events.length)state.delivered=Math.max(state.delivered,events[events.length-1].seq);
+    // 临时乱序尚未确认丢失，留给2秒有界重排；不让renderer提前误停正常流。
+    return {events,last_seq:state.lastSeq,terminal:state.terminal,gap:input.after_seq<state.acked};
+  }
+  /** ACK只回收传输缓冲；不授予目录、正文发送、脚本或任何业务审批。 */
+  streamAck(params:{id:string;request_id:string;seq:number}):{acked:boolean}{
+    const input=streamAckInput.parse(params),state=this.streams.get(this.streamKey(input.id,input.request_id));
+    if(!state||input.seq>state.delivered||input.seq<state.acked)return {acked:false};
+    const removed=state.events.filter(event=>event.seq<=input.seq);
+    this.streamBytes-=removed.reduce((total,event)=>total+this.eventBytes(event),0);this.streamCount-=removed.length;
+    state.events=state.events.filter(event=>event.seq>input.seq);state.acked=input.seq;
+    if(this.consumerWait){const waiting=this.consumerWait;this.consumerWait=undefined;clearTimeout(waiting.timer);waiting.resolve();}
+    return {acked:true};
+  }
+  async scanPage(params:{id:string;scan_id:string;offset?:number}){
+    await this.start();return m20ScanPageSchema.parse(await this.request('chat.scan.page',params));
+  }
   /** 方法名仅供主进程固定业务入口使用；preload 不暴露此分发器。 */
   async chatSource(params: {id:string;evidence_id:string}) {
     await this.start(); return browserEvidenceSchema.parse(await this.request('chat.browser.source',params));
@@ -129,7 +233,7 @@ export class BackendClient {
     if(!allowed.includes(suffix))throw new BackendRequestError('METHOD_NOT_FOUND');
     await this.start();return this.request(`chat.automation.${suffix}`,params);
   }
-  async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.generate' | 'chat.publication.save' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
+  async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.generate' | 'chat.publication.save' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
     await this.start(); return chatSnapshotSchema.parse(await this.request(method, params));
   }
   async missions() { await this.start(); return z.object({ missions: z.array(missionSchema) }).strict().parse(await this.request('missions.list')); }
@@ -147,7 +251,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
@@ -157,8 +261,12 @@ export class BackendClient {
     if(Buffer.byteLength(payload,'utf8')>MAX_LINE_BYTES)return Promise.reject(new BackendRequestError('OUTPUT_LIMIT'));
     return new Promise((resolve, reject) => {
       // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
-      const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')), method.startsWith('chat.') ? 65000 : this.timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
+      // 完整M15–M20冷启动加载锁定解析/隔离依赖，给握手和初始化独立20秒。
+      // 健康检查保留短期限；这只等待自有进程，不延长模型预算或自动重启。
+      const timeout=method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
+      const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')),timeout);
+      const business=params as {id?:unknown;request_id?:unknown};
+      this.pending.set(id, { resolve, reject, timer,...(typeof business.id==='string'&&typeof business.request_id==='string'?{business:{id:business.id,request_id:business.request_id}}:{}) });
       this.child!.stdin.write(payload);
     });
   }
@@ -167,6 +275,9 @@ export class BackendClient {
     this.failed ??= error;
     for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(this.failed); }
     this.pending.clear();
+    for(const stream of this.streams.values())clearTimeout(stream.gapTimer);
+    this.streams.clear();this.streamBytes=0;this.streamCount=0;
+    if(this.consumerWait){const waiting=this.consumerWait;this.consumerWait=undefined;clearTimeout(waiting.timer);waiting.reject(this.failed);}
     if (!this.closing) this.child?.kill();
   }
 

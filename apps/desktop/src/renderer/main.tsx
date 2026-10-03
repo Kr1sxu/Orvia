@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Conversation, ReadCall, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource } from '../main/chat-contracts';
 import type { Reply, Settings } from '../shared/api';
@@ -12,6 +12,11 @@ import { M17Workspace } from './M17Cards';
 import { M18Workspace } from './M18Cards';
 import { nearBottom, submitsMessage, taskLabels } from './chat-state';
 import {BrandMark,Icon} from './Visual';
+import {AddMaterialMenu} from './AddMaterialMenu';
+import {DirectoryAnswer,LiveResult,PartialModelMessage} from './M20Results';
+import {newStream,consumeStream,type LiveStream} from './m20-state';
+import {chatSynthesisPreviewSchema,chatPublicationPreviewSchema} from '../main/chat-contracts';
+import type {Workflow} from '../main/m20-contracts';
 import './style.css';
 
 function App() {
@@ -19,7 +24,8 @@ function App() {
   const [conversation, setConversation] = useState<Conversation>();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
-  const [intent,setIntent] = useState<'files'|'search'|'read'|'ask'|'document'>('files');
+  const [streams,setStreams]=useState<Record<string,LiveStream>>({});
+  const [attachmentStatus,setAttachmentStatus]=useState<{cid:string;items:{title:string;status:'pending'|'parsing'|'ready'|'failed'|'cancelled'}[]}>();
   const [source,setSource] = useState<{cid:string;value:BrowserEvidence}>();
   const [document,setDocument] = useState<{cid:string;value:DocumentEvidence}>();
   const [preview,setPreview] = useState<{cid:string;value:DocumentPreview}>();
@@ -27,7 +33,7 @@ function App() {
   const [synthesisQuestion,setSynthesisQuestion]=useState('请概括所选资料的主要内容、证据和局限。');
   const [selectedSources,setSelectedSources]=useState<SynthesisSource[]>([]);
   const [synthesisPreview,setSynthesisPreview]=useState<{cid:string;value:SynthesisPreview;sources:SynthesisSource[]}>();
-  const [publication,setPublication]=useState<{cid:string;message:Conversation['messages'][number]}>();
+  const [publication,setPublication]=useState<{cid:string;message:Conversation['messages'][number];format?:'docx'|'pptx'|'pdf';request_id?:string}>();
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('');
   const [notice, setNotice] = useState('');
@@ -44,10 +50,19 @@ function App() {
   const working = useRef(false);
   const composing = useRef(false);
   const end = useRef<HTMLDivElement>(null);
+  const latestResult=useRef<HTMLElement|null>(null),liveResult=useRef<HTMLDivElement|null>(null);
+  const resultNodes=useRef(new Map<string,HTMLElement>()),revealSavedResult=useRef<{cid:string;message_id:string}|undefined>(undefined);
+  const sourceDetail=useRef<HTMLElement|null>(null),documentDetail=useRef<HTMLElement|null>(null),revealEvidence=useRef<{cid:string;kind:'browser'|'document'}|undefined>(undefined);
   const scroll = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const follow = useRef(true);
+  const readingPositions=useRef(new Map<string,number>()),restoreReading=useRef<{id:string;top:number}|undefined>(undefined),historicalView=useRef(false);
   const previousRemoteBusy = useRef(false);
+  const drafts=useRef(new Map<string,string>()),draftText=useRef(''),streamValues=useRef<Record<string,LiveStream>>({}),streamRequest=useRef<{id:string;request_id:string}|undefined>(undefined);
+  const streamQueue=useRef<{id:string;request_id:string}[]>([]),requestStreams=useRef(new Map<string,LiveStream>());
+  const viewEpoch=useRef(0);
+  const continueGate=useRef<{id:string;request_id:string}|undefined>(undefined),preparedWorkflow=useRef('');
+  const hasChosenView=useRef(false),pendingCid=useRef<string|undefined>(undefined);
   // 同一请求失败后保留请求ID；重发不应导致第二次模型调用或文件计划。
   const submission = useRef<{id:string;text:string;request_id:string} | undefined>(undefined);
   const webSubmission = useRef<{id:string;value:string;intent:string;request_id:string}|undefined>(undefined);
@@ -61,8 +76,38 @@ function App() {
     if(status.ok&&status.result.busy)return;
     await reloadSettings(); await refreshList();
   } catch { setLoadingList(false);setNotice('本地连接失败，请使用重新连接。'); } })(); }, []);
-  useEffect(() => { if (follow.current) end.current?.scrollIntoView({block:'end'}); else setUnread(true); }, [conversation?.messages, pendingUser, phase]);
-  useEffect(() => { if (!busy && !remoteBusy && !showSettings) input.current?.focus(); }, [busy, remoteBusy, showSettings]);
+  // 历史加载在绘制前恢复其阅读位置；异步增量与终态只更新事实，不能重新跟随到底部。
+  useLayoutEffect(()=>{const target=restoreReading.current;if(target&&conversation?.id===target.id&&scroll.current){scroll.current.scrollTop=target.top;restoreReading.current=undefined;}},[conversation?.id,conversation?.messages]);
+  // 仅响应用户本次引用点击；同会话真实回包绘制后一次滚入详情，不改变输入焦点。
+  useLayoutEffect(()=>{const target=revealEvidence.current;if(!target||target.cid!==conversation?.id)return;const node=target.kind==='browser'?sourceDetail.current:documentDetail.current;if(node){revealEvidence.current=undefined;follow.current=false;historicalView.current=true;node.scrollIntoView({block:'start'});}},[source,document,conversation?.id]);
+  // 显式保存成功后只呈现本次新核验成品，不恢复后台自动跟随或影响另一会话。
+  useLayoutEffect(()=>{const target=revealSavedResult.current;if(!target||target.cid!==conversation?.id)return;const node=resultNodes.current.get(target.message_id);if(node?.isConnected){revealSavedResult.current=undefined;node.scrollIntoView({block:'end'});}},[conversation?.id,conversation?.messages]);
+  function showLatestResult(){
+    const live=streams[conversation?.id??''];
+    const savedPartial=live?.stream_id&&conversation?.messages.some(message=>message.kind==='model_partial'&&message.data?.stream_id===live.stream_id);
+    const result=live&&(!live.terminal||live.error&&!savedPartial)?liveResult.current:conversation?.workflow?end.current:latestResult.current;
+    (result?.isConnected?result:end.current)?.scrollIntoView({block:'end'});
+  }
+  // 自动跟随直接结果，避免无关执行表单把已核验回答挤出阅读区；历史位置仍由用户掌握。
+  useEffect(() => { if (follow.current&&!historicalView.current) showLatestResult(); else setUnread(true); }, [conversation?.messages, pendingUser, streams[conversation?.id??'']]);
+  // 增量只更新所属会话缓存；正在阅读别的会话也持续消费和ACK，防止旧任务堵住stdio。
+  useEffect(()=>{let stopped=false,pulling=false;async function pull(){
+    const target=streamQueue.current[0];if(stopped||pulling||!target)return;pulling=true;
+    try{let current=requestStreams.current.get(target.request_id)??newStream(target.id,target.request_id);const reply=await window.orvia.chatStreamPull({...target,after_seq:current.seq});
+      if(stopped||!reply.ok)return;
+      current=requestStreams.current.get(target.request_id)??current;
+      current=reply.result.gap?{...current,error:'流事件存在缺口，请读取已保存事实；不会自动重试。',terminal:true}:consumeStream(current,reply.result.events);
+      requestStreams.current.set(target.request_id,current);
+      if(streamRequest.current?.request_id===target.request_id){streamValues.current={...streamValues.current,[target.id]:current};setStreams(streamValues.current);}
+      if(reply.result.events.length)await window.orvia.chatStreamAck({...target,seq:current.seq});
+      // paused继续轮询本地主进程有界缓存，防止旧paused与新接续同批到达时丢失后续ACK。
+      // 只处理本次目标对象；等待pull/ACK期间新建的接续目标不能被旧回包移除。
+      if(current.terminal&&(!current.paused||current.error))streamQueue.current=streamQueue.current.filter(item=>item!==target);
+      else if(streamQueue.current[0]===target&&streamQueue.current.length>1)streamQueue.current=[...streamQueue.current.slice(1),target];
+    }catch{const current=requestStreams.current.get(target.request_id);if(current){streamValues.current={...streamValues.current,[target.id]:{...current,error:'连接中断；部分结果待核对，未自动重试。',terminal:true}};setStreams(streamValues.current);}streamQueue.current=[];}
+    finally{pulling=false;}}
+    const timer=setInterval(()=>void pull(),50);return()=>{stopped=true;clearInterval(timer);};
+  },[]);
   useEffect(() => {
     let stopped=false, polling=false;
     async function poll() {
@@ -74,8 +119,9 @@ function App() {
         if (reply.ok) {
           setOnline(reply.result.state==='ready'); setRemoteBusy(reply.result.busy);
           setActiveSend(reply.result.cancellable ? reply.result.activeSend : undefined);
+          if(reply.result.materialProcessing)setAttachmentStatus({cid:reply.result.materialProcessing.id,items:reply.result.materialProcessing.items});
           // 重载期间只读主进程状态；请求结束后再读取事实，不重放发送或审批。
-          if(reply.result.activeSend&&!activeId.current)activeId.current=reply.result.activeSend.id;
+          if(reply.result.activeSend&&!activeId.current&&!hasChosenView.current)activeId.current=reply.result.activeSend.id;
           if(previousRemoteBusy.current&&!reply.result.busy&&reply.result.state==='ready'&&!working.current){
             const id=activeId.current;if(id)accept(await window.orvia.chatGet({id}),id);
             await refreshList();await reloadSettings();
@@ -90,14 +136,17 @@ function App() {
   }, []);
   async function cancel() {
     if(!activeSend||cancelling)return;
+    if(conversation?.workflow)beginStream(conversation.id,conversation.workflow.request_id);
     setCancelling(true);
     try {
       const reply=await window.orvia.chatCancel(activeSend);
-      setNotice(reply.ok ? reply.result.cancelled ? '已请求取消规划；请等待确认。不会自动重发。' : '请求已结束或当前阶段不能取消，请刷新任务状态。' : reply.message);
+      setNotice(reply.ok ? reply.result.cancelled ? '已请求取消当前只读或模型步骤；请等待确认。不会自动重发。' : '请求已结束或当前阶段不能取消，请刷新任务状态。' : reply.message);
     } catch {setNotice('取消确认失败，请刷新任务状态；不要重复审批。');}
     finally {setCancelling(false);}
   }
   async function reconnect() {
+    viewEpoch.current++;
+    continueGate.current=undefined;streamRequest.current=undefined;streamQueue.current=[];
     await run('正在重新连接本地服务…',async()=>{
       const reply=await window.orvia.reconnect(); if(!reply.ok){setNotice(reply.message);return;}
       setOnline(true);setRemoteBusy(false);setActiveSend(undefined);submission.current=undefined;
@@ -111,47 +160,67 @@ function App() {
     // 回包只能更新发起请求时的会话，不能覆盖后来选择的会话。
     if (id && activeId.current !== id) return false;
     activeId.current = reply.result.id; setConversation(reply.result);
+    if(continueGate.current?.id===reply.result.id&&!reply.result.workflow)continueGate.current=undefined;
     // 快速审批可能在两次轮询之间完成，直接同步侧栏事实，不能依赖轮询捕获 busy。
     setList(items=>items.map(item=>item.id===reply.result.id?{...item,title:reply.result.title,status:reply.result.status}:item));
     return true;
   }
+  function beginStream(id:string,request_id:string){
+    const previous=requestStreams.current.get(request_id),live=previous??newStream(id,request_id);
+    requestStreams.current.set(request_id,live);
+    if(requestStreams.current.size>20){const oldest=requestStreams.current.keys().next().value;if(oldest){requestStreams.current.delete(oldest);streamQueue.current=streamQueue.current.filter(item=>item.request_id!==oldest);}}
+    streamValues.current={...streamValues.current,[id]:live};setStreams(streamValues.current);streamRequest.current={id,request_id};
+    streamQueue.current=streamQueue.current.filter(item=>item.request_id!==request_id);
+    if(!live.terminal||live.paused&&!live.error)streamQueue.current.push({id,request_id});
+  }
+  function saveDraft(){drafts.current.set(activeId.current??'new',draftText.current);if(activeId.current&&scroll.current)readingPositions.current.set(activeId.current,scroll.current.scrollTop);}
+  function changeText(value:string){draftText.current=value;setText(value);}
+  function invalidateContinuation(){const gate=continueGate.current;continueGate.current=undefined;if(gate&&conversation?.workflow&&gate.id===conversation.id){beginStream(gate.id,gate.request_id);void window.orvia.chatCancel(gate);}}
+  async function continueWorkflow(answer?:string){const id=activeId.current,wf=conversation?.workflow;if(!id||!wf||working.current)return;await run('正在接续同一需求的已授权步骤…',async()=>{
+    beginStream(id,wf.request_id);const reply=await window.orvia.chatContinue({id,request_id:wf.request_id,continuation_id:wf.continuation_id,...(answer?{answer}:{})});accept(reply,id);await refreshList();
+  });}
   async function run(label: string, action: () => Promise<void>) {
     if (working.current || remoteBusy) return;
     working.current = true; setBusy(true); setPhase(label); setNotice('');
     try { await action(); }
-    catch { setNotice('本地通信失败。请刷新会话核对状态，文件动作不会自动重放。'); }
+    catch { setNotice('本地通信失败。请刷新会话核对状态，任务步骤不会自动重放。'); }
     finally { working.current = false; setBusy(false); setPhase(''); setPendingUser(''); }
   }
   async function create(title: string) {
+    const epoch=viewEpoch.current;
     const reply = await window.orvia.chatCreate({client_request_id:crypto.randomUUID(),title:title.slice(0,80) || '新对话'});
+    // 新会话创建回包不能覆盖后来明确选中的视图，也不能清空其草稿或发起原任务。
+    if(epoch!==viewEpoch.current){await refreshList();return undefined;}
     if (!accept(reply)) return undefined;
     return reply.ok ? reply.result.id : undefined;
   }
-  function newChat() { if (working.current || remoteBusy) return; activeId.current=undefined; setConversation(undefined);setText('');setQuery('');setNotice('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);setIntent('files');webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);input.current?.focus(); }
-  async function open(id:string) { await run('正在读取历史会话…',async () => {activeId.current=id;setConversation(undefined);setText('');setQuery('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);webSubmission.current=undefined;submission.current=undefined;follow.current=true;setUnread(false);accept(await window.orvia.chatGet({id}),id);}); }
+  function newChat() {viewEpoch.current++;saveDraft();invalidateContinuation();hasChosenView.current=true;activeId.current=undefined;setConversation(undefined);changeText(drafts.current.get('new')??'');setQuery('');setNotice('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);webSubmission.current=undefined;submission.current=undefined;follow.current=true;historicalView.current=false;restoreReading.current=undefined;setUnread(false);}
+  async function open(id:string) {viewEpoch.current++;saveDraft();invalidateContinuation();hasChosenView.current=true;activeId.current=id;setConversation(undefined);changeText(drafts.current.get(id)??'');setQuery('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);webSubmission.current=undefined;submission.current=undefined;follow.current=false;historicalView.current=true;restoreReading.current={id,top:readingPositions.current.get(id)??0};setUnread(false);try{accept(await window.orvia.chatGet({id}),id);}catch{setNotice('读取会话失败，请核对本地连接。');}}
   async function send(retryText?: string) {
-    if(!retryText&&intent==='document'){await askDocument(text);return;}
-    if(!retryText&&intent!=='files'&&intent!=='document'){await sendWeb(intent,text);return;}
     const value = (retryText ?? text).trim(); if (!value || value.length>2000 || composing.current || working.current) return;
+    if(conversation?.workflow?.action==='clarification'){await continueWorkflow(value);if(activeId.current===conversation.id)changeText('');return;}
     await run('Main 正在理解需求与收集证据…',async () => {
       const id = activeId.current ?? await create(value); if (!id) return;
       if (submission.current?.id!==id || submission.current.text!==value) submission.current={id,text:value,request_id:crypto.randomUUID()};
-      setPendingUser(value);
-      const reply = await window.orvia.chatSend(submission.current);
-      if (accept(reply,id)) {setText('');submission.current=undefined;}
+      follow.current=true;historicalView.current=false;restoreReading.current=undefined;continueGate.current={id,request_id:submission.current.request_id};beginStream(id,submission.current.request_id);pendingCid.current=id;setPendingUser(value);changeText('');drafts.current.set(id,'');
+      const reply = await window.orvia.chatNatural(submission.current);
+      if (accept(reply,id)) {submission.current=undefined;}
       else if(!reply.ok) {const latest=await window.orvia.chatGet({id});if(latest.ok){accept(latest,id);if(['interrupted','cancelled'].includes(latest.result.status ?? ''))submission.current=undefined;}}
       await refreshList();
     });
   }
   async function choose() {
+    const gate=continueGate.current;
     await run('等待选择并授权本地目录…',async () => {
-      const id=activeId.current ?? await create('本地文件整理'); if (!id) return;
+      const id=activeId.current ?? await create('新对话'); if (!id) return;
       const reply=await window.orvia.chatChooseDirectory({id});
       if (!reply.ok) {setNotice(reply.message);return;}
-      if (reply.result.cancelled) {setNotice('已取消选择，原授权与任务状态保持不变。');return;}
+      if (reply.result.cancelled) {invalidateContinuation();setNotice('已取消选择；原需求保留，没有自动接续。');return;}
       if(reply.result.conversation) accept({ok:true,result:reply.result.conversation},id);
-      setPhase('Computer 正在读取授权目录…');
-      accept(await window.orvia.chatInspect({id,tool:'list_directory',arguments:{path:'.',limit:100}}),id);
+      const wf=reply.result.conversation?.workflow;
+      if(gate&&continueGate.current===gate&&activeId.current===id&&wf?.request_id===gate.request_id&&wf.action==='directory'){
+        beginStream(id,wf.request_id);accept(await window.orvia.chatContinue({id,request_id:wf.request_id,continuation_id:wf.continuation_id}),id);
+      }
       await refreshList();
     });
   }
@@ -164,22 +233,28 @@ function App() {
       if(webSubmission.current?.id!==id||webSubmission.current.value!==value||webSubmission.current.intent!==kind)webSubmission.current={id,value,intent:kind,request_id:crypto.randomUUID()};
       const request={id,request_id:webSubmission.current.request_id};setPendingUser(value);
       const reply=await(kind==='search'?window.orvia.chatBrowserSearch({...request,query:value}):kind==='read'?window.orvia.chatBrowserRead({...request,url:value}):window.orvia.chatBrowserAsk({...request,query:value}));
-      if(accept(reply,id)){if(clearComposer)setText('');webSubmission.current=undefined;}
+      if(accept(reply,id)){if(clearComposer)changeText('');webSubmission.current=undefined;}
       else {const latest=await window.orvia.chatGet({id});if(latest.ok)accept(latest,id);}
       await refreshList();
     });
   }
   async function showSource(evidence_id:string) {
     const id=activeId.current;if(!id)return;
-    await run('正在读取已保存证据…',async()=>{const reply=await window.orvia.chatBrowserSource({id,evidence_id});if(reply.ok&&activeId.current===id)setSource({cid:id,value:reply.result});else if(!reply.ok)setNotice(reply.message);});
+    await run('正在读取已保存证据…',async()=>{const reply=await window.orvia.chatBrowserSource({id,evidence_id});if(reply.ok&&activeId.current===id){revealEvidence.current={cid:id,kind:'browser'};setSource({cid:id,value:reply.result});}else if(!reply.ok)setNotice(reply.message);});
   }
   async function attachDocument() {
+    const gate=continueGate.current;
     await run('等待选择附件并提取内容…',async()=>{
-      const id=activeId.current??await create('文档内容处理');if(!id)return;
-      const reply=await window.orvia.chatDocumentAttach({id,request_id:crypto.randomUUID()});
+      const id=activeId.current??await create('新对话');if(!id)return;
+      const reply=await window.orvia.chatAddFiles({id,request_id:crypto.randomUUID()});
       if(!reply.ok){setNotice(reply.message);return;}
-      if(reply.result.cancelled)setNotice('已取消附件选择；没有读取文档。');
+      if(reply.result.cancelled){invalidateContinuation();setNotice('已取消附件选择；原需求保留，没有自动接续。');}
       else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);
+      setAttachmentStatus({cid:id,items:reply.result.items});
+      const wf=reply.result.conversation?.workflow;
+      if(!reply.result.cancelled&&reply.result.items.every(item=>item.status==='ready')&&gate&&continueGate.current===gate&&activeId.current===id&&wf?.request_id===gate.request_id&&wf.action==='materials'){
+        beginStream(id,wf.request_id);accept(await window.orvia.chatContinue({id,request_id:wf.request_id,continuation_id:wf.continuation_id}),id);
+      }
       await refreshList();
     });
   }
@@ -189,14 +264,14 @@ function App() {
       const id=activeId.current;if(!id){setNotice('请先添加文档附件。');return;}
       if(webSubmission.current?.id!==id||webSubmission.current.value!==query||webSubmission.current.intent!=='document')webSubmission.current={id,value:query,intent:'document',request_id:crypto.randomUUID()};
       const reply=await window.orvia.chatDocumentAsk({id,query,request_id:webSubmission.current.request_id});
-      if(accept(reply,id)){setText('');webSubmission.current=undefined;}await refreshList();
+      if(accept(reply,id)){changeText('');webSubmission.current=undefined;}await refreshList();
     });
   }
   async function showDocument(evidence_id:string) {
     const id=activeId.current;if(!id)return;
     await run('正在读取文档证据…',async()=>{
       const reply=await window.orvia.chatDocumentSource({id,evidence_id});
-      if(reply.ok&&activeId.current===id){setDocument({cid:id,value:reply.result});setPreview(undefined);}
+      if(reply.ok&&activeId.current===id){revealEvidence.current={cid:id,kind:'document'};setDocument({cid:id,value:reply.result});setPreview(undefined);}
       else if(!reply.ok)setNotice(reply.message);
     });
   }
@@ -239,14 +314,33 @@ function App() {
     if(!shown||!id||shown.cid!==id)return;
     await run('等待正文发送确认及 Main 模型回答…',async()=>{
       let reply;
-      try{reply=await window.orvia.chatSynthesisGenerate({id,mode:shown.value.mode,question:shown.value.question,sources:shown.sources,revision:shown.value.revision,request_id:crypto.randomUUID()});}
+      const wf=conversation?.workflow,request_id=crypto.randomUUID();beginStream(id,request_id);
+      try{reply=await window.orvia.chatSynthesisGenerate({id,mode:shown.value.mode,question:shown.value.question,sources:shown.sources,revision:shown.value.revision,request_id,stream_mode:wf?.action==='stream_fallback'?'confirmed_nonstream':'stream'});}
       finally{setSynthesisPreview(undefined);}
       if(!reply.ok){setNotice(reply.message);const latest=await window.orvia.chatGet({id});if(latest.ok)accept(latest,id);}
       else if(reply.result.cancelled)setNotice('已取消正文发送；未调用模型。');
-      else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);
+      else if(reply.result.conversation){accept({ok:true,result:reply.result.conversation},id);if(wf&&activeId.current===id){beginStream(id,wf.request_id);accept(await window.orvia.chatContinue({id,request_id:wf.request_id,continuation_id:wf.continuation_id}),id);}}
       await refreshList();
     });
   }
+  // 统一路由只填充并预览已实现业务；敏感操作仍需业务按钮和原生窗口明确批准。
+  useEffect(()=>{const wf=conversation?.workflow,id=conversation?.id;if(!wf||!id||busy||remoteBusy||preparedWorkflow.current===wf.continuation_id)return;preparedWorkflow.current=wf.continuation_id;
+    if(wf.action==='synthesis'||wf.action==='stream_fallback'&&wf.input?.purpose==='synthesis'){
+      const parsed=chatSynthesisPreviewSchema.safeParse({id,mode:wf.input?.mode,question:wf.input?.question,sources:wf.input?.sources});if(!parsed.success){setNotice('资料回答参数不完整，请补充必要信息。');return;}
+      setSynthesisMode(parsed.data.mode);setSynthesisQuestion(parsed.data.question);setSelectedSources(parsed.data.sources);
+      void run('正在预览此需求将发送的准确片段…',async()=>{const reply=await window.orvia.chatSynthesisPreview(parsed.data);if(reply.ok&&activeId.current===id)setSynthesisPreview({cid:id,value:reply.result,sources:parsed.data.sources});else if(!reply.ok)setNotice(reply.message);});
+    }
+    if(wf.action==='publication'){
+      const parsed=chatPublicationPreviewSchema.safeParse({id,...wf.input});if(!parsed.success){setNotice('成品所需已保存回答或格式缺失，请补充必要信息。');return;}
+      const message=conversation.messages.find(item=>item.id===parsed.data.message_id&&item.kind==='synthesis');if(message)setPublication({cid:id,message,format:parsed.data.format,request_id:wf.request_id});
+    }
+  },[conversation?.workflow?.continuation_id,busy,remoteBusy]);
+  async function removeMaterial(kind:'document'|'browser',evidence_id:string){const id=activeId.current;if(!id)return;invalidateContinuation();setSynthesisPreview(undefined);setPreview(undefined);setPublication(undefined);await run('正在解除本次需求的资料关联…',async()=>acceptVoid(await window.orvia.chatMaterialRemove({id,kind,evidence_id}),id));}
+  async function revokeDirectory(){const id=activeId.current;if(!id)return;invalidateContinuation();setSynthesisPreview(undefined);await run('正在撤销目录授权…',async()=>acceptVoid(await window.orvia.chatRevoke({id}),id));}
+  function acceptVoid(reply:Reply<Conversation>,id:string){accept(reply,id);}
+  async function completeNativeStep(){const id=conversation?.id,wf=conversation?.workflow;if(!id||!wf||activeId.current!==id)return false;beginStream(id,wf.request_id);const reply=await window.orvia.chatContinue({id,request_id:wf.request_id,continuation_id:wf.continuation_id});accept(reply,id);await refreshList();return reply.ok&&reply.result.workflow?.continuation_id!==wf.continuation_id;}
+  async function confirmFallback(){const id=activeId.current,wf=conversation?.workflow;if(!id||wf?.action!=='stream_fallback')return;await run('等待明确批准同模型非流式新请求…',async()=>{beginStream(id,wf.request_id);const reply=await window.orvia.chatFallbackConfirm({id,request_id:wf.request_id,continuation_id:wf.continuation_id});if(!reply.ok)setNotice(reply.message);else if(reply.result.cancelled)setNotice('未批准降级，未发新请求。');else if(reply.result.conversation)accept({ok:true,result:reply.result.conversation},id);});}
+  async function cancelWorkflow(){const id=conversation?.id,wf=conversation?.workflow;if(!id||!wf)return;continueGate.current=undefined;beginStream(id,wf.request_id);const reply=await window.orvia.chatCancel({id,request_id:wf.request_id});if(!reply.ok)setNotice(reply.message);accept(await window.orvia.chatGet({id}),id);}
   async function act(kind:'approve'|'resume'|'undo') {
     const op=conversation?.operation,id=activeId.current;if(!op||!id)return;
     await run(kind==='approve'?'正在审批、执行并核验此版本…':kind==='resume'?'正在核验中断任务…':'正在核验并撤销最近变更…',async()=>{
@@ -255,10 +349,11 @@ function App() {
       accept(reply,id);
       // 即使动作返回错误也重读账本，避免部分完成/撤销仍显示旧状态。
       if(!reply.ok) {const latest=await window.orvia.chatGet({id});if(latest.ok)accept(latest,id);}
+      if(reply.ok&&kind==='approve'&&conversation?.workflow?.action==='files'&&reply.result.operation?.status==='completed')await completeNativeStep();
     });
   }
   const locked=busy||remoteBusy;
-  const inputLimit={files:2000,search:500,read:2048,ask:200,document:200}[intent];
+  const inputLimit=2000;
   const disabled=locked||!conversation?.grant||!online;
   const lastMessage=conversation?.messages.at(-1);
   const lastUser=conversation?.messages.slice().reverse().find(message=>message.role==='user');
@@ -268,30 +363,33 @@ function App() {
   return <div className="app-shell">
     <header className="window-titlebar" aria-label="应用标题栏"><BrandMark/><span>序航 Orvia</span></header>
     <aside className="sidebar"><div className="brand"><BrandMark/><strong>序航 <small>Orvia</small></strong></div>
-      <button className="new-chat" disabled={locked} onClick={newChat}><Icon name="plus"/>新建对话</button><p className="nav-label">最近对话</p>
-      <nav aria-label="历史会话" aria-busy={loadingList}>{list.map(item=><button title={item.title} aria-label={item.title} aria-current={conversation?.id===item.id?'page':undefined} className={conversation?.id===item.id?'selected':''} disabled={locked} key={item.id} onClick={()=>void open(item.id)}><span className="history-title">{item.title}</span><small>{taskLabels[item.status ?? 'draft'] ?? item.status}</small></button>)}{loadingList?<p role="status" className="muted">正在读取会话…</p>:!list.length&&<p className="muted">从第一个问题开始。</p>}</nav>
+      <button className="new-chat" onClick={newChat}><Icon name="plus"/>新建对话</button><p className="nav-label">最近对话</p>
+      <nav aria-label="历史会话" aria-busy={loadingList}>{list.map(item=><button title={item.title} aria-label={item.title} aria-current={conversation?.id===item.id?'page':undefined} className={conversation?.id===item.id?'selected':''} key={item.id} onClick={()=>void open(item.id)}><span className="history-title">{item.title}</span><small>{taskLabels[item.status ?? 'draft'] ?? item.status}</small></button>)}{loadingList?<p role="status" className="muted">正在读取会话…</p>:!list.length&&<p className="muted">从第一个问题开始。</p>}</nav>
       <div className="sidebar-bottom"><button disabled={locked} onClick={()=>setShowSettings(true)}><Icon name="settings"/>设置</button><span className="connection"><i className={online?'online':''}/>{online?'本地服务已连接':'本地服务未连接'}</span></div>
     </aside>
     <main className="chat-main"><header className="topbar"><span>{conversation?.title ?? '新对话'}</span><span className="badge" data-status={locked?'running':conversation?.status??'draft'} aria-live="polite">{locked?'处理中':taskLabels[conversation?.status ?? 'draft'] ?? '草稿'}</span></header>
-      <div className="message-scroll" ref={scroll} tabIndex={0} aria-label="对话消息" onScroll={()=>{const el=scroll.current;if(el){follow.current=nearBottom(el.scrollTop,el.clientHeight,el.scrollHeight);if(follow.current)setUnread(false);}}}><div className="conversation-content">
-        {!conversation?.messages.length&&!pendingUser&&!locked&&<section className="welcome"><BrandMark className="welcome-mark"/><h1>你好，我是序航 Orvia</h1><p>从一个想法开始，清晰安排每一步。</p><div className="suggestions">{['看看目录里有哪些文件','找出占用空间较大的文件','帮我拟定分类整理计划'].map(value=><button key={value} disabled={locked} onClick={()=>{setText(value);input.current?.focus();}}>{value}<span><Icon name="arrow"/></span></button>)}</div></section>}
+      <div className="message-scroll" ref={scroll} tabIndex={0} aria-label="对话消息" onScroll={()=>{const el=scroll.current;if(el){if(activeId.current)readingPositions.current.set(activeId.current,el.scrollTop);follow.current=!historicalView.current&&nearBottom(el.scrollTop,el.clientHeight,el.scrollHeight);if(follow.current)setUnread(false);}}}><div className="conversation-content">
+        {!conversation?.messages.length&&!pendingUser&&!locked&&<section className="welcome"><BrandMark className="welcome-mark"/><h1>你好，我是序航 Orvia</h1><p>从一个想法开始，清晰安排每一步。</p><div className="suggestions">{['看看目录里有哪些文件','总结这份文档','读取这个网页并提炼重点'].map(value=><button key={value} disabled={locked} onClick={()=>{changeText(value);input.current?.focus();}}>{value}<span><Icon name="arrow"/></span></button>)}</div></section>}
         {conversation?.messages_truncated&&<p className="muted">为限制通信大小，当前仅显示最近消息；更早记录保留在本地。</p>}
-        {conversation?.messages.map(message=><article key={message.id} className={'message '+message.role}><span className="speaker">{message.role==='user'?'你':message.role==='system'?'本地任务状态':'序航'}</span><div className={'bubble '+(message.kind==='error'?'error':'')}>{message.text.length>700?<details className="long-message"><summary>{message.text.slice(0,160)}…（展开全文）</summary><p className="message-text">{message.text}</p></details>:<p className="message-text">{message.text}</p>}
-          {message.kind==='scan'&&<ScanCard message={message} disabled={disabled} inspect={call=>void inspect(call)}/>}
+        {conversation?.messages.map(message=><article key={message.id} ref={node=>{if(node&&message.role!=='user'&&['directory_result','scan','natural_answer','model_partial','synthesis','publication','result','export'].includes(message.kind)){latestResult.current=node;resultNodes.current.set(message.id,node);}else if(!node)resultNodes.current.delete(message.id);}} className={'message '+message.role}><span className="speaker">{message.role==='user'?'你':message.role==='system'?'本地任务状态':'序航'}</span><div className={'bubble '+(message.kind==='error'?'error':'')}>{message.text.length>700?<details className="long-message"><summary>{message.text.slice(0,160)}…（展开全文）</summary><p className="message-text">{message.text}</p></details>:<p className="message-text">{message.text}</p>}
+          {(message.kind==='scan'||message.kind==='directory_result')&&<>{message.data?.scan_id?<DirectoryAnswer cid={conversation.id} message={message} disabled={!online}/>:<ScanCard message={message} disabled={disabled} inspect={call=>void inspect(call)}/>}</>}
           {message.kind==='document'&&message.data&&<DocumentCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='export'&&message.data&&<ExportCard message={message} disabled={locked||!online} show={id=>void showDocument(id)}/>}
           {message.kind==='source'&&message.data&&<SourceCard message={message} disabled={locked||!online} show={id=>void showSource(id)} read={url=>void sendWeb('read',url,false)}/>} {(message.kind==='plan'||message.kind==='result')&&message.data&&<EvidenceCard message={message}/>}
-          {message.kind==='synthesis'&&<SynthesisResult message={message} show={(kind,id)=>void (kind==='document'?showDocument(id):showSource(id))} compose={item=>setPublication({cid:conversation!.id,message:item})}/>}
+          {message.kind==='synthesis'&&<SynthesisResult message={message} disabled={locked||!online} show={(kind,id)=>void (kind==='document'?showDocument(id):showSource(id))} compose={item=>setPublication({cid:conversation!.id,message:item})}/>}
           {message.kind==='publication'&&<PublicationResult message={message}/>}
+          {message.kind==='model_partial'&&<PartialModelMessage message={message}/>}
         </div></article>)}
-        {pendingUser&&<article className="message user"><span className="speaker">你 · 正在处理</span><div className="bubble"><p>{pendingUser}</p></div></article>}
-        {!!conversation?.sources?.length&&<details className="saved-sources"><summary>会话来源（最近 {conversation.sources.length} 项）</summary><ul>{conversation.sources.map(s=><li key={s.evidence_id}><button disabled={locked||!online} onClick={()=>void showSource(s.evidence_id)}>{s.title||s.source_url||'错误证据'} · {s.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.sources_truncated&&<p>仅展示最近来源，较早记录仍可通过会话检索找到。</p>}<button disabled={locked} onClick={()=>{setIntent('ask');setText('');input.current?.focus();}}>询问已有来源</button></details>}
-        {source?.cid===conversation?.id&&source&&<section className="source-detail" aria-label="证据详情"><div className="row between"><h3>证据详情</h3><button onClick={()=>setSource(undefined)}>关闭证据</button></div><SourceDetail source={source.value}/></section>}
-        {!!conversation?.documents?.length&&<details className="saved-sources"><summary>会话文档（最近 {conversation.documents.length} 项）</summary><ul>{conversation.documents.map(item=><li key={item.evidence_id}><button disabled={locked||!online} onClick={()=>void showDocument(item.evidence_id)}>{item.title} · {item.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.documents_truncated&&<p>文档目录已截断，较早文档可通过关键词检索。</p>}<button disabled={locked} onClick={()=>{setIntent('document');setText('');input.current?.focus();}}>询问文档</button></details>}
-        {document&&document.cid===conversation?.id&&<section className="source-detail" aria-label="文档证据详情"><div className="row between"><h3>文档证据详情</h3><button onClick={()=>{setDocument(undefined);setPreview(undefined);}}>关闭文档证据</button></div><DocumentDetail source={document.value}/><div className="row"><button disabled={locked||!online} onClick={()=>void previewDocument('md')}>预览 Markdown 导出</button><button disabled={locked||!online} onClick={()=>void previewDocument('json')}>预览 JSON 导出</button></div></section>}
+        {pendingUser&&pendingCid.current===conversation?.id&&<article className="message user"><span className="speaker">你 · 正在处理</span><div className="bubble"><p>{pendingUser}</p></div></article>}
+        {conversation&&streams[conversation.id]&&(!streams[conversation.id].terminal||streams[conversation.id].error&&!conversation.messages.some(message=>message.kind==='model_partial'&&message.data?.stream_id===streams[conversation.id].stream_id))&&<div ref={liveResult}><LiveResult stream={streams[conversation.id]}/></div>}
+        {conversation?.workflow&&<section className="source-detail" aria-label="当前需求待办"><h3>{conversation.workflow.question}</h3><p>{conversation.workflow.reason}</p>{conversation.workflow.choices?.map(choice=><button key={choice.id} disabled={locked} onClick={()=>void continueWorkflow(choice.id)}>{choice.label}</button>)}{['directory','materials'].includes(conversation.workflow.action)&&<p>通过下方“＋”添加必要资料后，将接续这条需求。</p>}{conversation.workflow.action==='stream_fallback'?conversation.workflow.input?.purpose!=='synthesis'&&<button disabled={locked} onClick={()=>void confirmFallback()}>原生确认同模型非流式新请求</button>:<button disabled={locked} onClick={()=>void continueWorkflow()}>明确继续此需求</button>}<button disabled={locked} onClick={()=>void cancelWorkflow()}>取消此需求</button></section>}
+        {!!conversation?.sources?.length&&<details className="saved-sources"><summary>会话来源（最近 {conversation.sources.length} 项）</summary><ul>{conversation.sources.map(s=><li key={s.evidence_id}><button disabled={locked||!online} onClick={()=>void showSource(s.evidence_id)}>{s.title||s.source_url||'错误证据'} · {s.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.sources_truncated&&<p>仅展示最近来源，较早记录仍可通过会话检索找到。</p>}<button onClick={()=>{changeText('在已有来源中查找：');input.current?.focus();}}>询问已有来源</button></details>}
+        {source?.cid===conversation?.id&&source&&<section ref={sourceDetail} className="source-detail" aria-label="证据详情"><div className="row between"><h3>证据详情</h3><button onClick={()=>setSource(undefined)}>关闭证据</button></div><SourceDetail source={source.value}/></section>}
+        {!!conversation?.documents?.length&&<details className="saved-sources"><summary>会话文档（最近 {conversation.documents.length} 项）</summary><ul>{conversation.documents.map(item=><li key={item.evidence_id}><button disabled={locked||!online} onClick={()=>void showDocument(item.evidence_id)}>{item.title} · {item.evidence_id.slice(0,12)}</button></li>)}</ul>{conversation.documents_truncated&&<p>文档目录已截断，较早文档可通过关键词检索。</p>}<button onClick={()=>{changeText('总结这份文档');input.current?.focus();}}>询问文档</button></details>}
+        {document&&document.cid===conversation?.id&&<section ref={documentDetail} className="source-detail" aria-label="文档证据详情"><div className="row between"><h3>文档证据详情</h3><button onClick={()=>{setDocument(undefined);setPreview(undefined);}}>关闭文档证据</button></div><DocumentDetail source={document.value}/><div className="row"><button disabled={locked||!online} onClick={()=>void previewDocument('md')}>预览 Markdown 导出</button><button disabled={locked||!online} onClick={()=>void previewDocument('json')}>预览 JSON 导出</button></div></section>}
         {preview&&preview.cid===conversation?.id&&<ExportPreview preview={preview.value} disabled={locked||!online} save={()=>void exportDocument()}/>}
-        {conversation&&!!((conversation.documents?.length??0)+(conversation.sources?.length??0))&&<section className="source-detail synthesis-select" aria-label="生成式文档与来源回答">
-          <h3>模型理解已保存资料</h3><p>选择当前会话的 1–3 个版本，先预览实际发送片段。关键词原文检索仍在上方需求类型中。</p>
+        {conversation&&!!((conversation.documents?.length??0)+(conversation.sources?.length??0))&&<details className="source-detail synthesis-select" aria-label="生成式文档与来源回答" open={['synthesis','stream_fallback'].includes(conversation.workflow?.action??'')||undefined}><summary>选择资料版本与生成要求</summary>
+          <h3>模型理解已保存资料</h3><p>可以直接说出总结或问题；此处也可明确选择当前会话的1–3个版本，先预览实际发送片段。</p>
           <fieldset><legend>选择证据版本</legend>{[
             ...(conversation.documents??[]).map(item=>({kind:'document' as const,evidence_id:item.evidence_id,title:item.title})),
             ...(conversation.sources??[]).filter(item=>!!item.content?.trim()&&!item.error).map(item=>({kind:'browser' as const,evidence_id:item.evidence_id,title:item.title||item.source_url||'网页来源'})),
@@ -299,11 +397,11 @@ function App() {
           <label>生成类型<select aria-label="生成类型" disabled={locked} value={synthesisMode} onChange={e=>{setSynthesisMode(e.target.value as 'summary'|'answer');setSynthesisPreview(undefined);}}><option value="summary">摘要</option><option value="answer">多来源回答</option></select></label>
           <label>摘要要求或问题<textarea aria-label="摘要要求或问题" maxLength={300} disabled={locked} value={synthesisQuestion} onChange={e=>{setSynthesisQuestion(e.target.value);setSynthesisPreview(undefined);}}/></label>
           <button disabled={locked||!online||!selectedSources.length||!synthesisQuestion.trim()} onClick={()=>void prepareSynthesis()}>预览拟发送片段</button>
-        </section>}
+        </details>}
         {synthesisPreview&&synthesisPreview.cid===conversation?.id&&<SynthesisPreviewCard preview={synthesisPreview.value} disabled={locked||!online} close={()=>setSynthesisPreview(undefined)} confirm={()=>void generateSynthesis()}/>}
-        {publication&&publication.cid===conversation?.id&&<PublicationComposer key={publication.message.id} cid={publication.cid} message={publication.message} disabled={locked||!online} close={()=>setPublication(undefined)} notice={setNotice} saved={(reply,id)=>{accept(reply,id);void refreshList();}}/>}
-        {conversation&&<M17Workspace key={conversation.id} cid={conversation.id} authorized={!!conversation.grant} disabled={locked||!online} messages={conversation.messages} availableSources={[...(conversation.documents??[]).map(item=>({kind:'document' as const,evidence_id:item.evidence_id,title:item.title})),...(conversation.sources??[]).filter(item=>!!item.content&&!item.error).map(item=>({kind:'browser' as const,evidence_id:item.evidence_id,title:item.title||item.source_url||'网页来源'}))]} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
-        {conversation&&<M18Workspace key={`m18-${conversation.id}`} cid={conversation.id} authorized={!!conversation.grant} disabled={locked||!online} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
+        {publication&&publication.cid===conversation?.id&&<PublicationComposer key={publication.message.id+'-'+(publication.format??'docx')} cid={publication.cid} message={publication.message} initialFormat={publication.format} disabled={locked||!online} close={()=>setPublication(undefined)} notice={setNotice} saved={(reply,id)=>{if(reply.ok&&activeId.current===id){const fact=reply.result.messages.slice().reverse().find(message=>message.kind==='publication');if(fact)revealSavedResult.current={cid:id,message_id:fact.id};}accept(reply,id);void refreshList();if(activeId.current===id&&conversation?.workflow?.action==='publication')void completeNativeStep();}}/>}
+        {conversation&&<M17Workspace key={conversation.id} cid={conversation.id} workflow={conversation.workflow??undefined} completed={completeNativeStep} authorized={!!conversation.grant} disabled={locked||!online} messages={conversation.messages} availableSources={[...(conversation.documents??[]).map(item=>({kind:'document' as const,evidence_id:item.evidence_id,title:item.title})),...(conversation.sources??[]).filter(item=>!!item.content&&!item.error).map(item=>({kind:'browser' as const,evidence_id:item.evidence_id,title:item.title||item.source_url||'网页来源'}))]} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
+        {conversation&&<M18Workspace key={`m18-${conversation.id}`} cid={conversation.id} workflow={conversation.workflow??undefined} completed={completeNativeStep} authorized={!!conversation.grant} disabled={locked||!online} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
         {conversation?.operation&&<PlanCard operation={conversation.operation} disabled={disabled} act={kind=>void act(kind)}/>}
         {!!conversation?.operations?.length&&<details className="operation-history"><summary>任务操作历史（最近 {conversation.operations.length} 项）</summary><ol>{conversation.operations.map(op=><li key={op.operation_id}><span>{taskLabels[op.status] ?? op.status}</span><code>版本 {op.revision.slice(0,12)}</code><time>{op.updated_at}</time>{op.can_undo&&<span>可受限撤销</span>}</li>)}</ol>{conversation.operations_truncated&&<p className="muted">仅显示最近操作；历史记录不构成执行或撤销授权。</p>}</details>}
         {phase&&<p role="status" className="progress"><span className="spinner"/>{phase}</p>}
@@ -311,17 +409,19 @@ function App() {
         <div ref={end}/>
       </div></div>
       <section className="composer-area">
-        {unread&&<button className="new-messages" onClick={()=>{follow.current=true;setUnread(false);end.current?.scrollIntoView({block:'end'});}}><Icon name="down"/>查看最新消息</button>}
-        {!online&&<div role="status" className="notice row between"><span>本地服务未连接。重新连接不会自动重试文件操作。</span><button disabled={locked} onClick={()=>void reconnect()}>重新连接</button></div>}
-        {activeSend&&<div className="row between cancellation"><span>仅可取消模型规划，文件执行阶段不可取消。</span><button disabled={cancelling} onClick={()=>void cancel()}>{cancelling?'正在取消…':'取消规划'}</button></div>}
+        {unread&&<button className="new-messages" onClick={()=>{historicalView.current=false;follow.current=true;setUnread(false);showLatestResult();}}><Icon name="down"/>查看最新消息</button>}
+        {!online&&<div role="status" className="notice row between"><span>本地服务未连接。重新连接不会自动重试任务步骤。</span><button disabled={locked} onClick={()=>void reconnect()}>重新连接</button></div>}
+        {activeSend&&<div className="row between cancellation"><span>可取消当前只读、解析或模型步骤；写操作须按各自账本核对。</span><button disabled={cancelling} onClick={()=>void cancel()}>{cancelling?'正在取消…':'取消当前步骤'}</button></div>}
         {notice&&<p role="alert" className="notice">{notice}</p>}
         {retryable&&<div className="row cancellation"><span>上次规划未完成。主动重试会发起新的模型请求。</span><button disabled={locked||!online} onClick={()=>{submission.current=undefined;setText(retryText!);void send(retryText);}}>重新尝试规划</button></div>}
-        {conversation&&<div className="directory-bar"><span>{conversation.grant ? '已授权：'+conversation.grant.root_label+' · 剩余 '+conversation.grant.calls_remaining+' 次只读调用' : '当前未授权目录；历史记录不会恢复目录权限。'}</span><button disabled={locked} onClick={()=>void run('刷新任务事实…',async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);})}>刷新状态</button></div>}
+        {conversation&&<div className="directory-bar"><span>{conversation.grant ? '已授权：'+conversation.grant.root_label+' · 剩余 '+conversation.grant.calls_remaining+' 次只读调用' : '当前未授权目录；历史记录不会恢复目录权限。'}</span><div className="row">{conversation.grant&&<button disabled={locked} onClick={()=>void revokeDirectory()}>撤销目录授权</button>}<button onClick={()=>void window.orvia.chatGet({id:conversation.id}).then(reply=>accept(reply,conversation.id))}>刷新状态</button></div></div>}
+        {!!conversation?.materials?.length&&<section className="material-strip" aria-label="本次需求资料"><span>本次资料 · 本地添加不等于云端发送</span>{conversation.materials.map(item=><div className="row" key={item.kind+item.evidence_id}><span>{item.title} · {item.status==='ready'?'已解析／保存':'解析失败'}</span><button disabled={locked} onClick={()=>void removeMaterial(item.kind,item.evidence_id)}>从本次需求移除</button></div>)}</section>}
+        {attachmentStatus?.cid===conversation?.id&&attachmentStatus&&<p role="status">{attachmentStatus.items.map(item=>item.title+'：'+({ready:'本机解析返回',failed:'失败',pending:'等待解析',parsing:'本机解析中',cancelled:'已取消／未继续解析'}[item.status])).join('；')}</p>}
         {conversation?.grant&&<div className="tools-row"><button disabled={disabled} onClick={()=>void inspect({tool:'list_directory',arguments:{path:'.',limit:100}})}>目录列表</button><button disabled={disabled} onClick={()=>void inspect({tool:'analyze_directory_space',arguments:{path:'.',top_n:10,min_size:0}})}>空间与大文件</button><input aria-label="文件名搜索" maxLength={100} value={query} onChange={e=>setQuery(e.target.value)} placeholder="文件名" disabled={locked}/><button disabled={disabled||!query.trim()} onClick={()=>void inspect({tool:'search_files',arguments:{path:'.',query:query.trim(),recursive:true,limit:100}})}>搜索</button></div>}
-        <form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><label className="intent-label">本次需求<select aria-label="需求类型" disabled={locked} value={intent} onChange={e=>{setIntent(e.target.value as typeof intent);}}><option value="files">文件任务</option><option value="search">搜索网页</option><option value="read">读取网页</option><option value="ask">询问已有来源</option><option value="document">询问文档</option></select></label>
-          <textarea ref={input} aria-label="输入需求" aria-describedby="composer-hint" placeholder={intent==='document'?'输入关键词，在本会话附件中检索原文引用；不生成模型总结。':intent==='files'?'描述你想整理的文件…':intent==='read'?'输入一个公开网页 URL，例如 https://example.com/':intent==='ask'?'输入要查找的关键词，例如：许可 条件。仅检索本会话已保存来源。':'输入搜索词；发送后交给 Tavily 搜索'} maxLength={inputLimit} value={text} disabled={locked} onChange={e=>setText(e.target.value)} onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;}} onKeyDown={e=>{if(submitsMessage(e.key,e.shiftKey,e.nativeEvent.isComposing||composing.current,e.keyCode)){e.preventDefault();void send();}}}/>
-          <div className="row between"><div className="row"><button type="button" disabled={locked||!online} onClick={()=>void choose()}><Icon name="plus"/>选择目录</button><button type="button" disabled={locked||!online} onClick={()=>void attachDocument()}><Icon name="plus"/>添加附件</button></div><div className="row"><span className="muted">{text.length}/{inputLimit}</span><button className="send primary" aria-label="发送" disabled={locked||!text.trim()||text.length>inputLimit||!online}><Icon name="send"/></button></div></div>
-        </form><p id="composer-hint" className="privacy">Enter 发送 · Shift+Enter 换行。{intent==='document'?'附件仅在本机提取与检索，不上传模型；导出须预览后独立确认。':intent==='files'?'必要对话和目录元数据交给固定 Main 模型，文件修改须单独审批。':intent==='search'?(settings?.search_available?'Tavily 已配置；只发送本次搜索词，不自动读取结果网页。':'未配置 Tavily，搜索不可用；可选择读取已知公开网页。'):intent==='read'?'只访问你提交的公开 URL，保存正文与来源；不需要目录授权或搜索凭据。':'本地检索当前会话来源，返回原文引用；不联网、不生成模型结论。'}</p>
+        <form className="composer" onSubmit={e=>{e.preventDefault();if(!locked)void send();}}>
+          <textarea ref={input} aria-label="输入需求" aria-describedby="composer-hint" placeholder="你想做些什么" maxLength={inputLimit} value={text} onChange={e=>changeText(e.target.value)} onCompositionStart={()=>{composing.current=true;}} onCompositionEnd={()=>{composing.current=false;}} onKeyDown={e=>{if(!locked&&submitsMessage(e.key,e.shiftKey,e.nativeEvent.isComposing||composing.current,e.keyCode)){e.preventDefault();void send();}}}/>
+          <div className="row between"><AddMaterialMenu disabled={locked||!online} files={()=>void attachDocument()} directory={()=>void choose()}/><div className="row"><span className="muted">{text.length}/{inputLimit}</span><button className="send primary" aria-label="发送" disabled={locked||!text.trim()||text.length>inputLimit||!online}><Icon name="send"/></button></div></div>
+        </form><p id="composer-hint" className="privacy">Enter 发送 · Shift+Enter 换行。资料在本机解析；正文上云先预览并原生确认。写入、执行和实际外发各有独立审批。</p>
       </section>
     </main>{showSettings&&<SettingsPanel settings={settings} reload={reloadSettings} close={()=>setShowSettings(false)}/>}
   </div>;

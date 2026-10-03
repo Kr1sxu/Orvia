@@ -1,5 +1,7 @@
-import React,{useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import type {ChatMessage,CleanupPlan,DevelopmentContext,DevelopmentDraft,SynthesisSource} from '../main/chat-contracts';
+import {developmentContextRequestSchema} from '../main/chat-contracts';
+import type {Workflow} from '../main/m20-contracts';
 
 const bytes=(value:number)=>value>=1024*1024?`${(value/1024/1024).toFixed(1)} MiB`:value>=1024?`${(value/1024).toFixed(1)} KiB`:`${value} B`;
 
@@ -18,7 +20,7 @@ function PrototypePreview({draft}:{draft:DevelopmentDraft}){
   </section>;
 }
 
-export function M17Workspace({cid,authorized,disabled,messages,availableSources,notice,refresh}:{cid:string;authorized:boolean;disabled:boolean;messages:ChatMessage[];availableSources:{kind:'document'|'browser';evidence_id:string;title:string}[];notice:(value:string)=>void;refresh:()=>Promise<void>}){
+export function M17Workspace({cid,workflow,completed,authorized,disabled,messages,availableSources,notice,refresh}:{cid:string;workflow?:Workflow;completed?:()=>Promise<boolean>;authorized:boolean;disabled:boolean;messages:ChatMessage[];availableSources:{kind:'document'|'browser';evidence_id:string;title:string}[];notice:(value:string)=>void;refresh:()=>Promise<void>}){
   const [kind,setKind]=useState<'code'|'prototype'>('code');
   const [stack,setStack]=useState<'react-vite'|'web-native'>('react-vite');
   const [requirement,setRequirement]=useState('');
@@ -32,6 +34,17 @@ export function M17Workspace({cid,authorized,disabled,messages,availableSources,
   const [working,setWorking]=useState(false);
   const blocked=disabled||working;
   const chosenPaths=paths.split(/[\n,]/).map(value=>value.trim()).filter(Boolean);
+  const appliedWorkflow=useRef('');
+  useEffect(()=>{if(!workflow||disabled||working||appliedWorkflow.current===workflow.continuation_id)return;
+    if(workflow.action==='development'){
+      const value=workflow.input??{},parsed=developmentContextRequestSchema.safeParse({id:cid,requirement:value.requirement,paths:value.paths??[],sources:value.sources??[],result_message_id:value.result_message_id??null});
+      if(!parsed.success){notice('代码需求缺少必要的明确上下文，请补充。');return;}appliedWorkflow.current=workflow.continuation_id;
+      setRequirement(parsed.data.requirement);setPaths(parsed.data.paths.join('\n'));setSelectedSources(parsed.data.sources);setResultMessageId(parsed.data.result_message_id);setKind(value.kind==='prototype'?'prototype':'code');setStack(value.stack==='web-native'?'web-native':'react-vite');
+      // 只计算拟发送预览；正文发送和逐文件写入继续独立原生批准。
+      void guard(async()=>{const reply=await window.orvia.developmentContext(parsed.data);if(reply.ok)setContext(reply.result);else notice(reply.message);});
+    }
+    if(workflow.action==='cleanup'&&typeof workflow.input?.plan_id==='string'){appliedWorkflow.current=workflow.continuation_id;void loadPlan(workflow.input.plan_id);}
+  },[workflow?.continuation_id,disabled]);
   async function guard(action:()=>Promise<void>){setWorking(true);try{await action();}catch{notice('本次操作未完成，请刷新草稿或计划并核对现场。');}finally{setWorking(false);}}
   async function previewContext(){await guard(async()=>{
     const reply=await window.orvia.developmentContext({id:cid,requirement:requirement.trim(),paths:chosenPaths,sources:selectedSources,result_message_id:resultMessageId});
@@ -41,7 +54,7 @@ export function M17Workspace({cid,authorized,disabled,messages,availableSources,
     const reply=await window.orvia.developmentGenerate({id:cid,paths:chosenPaths,sources:selectedSources,result_message_id:resultMessageId,kind,stack:kind==='prototype'?'web-native':stack,requirement:requirement.trim(),context_revision:context.revision,request_id:crypto.randomUUID()});
     setContext(undefined);
     if(!reply.ok)notice(reply.message);else if(reply.result.cancelled)notice('已取消发送，未调用 Computer 模型。');
-    else if(reply.result.draft){setDraft(reply.result.draft);await refresh();}
+    else if(reply.result.draft){setDraft(reply.result.draft);await refresh();if(workflow?.action==='development')await completed?.();}
   });}
   async function loadDraft(id:string){await guard(async()=>{const reply=await window.orvia.developmentDraft({id:cid,draft_id:id});if(reply.ok)setDraft(reply.result);else notice(reply.message);});}
   async function apply(index:number){if(!draft)return;await guard(async()=>{
@@ -54,7 +67,7 @@ export function M17Workspace({cid,authorized,disabled,messages,availableSources,
   async function execute(){if(!plan)return;await guard(async()=>{
     const reply=await window.orvia.cleanupExecute({id:cid,plan_id:plan.plan_id,revision:plan.revision,indices:selected});
     if(!reply.ok)notice(reply.message);else if(reply.result.cancelled)notice('已取消隔离；未移动文件。');
-    else if(reply.result.plan){setPlan(reply.result.plan);setSelected([]);await refresh();}
+    else if(reply.result.plan){setPlan(reply.result.plan);setSelected([]);await refresh();if(workflow?.action==='cleanup')await completed?.();}
   });}
   async function restore(index:number){if(!plan)return;await guard(async()=>{
     const reply=await window.orvia.cleanupRestore({id:cid,plan_id:plan.plan_id,index});
@@ -64,7 +77,7 @@ export function M17Workspace({cid,authorized,disabled,messages,availableSources,
   const recentDrafts=messages.filter(item=>item.kind==='development'&&typeof item.data?.draft_id==='string');
   const recentPlans=messages.filter(item=>item.kind==='cleanup'&&typeof item.data?.plan_id==='string');
   return <section className="m17-workspace" aria-label="代码、原型和系统清理">
-    <details><summary>代码生成与网页原型</summary>
+    <details open={workflow?.action==='development'||!!context||!!draft||undefined}><summary>代码生成与网页原型</summary>
       <p>固定 Computer 模型只生成待审查草稿。支持 TS/React（Vite）与原生网页；最多 12 个文本文件、合计 64 KiB。选择已授权项目中的最多 3 个相对路径作为上下文；目录授权本身不上传正文。</p>
       <label>交付类型<select value={kind} disabled={blocked} onChange={event=>{setKind(event.target.value as typeof kind);setContext(undefined);setDraft(undefined);}}><option value="code">代码文件</option><option value="prototype">可交互网页原型</option></select></label>
       {kind==='code'&&<label>语言与框架<select value={stack} disabled={blocked} onChange={event=>{setStack(event.target.value as typeof stack);setContext(undefined);}}><option value="react-vite">TypeScript / React / Vite</option><option value="web-native">HTML / CSS / JavaScript</option></select></label>}
@@ -73,7 +86,7 @@ export function M17Workspace({cid,authorized,disabled,messages,availableSources,
       {!!availableSources.length&&<fieldset><legend>可选当前会话原文证据（最多 2 个，复用 M06 检索定位）</legend>{availableSources.map(item=><label key={item.kind+item.evidence_id}><input type="checkbox" disabled={blocked||selectedSources.length>=2&&!selectedSources.some(value=>value.kind===item.kind&&value.evidence_id===item.evidence_id)} checked={selectedSources.some(value=>value.kind===item.kind&&value.evidence_id===item.evidence_id)} onChange={()=>{setSelectedSources(values=>values.some(value=>value.kind===item.kind&&value.evidence_id===item.evidence_id)?values.filter(value=>value.kind!==item.kind||value.evidence_id!==item.evidence_id):[...values,{kind:item.kind,evidence_id:item.evidence_id}]);setContext(undefined);}}/>{item.kind==='document'?'文档':'网页'} · {item.title} · {item.evidence_id.slice(0,12)}</label>)}</fieldset>}
       {!!messages.filter(item=>item.kind==='synthesis'||item.kind==='publication').length&&<label>可选一条已保存 M15 回答或 M16 引用记录<select aria-label="代码已保存结果" value={resultMessageId??''} disabled={blocked} onChange={event=>{setResultMessageId(event.target.value||null);setContext(undefined);}}><option value="">不使用</option>{messages.filter(item=>item.kind==='synthesis'||item.kind==='publication').map(item=><option key={item.id} value={item.id}>{item.kind==='synthesis'?'M15 回答':'M16 简报引用'} · {item.id.slice(0,8)}</option>)}</select></label>}
       <button disabled={blocked||!authorized||!requirement.trim()||chosenPaths.length>3} onClick={()=>void previewContext()}>预览拟发送上下文</button>
-      {!authorized&&<p role="status">请先使用下方“选择目录”授权项目根。</p>}
+      {!authorized&&<p role="status">请先通过“＋”选择并授权项目文件夹。</p>}
       {context&&<section className="m17-context" aria-label="拟发送代码上下文"><h4>将向固定 Computer 发送的内容</h4><p>需求：{requirement}</p>
         {context.files.map(file=><details key={file.path}><summary>{file.path} · SHA256 {file.sha256.slice(0,12)}</summary><pre>{file.content}</pre></details>)}
         {context.fragments.map(fragment=><details key={fragment.citation}><summary>{fragment.kind} · {fragment.locator} · {fragment.citation}</summary><pre>{fragment.text}</pre></details>)}
@@ -86,7 +99,7 @@ export function M17Workspace({cid,authorized,disabled,messages,availableSources,
         {draft.files.map(file=><details key={file.index} open={file.index===0}><summary>{file.operation==='modify'?'修改':'新建'} {file.path} · {file.status}</summary><h5>逐文件差异</h5><pre>{file.diff}</pre><details><summary>完整可编辑源码</summary><pre>{file.content}</pre></details><button disabled={blocked||file.status!=='pending'} onClick={()=>void apply(file.index)}>确认此文件并写入</button></details>)}
       </section>}
     </details>
-    <details><summary>系统清理：旧临时文件隔离</summary><p>只看当前用户 Temp 顶层超过 30 天的 .tmp/.log 普通文件；系统目录、注册表、链接和占用文件均不处理。先扫描再逐项审批。</p>
+    <details open={workflow?.action==='cleanup'||!!plan||undefined}><summary>系统清理：旧临时文件隔离</summary><p>只看当前用户 Temp 顶层超过 30 天的 .tmp/.log 普通文件；系统目录、注册表、链接和占用文件均不处理。先扫描再逐项审批。</p>
       <button disabled={blocked} onClick={()=>void scan()}>扫描白名单</button>
       {!!recentPlans.length&&<details><summary>已保存清理计划</summary>{recentPlans.map(item=><button key={item.id} disabled={blocked} onClick={()=>void loadPlan(String(item.data?.plan_id))}>查看计划 {String(item.data?.plan_id).slice(0,8)}</button>)}</details>}
       {plan&&<section aria-label="清理逐项计划"><h4>计划版本 {plan.revision.slice(0,12)} · {plan.status}</h4><p>候选逻辑大小 {bytes(plan.logical_bytes)}；已隔离 {bytes(plan.quarantined_bytes)}；实际释放空间 {bytes(plan.released_bytes)}。{plan.truncated?'扫描有上限，结果已截断。':''}</p>

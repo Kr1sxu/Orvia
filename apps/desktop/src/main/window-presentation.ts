@@ -2,11 +2,13 @@ import type { BrowserWindowConstructorOptions, BrowserWindow } from 'electron';
 import path from 'node:path';
 import {readFileSync} from 'node:fs';
 
-/** AppId只改变Windows分组/图标；只读可信安装元数据中的两个固定值，不参与业务授权。 */
+/** AppId只改变Windows分组/图标；只读可信安装元数据中的固定值，不参与业务授权。 */
 export function taskbarAppId(packaged:boolean,applicationPath:string):string {
   if(!packaged)return 'cn.orvia.desktop';
   const metadata=JSON.parse(readFileSync(path.join(applicationPath,'package.json'),'utf8')) as {orviaAppId?:unknown};
-  return metadata.orviaAppId==='cn.orvia.m19.visualtest'?'cn.orvia.m19.visualtest':'cn.orvia.desktop';
+  if(metadata.orviaAppId==='cn.orvia.m19.visualtest')return 'cn.orvia.m19.visualtest';
+  if(metadata.orviaAppId==='cn.orvia.m20.fulltest')return 'cn.orvia.m20.fulltest';
+  return 'cn.orvia.desktop';
 }
 
 /** 只从可信应用目录定位品牌资源；renderer不能传路径或改变窗口构造参数。 */

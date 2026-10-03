@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "reviewed_on": "2026-10-02",
+  "scope": "锁定安装分发缺失原许可的官方版本原件；仅许可声明和字节审计，不代表专业法律结论",
+  "licenses": [
+    {
+      "distribution": "rapidocr-onnxruntime",
+      "version": "1.4.4",
+      "file": "rapidocr-1.4.4-LICENSE.txt",
+      "bytes": 11422,
+      "sha256": "3e0af25fdd06aa9586ae97adb00ea927ebe5a3805ac77d2d3a81ce5f55693333",
+      "repository": "https://github.com/RapidAI/RapidOCR",
+      "ref": "v1.4.4",
+      "commit": "86ae3f5079df3422c1829cd84baf19bc8a7a9453",
+      "source": "https://github.com/RapidAI/RapidOCR/blob/86ae3f5079df3422c1829cd84baf19bc8a7a9453/LICENSE",
+      "download_url": "https://raw.githubusercontent.com/RapidAI/RapidOCR/86ae3f5079df3422c1829cd84baf19bc8a7a9453/LICENSE"
+    },
+    {
+      "distribution": "flatbuffers",
+      "version": "25.12.19",
+      "file": "flatbuffers-25.12.19-LICENSE.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "repository": "https://github.com/google/flatbuffers",
+      "ref": "v25.12.19",
+      "commit": "7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+      "source": "https://github.com/google/flatbuffers/blob/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE",
+      "download_url": "https://raw.githubusercontent.com/google/flatbuffers/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE"
+    },
+    {
+      "distribution": "jieba",
+      "version": "0.42.1",
+      "file": "jieba-0.42.1-LICENSE.txt",
+      "bytes": 1075,
+      "sha256": "18ba0984839f85853b29fadaf992f7dba8fd0ca0fbeae34de2b8735222dc7a37",
+      "repository": "https://github.com/fxsjy/jieba",
+      "ref": "v0.42.1",
+      "commit": "1e20c89b66f56c9301b0feed211733ffaa1bd72a",
+      "source": "https://github.com/fxsjy/jieba/blob/1e20c89b66f56c9301b0feed211733ffaa1bd72a/LICENSE",
+      "download_url": "https://raw.githubusercontent.com/fxsjy/jieba/1e20c89b66f56c9301b0feed211733ffaa1bd72a/LICENSE"
+    },
+    {
+      "distribution": "langsmith",
+      "version": "0.14.1",
+      "file": "langsmith-0.14.1-LICENSE.txt",
+      "bytes": 1066,
+      "sha256": "34e0b9842c7a31d34e53bc7eb224e81e07a34996106e029bbc72dea2d449f496",
+      "repository": "https://github.com/langchain-ai/langsmith-sdk",
+      "ref": "v0.14.1",
+      "commit": "c51e722026138478b728884d9a3b504ef2ba8ea0",
+      "source": "https://github.com/langchain-ai/langsmith-sdk/blob/c51e722026138478b728884d9a3b504ef2ba8ea0/LICENSE",
+      "download_url": "https://raw.githubusercontent.com/langchain-ai/langsmith-sdk/c51e722026138478b728884d9a3b504ef2ba8ea0/LICENSE"
+    },
+    {
+      "distribution": "langgraph-checkpoint-sqlite",
+      "version": "2.0.11",
+      "file": "langgraph-checkpoint-sqlite-2.0.11-LICENSE.txt",
+      "bytes": 1072,
+      "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7",
+      "repository": "https://github.com/langchain-ai/langgraph",
+      "ref": "release commit #5667",
+      "commit": "a3d7b6f44ec1df13b733e4d0b4248f1a91da89f4",
+      "source": "https://github.com/langchain-ai/langgraph/blob/a3d7b6f44ec1df13b733e4d0b4248f1a91da89f4/LICENSE",
+      "download_url": "https://raw.githubusercontent.com/langchain-ai/langgraph/a3d7b6f44ec1df13b733e4d0b4248f1a91da89f4/LICENSE"
+    },
+    {
+      "distribution": "sqlite-vec",
+      "version": "0.1.9",
+      "file": "sqlite-vec-0.1.9-LICENSE-MIT.txt",
+      "bytes": 1068,
+      "sha256": "6ce72bbe12d975bd5286e5ab0a064c069693300c47bccbc57bec18485f1621ea",
+      "repository": "https://github.com/asg017/sqlite-vec",
+      "ref": "v0.1.9",
+      "commit": "e9f598abfa0c06b328d8fe5da9c3760cce74be10",
+      "source": "https://github.com/asg017/sqlite-vec/blob/e9f598abfa0c06b328d8fe5da9c3760cce74be10/LICENSE-MIT",
+      "download_url": "https://raw.githubusercontent.com/asg017/sqlite-vec/e9f598abfa0c06b328d8fe5da9c3760cce74be10/LICENSE-MIT"
+    },
+    {
+      "distribution": "sqlite-vec",
+      "version": "0.1.9",
+      "file": "sqlite-vec-0.1.9-LICENSE-APACHE.txt",
+      "bytes": 10931,
+      "sha256": "a38070a94d4afd9cd710e3ce67bd1de78097cfe1784c1f0109ac95d3c196bfdc",
+      "repository": "https://github.com/asg017/sqlite-vec",
+      "ref": "v0.1.9",
+      "commit": "e9f598abfa0c06b328d8fe5da9c3760cce74be10",
+      "source": "https://github.com/asg017/sqlite-vec/blob/e9f598abfa0c06b328d8fe5da9c3760cce74be10/LICENSE-APACHE",
+      "download_url": "https://raw.githubusercontent.com/asg017/sqlite-vec/e9f598abfa0c06b328d8fe5da9c3760cce74be10/LICENSE-APACHE"
+    }
+  ]
+}

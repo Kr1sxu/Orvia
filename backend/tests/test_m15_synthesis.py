@@ -54,7 +54,7 @@ def test_preview_generate_conflict_restart_isolation_and_idempotency(tmp_path):
             data = first["messages"][-1]["data"]
             assert data["coverage"] == preview["coverage"] and len(data["citations"]) == 2
             assert data["model"] == "deepseek-flash" and first["grant"] is None and first["operation"] is None
-            assert captured[0][0].base_url == "https://api.deepseek.com" and captured[0][2]["max_tokens"] == 1024
+            assert captured[0][0].base_url == "https://api.deepseek.com" and captured[0][2]["max_tokens"] == 4096
             assert "合成计划" in captured[0][1][1]["content"]
             assert (await call(app, "chat.synthesis.generate", generate))["result"] == first and len(captured) == 1
             stale = await call(app, "chat.synthesis.generate", {**generate, "request_id": str(uuid4()), "revision": "0"*64})

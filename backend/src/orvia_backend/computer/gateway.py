@@ -64,6 +64,24 @@ class ComputerGateway:
             raise ToolError("PERMISSION_DENIED", "请重新选择并授权本地目录")
         return grant.root.resolve(".", "directory")
 
+    def check_scan(self, role: str, mission_id: str, grant_id: str) -> PathPolicy:
+        """批次扫描持续复核同一内存授权；撤销/替换不继承旧批次权限。"""
+        if role != "computer":
+            raise ToolError("ROLE_DENIED", "此角色不能扫描本地目录")
+        grant = self._grants.get(mission_id)
+        if grant is None or grant.id != grant_id or grant.root is None:
+            raise ToolError("PERMISSION_DENIED", "目录授权已撤销或变化，请重新确认")
+        grant.root.resolve(".", "directory")
+        return grant.root
+
+    def begin_scan(self, role: str, mission_id: str, grant_id: str) -> PathPolicy:
+        """M20 一次完整有界扫描扣一次既有工具预算，分页读取不会重新访问文件。"""
+        policy = self.check_scan(role, mission_id, grant_id)
+        if self._budgets.get(mission_id, 0) >= 200:
+            raise ToolError("BUDGET_EXCEEDED", "本任务的只读调用预算已用完")
+        self._budgets[mission_id] += 1
+        return policy
+
     @staticmethod
     def selected_file(role: str, path: str) -> tuple[PathPolicy, str]:
         """仅可信主进程原生选择器调用，授权只覆盖该文件，不修改目录 grant。"""

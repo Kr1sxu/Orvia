@@ -14,6 +14,8 @@ export const healthSchema = z.object({ status: z.literal('ok'), service: z.liter
 export class JsonLines {
   private buffer = Buffer.alloc(0);
   push(chunk: Buffer): unknown[] {
+    // Node管道按至多64KiB读取；拒绝异常合并块，避免完整小帧洪泛形成无界messages数组。
+    if(chunk.length>MAX_LINE_BYTES)throw new Error('协议输入块超过限制');
     this.buffer = Buffer.concat([this.buffer, chunk]);
     const messages: unknown[] = [];
     let end: number;

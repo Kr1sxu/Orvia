@@ -32,14 +32,14 @@ class ChatRepository:
                 await db.execute("ALTER TABLE chat_requests ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'")
             await db.execute("BEGIN IMMEDIATE")
             try:
-                async with db.execute("SELECT conversation_id,request_id FROM chat_requests WHERE status = 'pending'") as cursor:
+                async with db.execute("SELECT conversation_id,request_id FROM chat_requests WHERE status IN ('pending','waiting_input','waiting_approval')") as cursor:
                     interrupted = await cursor.fetchall()
                 for row in interrupted:
                     message = self._message("system", "上次消息处理被中断；未自动重发模型或网页请求。请先查看已保存来源、计划与结果，再用新消息继续。",
                                             "error", {"code": "REQUEST_INTERRUPTED", "request_id": row[1]})
                     await db.execute("INSERT INTO chat_messages(conversation_id,message_json) VALUES (?, ?)",
                                      (row[0], json.dumps(message, ensure_ascii=False)))
-                await db.execute("UPDATE chat_requests SET status = 'interrupted' WHERE status = 'pending'")
+                await db.execute("UPDATE chat_requests SET status = 'interrupted' WHERE status IN ('pending','waiting_input','waiting_approval')")
                 await db.commit()
             except BaseException:
                 await db.rollback()
@@ -92,6 +92,17 @@ class ChatRepository:
         async with self.store._lock:
             await self.store._db().execute("UPDATE chat_requests SET status = ? WHERE conversation_id = ? AND request_id = ?",
                                           (status, conversation_id, request_id))
+
+    async def sequence(self, conversation_id):
+        """续步以真实落盘消息序号为基线，不接受renderer自述完成或结果。"""
+        async with self.store._lock:
+            async with self.store._db().execute("SELECT COALESCE(MAX(sequence),0) FROM chat_messages WHERE conversation_id=?", (conversation_id,)) as cursor:
+                return (await cursor.fetchone())[0]
+
+    async def since(self, conversation_id, sequence):
+        async with self.store._lock:
+            async with self.store._db().execute("SELECT message_json FROM chat_messages WHERE conversation_id=? AND sequence>? ORDER BY sequence LIMIT 100", (conversation_id, sequence)) as cursor:
+                return [json.loads(row[0]) for row in await cursor.fetchall()]
 
     @staticmethod
     def _message(role, text, kind, data):

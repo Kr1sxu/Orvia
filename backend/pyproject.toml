@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orvia-backend"
-version = "0.2.0rc1"
+version = "0.3.0rc1"
 description = "序航 Orvia 本地 stdio 后端"
 requires-python = ">=3.12,<3.13"
 dependencies = [

@@ -81,12 +81,17 @@ def _digest(path: Path) -> str:
 
 
 def _runtime_manifest(root: Path) -> dict[str, str]:
-    files = {}
+    files, entries, total = {}, 0, 0
     for path in root.rglob("*"):
+        entries += 1
+        if entries > 12000:
+            raise IsolationError("M18_RUNTIME_UNAVAILABLE", "运行时目录项超过预算")
         _ordinary(path)
         if path.is_file() and path != root / _MANIFEST:
-            if path.stat().st_nlink != 1:
-                raise IsolationError("M18_RUNTIME_UNAVAILABLE", "运行时不能包含硬链接")
+            info = path.stat()
+            total += info.st_size
+            if info.st_nlink != 1 or info.st_size > 32 * 1024 * 1024 or total > 256 * 1024 * 1024:
+                raise IsolationError("M18_RUNTIME_UNAVAILABLE", "运行时文件身份或字节预算不符")
             files[path.relative_to(root).as_posix()] = _digest(path)
         if len(files) > 5000:
             raise IsolationError("M18_RUNTIME_UNAVAILABLE", "运行时副本超过预算")
@@ -164,14 +169,72 @@ def _disable_sxs_manifest(path: Path, resource_id: int) -> None:
 def _verify_runtime(executable: Path) -> None:
     root = _ordinary(executable).parent
     try:
-        manifest = json.loads((root / _MANIFEST).read_text(encoding="utf-8"))
+        manifest_file = _ordinary(root / _MANIFEST)
+        info = manifest_file.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 2 * 1024 * 1024:
+            raise ValueError("manifest budget")
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
         if (not isinstance(manifest, dict) or manifest.get("version") != "3.12" or manifest.get("transform") != "manifestless-console"
                 or manifest.get("files") != _runtime_manifest(root)):
             raise ValueError("manifest")
-        if executable.name != "python.exe" or not (root / "python312.dll").is_file():
+        if (executable.name != "python.exe" or not (root / "python312.dll").is_file()
+                or not (root / "Lib/encodings/__init__.py").is_file()
+                or (root / "python312._pth").read_text(encoding="utf-8") != ".\nLib\nDLLs\n"):
             raise ValueError("runtime")
     except (OSError, ValueError, TypeError) as exc:
         raise IsolationError("M18_RUNTIME_UNAVAILABLE", "私有 Python 副本缺失或变化，请重新准备") from exc
+
+
+def _copy_packaged_runtime(private_root: Path) -> Path:
+    """冻结服务只读本安装器的预制解释器，不能把冻结 EXE 或 PATH 当解释器。
+
+    资源源路径由正在运行的固定后端 EXE 推导。复制前后核对完整字节清单；
+    私有副本一旦已存在只校验，不覆盖修复，避免把被改写的运行时当作可信资源。
+    """
+    host = _ordinary(Path(sys.executable))
+    resources = host.parent.parent
+    if host.name.casefold() != "orvia-backend.exe" or host.parent.name != "backend" or resources.name != "resources":
+        raise IsolationError("M18_RUNTIME_UNAVAILABLE", "冻结后端不在固定安装资源目录")
+    source = resources / "script-runtime" / "python312"
+    _verify_runtime(source / "python.exe")
+    expected = json.loads((source / _MANIFEST).read_text(encoding="utf-8"))
+    target = private_root / "python312"
+    if target.exists():
+        _verify_runtime(target / "python.exe")
+        if json.loads((target / _MANIFEST).read_text(encoding="utf-8")) != expected:
+            raise IsolationError("M18_RUNTIME_UNAVAILABLE", "私有解释器与当前安装资源版本不符")
+        return target / "python.exe"
+    private_root.mkdir(parents=True, exist_ok=True)
+    # 新副本先写唯一临时目录；失败保留审查现场，绝不补写既有运行时或回退系统 Python。
+    temporary = private_root / ("prepare-python312-" + uuid4().hex)
+    temporary.mkdir()
+    for relative, checksum in expected["files"].items():
+        original = _ordinary(source / relative)
+        destination = temporary / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with original.open("rb") as reader, destination.open("xb") as writer:
+            before = os.fstat(reader.fileno())
+            digest, size = hashlib.sha256(), 0
+            while chunk := reader.read(1024 * 1024):
+                size += len(chunk)
+                if size > min(before.st_size, 32 * 1024 * 1024):
+                    raise IsolationError("M18_RUNTIME_UNAVAILABLE", "安装解释器复制期间变化")
+                digest.update(chunk)
+                writer.write(chunk)
+            writer.flush()
+            os.fsync(writer.fileno())
+            after = os.fstat(reader.fileno())
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or size != before.st_size
+                or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                or digest.hexdigest() != checksum):
+            raise IsolationError("M18_RUNTIME_UNAVAILABLE", "安装解释器复制期间变化")
+    (temporary / _MANIFEST).write_text(json.dumps(expected, sort_keys=True), encoding="utf-8")
+    _verify_runtime(temporary / "python.exe")
+    _verify_runtime(source / "python.exe")
+    temporary.rename(target)
+    _verify_runtime(target / "python.exe")
+    return target / "python.exe"
 
 
 def _file_budget(root: Path, *, count: int) -> bool:
@@ -212,17 +275,22 @@ def _file_budget(root: Path, *, count: int) -> bool:
 def prepare_runtime(private_root: Path, source_executable: Path | None = None) -> Path:
     """仅复制当前固定 CPython，不查询 PATH、不下载、不安装第三方依赖。
 
-    冻结后端不是 Python 解释器，必须另行提供经过发行核验的私有运行时；
-    当前冻结模式明确失败，防止静默使用系统 Python。已存在副本只核验，不覆盖。
+    冻结后端不是 Python 解释器：只从固定安装资源读取发行时生成的标准库解释器，
+    复制并核验到应用私有目录。开发模式仍仅允许当前固定 CPython；不接受环境或
+    renderer 提供解释器，已存在副本只核验，不覆盖。
     """
-    if os.name != "nt" or getattr(sys, "frozen", False) or sys.version_info[:2] != (3, 12):
+    if os.name != "nt" or sys.version_info[:2] != (3, 12):
         raise IsolationError("M18_RUNTIME_UNAVAILABLE", "当前环境没有固定 Python 3.12 脚本运行时")
+    private_root = _ordinary(Path(private_root), exists=False)
+    if getattr(sys, "frozen", False):
+        if source_executable is not None:
+            raise IsolationError("M18_RUNTIME_UNAVAILABLE", "安装版不接受解释器覆盖")
+        return _copy_packaged_runtime(private_root)
     fixed = Path(getattr(sys, "_base_executable", sys.executable))
     source = Path(source_executable) if source_executable is not None else fixed
     _ordinary(source)
     if source.resolve() != fixed.resolve() or source.name.casefold() != "python.exe":
         raise IsolationError("M18_RUNTIME_UNAVAILABLE", "脚本运行时只能来自当前固定 CPython")
-    private_root = _ordinary(Path(private_root), exists=False)
     target = private_root / "python312"
     executable = target / "python.exe"
     if target.exists():
