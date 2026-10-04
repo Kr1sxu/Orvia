@@ -113,7 +113,7 @@ def test_real_batch_cancellation_or_revoke_keeps_only_discovered_prefix(tmp_path
         result = (await call(app, "chat.natural", request))["result"]
         directory = next(item for item in result["messages"] if item["kind"] == "directory_result")["data"]
         assert directory["summary"]["discovered"] <= 80 and not directory["summary"]["complete"]
-        assert result["stream"]["state"] == ("cancelled" if operation == "cancel" else "completed")
+        assert result["stream"]["state"] == ("cancelled" if operation == "cancel" else "paused")
         page = (await call(app, "chat.scan.page", {"id": cid, "scan_id": directory["scan_id"]}))["result"]
         assert page["total"] == directory["summary"]["discovered"]
         assert not any(value["kind"] == "model_delta" for value in events)
@@ -134,7 +134,7 @@ def test_empty_recursive_mixed_sensitive_and_gateway_role_rejection(tmp_path):
         (root / "nested" / "child.py").write_text("# 合成", encoding="utf-8")
         (root / ".env.local").write_text("SYNTHETIC=not-a-key", encoding="utf-8")
         recursive = (await call(app, "chat.natural", send(cid, "递归列出目录")))["result"]
-        data = recursive["messages"][-1]["data"]
+        data = next(item["data"] for item in recursive["messages"] if item["kind"] == "directory_result" and item["data"]["summary"]["depth"] == 3)
         assert data["summary"]["depth"] == 3 and data["summary"]["errors"]
         assert any(item["path"] == "nested/child.py" and item["category"] == "代码" for item in data["entries"])
         assert not any(".env" in item["path"] for item in data["entries"])
@@ -301,8 +301,9 @@ def test_missing_key_and_unsupported_task_do_not_invent_result(tmp_path):
         missing = (await call(app, "chat.natural", send(cid, "解释普通问题")))["result"]
         assert missing["workflow"] is None and missing["messages"][-1]["data"]["code"] == "MISSING_CREDENTIAL"
         refused = (await call(app, "chat.natural", send(cid, "永久删除系统目录并修改注册表")))["result"]
-        assert refused["messages"][-1]["data"]["code"] == "UNSUPPORTED_TASK" and refused["operation"] is None
-        assert refused["stream"]["state"] == "failed"
+        assert refused["workflow"]["action"] == "task_decision" and refused["operation"] is None
+        assert refused["task_progress"]["steps"][0]["status"] == "unsupported"
+        assert refused["stream"]["state"] == "paused"
         await app.close()
     asyncio.run(run())
 
@@ -395,8 +396,9 @@ def test_resource_truncation_and_oversized_depth_do_not_claim_full_scan(tmp_path
         assert scans_module.MAX_VISITED == 5000 and scans_module.MAX_WORK_SECONDS == 10 and scans_module.MAX_LEDGER_BYTES == 4 * 1024 * 1024
         monkeypatch.setattr(scans_module, "MAX_VISITED", 3)
         result = (await call(app, "chat.natural", send(cid, "列出目录")))["result"]
-        summary = result["messages"][-1]["data"]["summary"]
+        summary = next(item["data"]["summary"] for item in result["messages"] if item["kind"] == "directory_result")
         assert summary["visited"] == 3 and summary["discovered"] == 3 and summary["truncated"] and not summary["complete"]
+        await call(app, "chat.cancel", {"id": cid, "request_id": result["workflow"]["request_id"]})
         deep = (await call(app, "chat.natural", send(cid, "递归列目录深度99")))["result"]
         assert deep["workflow"]["action"] == "clarification" and "最多8层" in deep["workflow"]["question"]
         await app.close()

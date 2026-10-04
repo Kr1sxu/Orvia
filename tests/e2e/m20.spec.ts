@@ -162,7 +162,7 @@ test('M20断流保留部分事实、单次同模型原生降级、重启不自�
 
 test('M20缺凭据、不支持任务和内网URL明确失败，未回退模型/授权',async()=>{
   const f=await fixture('missing');const app=await f.launch();
-  try{const page=await app.firstWindow();await ready(page);await send(page,'请解释流式输出的原理');await expect(page.getByText(/固定Main凭据缺失/)).toBeVisible();await send(page,'永久删除全部文件并提权');await expect(page.getByText(/超出已实现/)).toBeVisible();await send(page,'读取 http://127.0.0.1/test');await expect(page.getByText(/URL_BLOCKED/).first()).toBeVisible();
+  try{const page=await app.firstWindow();await ready(page);await send(page,'请解释流式输出的原理');await expect(page.getByText(/固定Main凭据缺失/)).toBeVisible();await send(page,'永久删除全部文件并提权');await expect(page.getByLabel('当前需求待办')).toContainText('超出已实现');await page.getByRole('button',{name:'取消此需求',exact:true}).click();await expect(page.getByLabel('当前需求待办')).toHaveCount(0);await send(page,'读取 http://127.0.0.1/test');await expect(page.getByText(/URL_BLOCKED/).first()).toBeVisible();
     const state=await snapshot(page);expect(state.grant).toBeNull();expect(state.operation).toBeNull();expect(await f.calls()).toHaveLength(0);
   }finally{await app.close();}
 });

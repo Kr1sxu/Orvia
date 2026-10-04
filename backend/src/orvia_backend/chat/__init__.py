@@ -560,7 +560,10 @@ class ChatService:
             return "running"
         workflow = await self.natural.workflow(cid)
         if workflow:
-            return "awaiting_approval" if workflow["state"] == "waiting_approval" else "draft"
+            return "awaiting_approval" if workflow["state"] == "waiting_approval" else "waiting_input"
+        progress = await self.natural.progress.project(cid)
+        if progress and progress['state'] in {'interrupted', 'failed', 'cancelled'}:
+            return progress['state']
         request_status = await self.repository.latest_request_status(cid)
         messages, _ = await self.repository.messages(cid)
         last_event = next((item for item in reversed(messages) if item["role"] == "user" or item["kind"] in {"result", "error"}), None)
@@ -597,6 +600,7 @@ class ChatService:
         result["sources"], result["sources_truncated"] = await self.evidence.list(cid)
         result["documents"], result["documents_truncated"] = await self.documents.list(cid)
         result["workflow"] = await self.natural.workflow(cid)
+        result['task_progress'] = await self.natural.progress.project(cid)
         result["materials"] = await self.natural.materials(cid)
         result["stream"] = await self.streams.get(cid)
         result["workspace_history"] = await self.repository.workspace_history(cid)

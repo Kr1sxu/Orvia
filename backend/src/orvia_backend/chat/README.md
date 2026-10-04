@@ -133,3 +133,14 @@ M11 故障测试注入网络不可用、超时、数据库忙/空间不足、磁
 清理覆盖会话消息/请求、浏览器与文档证据、检索索引/偏好/摘要、任务及条目、草稿、流和扫描资料、checkpoint以及脚本输入输出私有副本。先落删除进度标记，旧ID随即不可访问；跨库或文件中断会在重启后幂等继续清理，失败不报告成功。仅保留ID与进度，无正文审计。不是磁盘取证擦除，不清除外部备份；文件系统预检不能消除外部进程恶意替换路径的全部竞态。无法安全清理时关闭能力，不自动重放任务。
 
 运行沿用应用入口`npm start`；例如对无未完任务的历史会话在更多菜单确认删除。测试：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_management.py backend/tests/test_chat.py backend/tests/test_v3_workspace.py -q --junitxml=artifacts/test-results/V3-003/backend-final.xml`。真实临时SQLite和checkpoint、合成文件及故障注入，真实模型0；不使用用户资料。界面与IPC测试见desktop README。
+
+## V3-004 全目标完成判定
+用途/结构：`routing.py`保留原文分句和顺序，未知分句成为澄清占位；`task_progress.py`管理逐目标事实；`coordinator.py`只在核验当前步骤后推进，`_terminal`核对计划长度、完成位置和全部目标状态。`m20_workflows`追加`step_states`，不改固定模型快照。新请求目标最多16项、能力执行仍最多4步，工作阶段50秒、扫描10秒等既有预算不变。超预算请求保留完整原文并要求明确拆分，不执行部分任务。
+
+输入输出：沿用`chat.natural`/`chat.continue`/`chat.cancel`。快照增加可选`task_progress={request_id,state,instruction,steps:[{index,title,kind,status,detail}]}`；不返回权限。每个步骤内部保存核验`result_id`，文档生成绑定当前请求前置synthesis结果；前置结果缺失或目录属性不足以支撑风险结论时暂停，不能借用无关旧回答。明确附件/网页目标仍进入原有片段预览和独立审批。普通回答经批准降级后继续余下步骤，不直接结束整个请求。
+
+`task_decision`仅接受当前token和精确选择`accept_limit`；记录用户接受当前项未完成/受限范围后才前进，不支持项不会变成实际完成，重复/跨会话token拒绝。取消不会执行剩余目标。部分扫描保留实际发现清单并暂停，请求接受限制或取消。状态枚举包含not_started/running/waiting_authorization/waiting_approval/waiting_input/unsupported/limited/blocked/completed/accepted/failed/cancelled/interrupted。
+
+重启只投影已保存的新请求目标进度，原token失效；不重放扫描、模型或写动作。旧版请求没有逐目标事实时不倒推或补造完整成功，新清单只从V3-004新请求产生；旧原文和历史消息仍在。明确分句保守匹配未知目标会要求澄清，不承诺任意自然语言无歧义解析。无已安装应用、使用历史、全盘垃圾识别、完整清理风险分析新能力；元数据扫描不能证明文件可删除。
+
+无新依赖或配置。运行沿用`npm start`。测试`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_compound.py backend/tests/test_m20_natural.py -q --junitxml=artifacts/test-results/V3-004/compound.xml`；模型仅mock，目录/SQLite/checkpoint真实隔离。E2E与完整命令见PROGRESS。

@@ -183,3 +183,10 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 无新依赖或凭据。运行`npm run build`、`npm start`，历史行更多菜单即可试用。测试`npx vitest run apps/desktop/tests/v3-management.test.ts apps/desktop/tests/chat.test.ts apps/desktop/tests/m20-transport.test.ts`；`$env:ORVIA_TEST_MODULE='V3-003'; npx playwright test tests/e2e/v3-management.spec.ts`。后者真实Electron/Python与隔离临时库，测试启动器替换原生选择结果，不调用真实模型。结果在`artifacts/test-results/V3-003/`。
 
 限制：无批量、同步或回收站；永久删除不回滚外部动作，也不移除用户原文件/导出成品。未完成审批、未知结果或隔离文件未恢复时不能强制删除，不应为了删除会话批准不需要的动作。旧安装包未更新。
+
+## V3-004 复合目标进度
+`TaskProgress.tsx`渲染后端`task_progress`的完整原文和顺序清单：实际完成、未开始、等待信息/授权/审批、不支持、部分结果、前置缺失、失败、中断、取消、已接受限制分别显示。清单独立滚动，原因折叠；完成/取消后整个清单默认折叠，保留最新回答的阅读位置。等待状态不再显示为草稿。
+
+复用固定`chatContinue`接口：仅当前`task_decision`的一次性token加`answer:'accept_limit'`能接受当前项未完成/受限范围；普通“明确继续”不构成接受，不授予文件或网络权限。未支持项仍可取消。DTO严格校验最多16项目标，旧快照可无此可选字段；无新依赖或凭据。
+
+运行`npm run build`、`npm start`；示例“列出目录，然后统计空间”逐步执行，或输入V3文档完整复现指令查看能力缺口。相关测试：`npx vitest run apps/desktop/tests/v3-compound.test.tsx apps/desktop/tests/m20-contracts.test.ts apps/desktop/tests/m20-ui.test.tsx`，`$env:ORVIA_TEST_MODULE='V3-004'; npx playwright test tests/e2e/v3-compound.spec.ts`。隔离profile、合成目录/原生选择模拟；不扫描真实C盘、不调用真实模型。报告见`artifacts/test-results/V3-004/`。未重建安装包。

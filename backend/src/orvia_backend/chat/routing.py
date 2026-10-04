@@ -14,7 +14,8 @@ class Step(BaseModel):
     """意图只提出既有能力，不包含权限、批准、绝对文件路径或任意方法。"""
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     kind: Literal["list", "search", "space", "read_url", "web_search", "material_answer", "material_quote",
-                  "publication", "development", "script", "desktop", "browser", "cleanup", "files", "answer", "clarify", "unsupported"]
+                  "publication", "development", "script", "desktop", "browser", "cleanup", "files", "answer", "clarify", "unsupported", "task_summary"]
+    goal: str = Field(default="", max_length=2000)
     query: str = Field(default="", max_length=1200)
     url: str = Field(default="", max_length=2048)
     path: str = Field(default=".", max_length=1000)
@@ -27,7 +28,8 @@ class Step(BaseModel):
 
 class Route(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
-    steps: list[Step] = Field(min_length=1, max_length=4)
+    # 包括未支持项的目标清单最多16项；实际执行仍受每请求4个能力步骤和阶段deadline约束。
+    steps: list[Step] = Field(min_length=1, max_length=16)
 
 
 def local_small_talk(text):
@@ -75,11 +77,16 @@ def obvious(text: str, *, has_materials=False, has_synthesis=False) -> Route | N
     if not 1 <= depth <= 8:
         return Route(steps=[Step(kind="clarify", query="扫描深度最多8层；请选择1到8层的范围。")])
     synthesis = any(word in lower for word in ("总结", "摘要", "概括", "综合", "比较", "对比", "分析", "解释", "回答"))
-    publication = (any(word in lower for word in ("word", "ppt", "powerpoint", "简报", "pdf"))
-                   and bool(re.search(r"生成|制作|导出|保存|转成|转换为|创建|做(?:一份|个)?简报", lower)))
+    publication = (any(word in lower for word in ("word", "ppt", "powerpoint", "简报", "pdf")) or bool(re.search(r"\bdocx?\b", lower))) and bool(re.search(r"生成|制作|导出|输出|保存|转成|转换为|创建|做(?:一份|个)?简报", lower))
     format = "pptx" if "ppt" in lower or "powerpoint" in lower else "pdf" if "pdf" in lower else "docx"
     if any(word in lower for word in ("永久删除", "注册表", "管理员", "提权", "内核驱动", "绕过验证码")):
         return Route(steps=[Step(kind="unsupported", query="此任务超出已实现的权限与业务边界；没有执行或修改权限。")])
+    if any(word in lower for word in ("已安装应用", "已安装软件", "闲置应用", "闲置软件", "长期未使用", "从未使用")):
+        return Route(steps=[Step(kind="unsupported", query="未实现已安装应用清单和使用历史分析；文件目录不能证明应用安装情况或是否闲置。")])
+    if re.search(r"(?:对话|聊天).*(?:摘要|总结)|(?:摘要|总结).*(?:本次任务|已完成|未完成)", lower):
+        return Route(steps=[Step(kind="task_summary", query=text[:1200])])
+    if not publication and not has_materials and not urls and any(word in lower for word in ("风险", "清理建议", "保留建议", "高价值清理", "可清理项")):
+        return Route(steps=[Step(kind="unsupported", query="目录元数据不能证明文件可安全清理，也不足以生成完整风险或高价值清理结论；可替代范围为已授权目录的文件清单和空间统计。")])
     if urls and any(word in lower for word in ("登录", "填写", "填表", "提交", "发送消息", "上传", "交易", "购买", "删除")):
         if len(set(urls)) > 1:
             return Route(steps=[Step(kind="clarify", query="网页操作需要一个准确HTTPS站点；请明确本次目标。")])
@@ -117,6 +124,12 @@ def obvious(text: str, *, has_materials=False, has_synthesis=False) -> Route | N
         return Route(steps=steps)
     if any(word in lower for word in ("重命名", "改名", "移动文件", "整理文件", "整理目录", "分类移动")):
         return Route(steps=[Step(kind="files", query=text[:1200])])
+    if "扫描" in lower and any(word in lower for word in ("盘", "文件", "目录")):
+        steps = [Step(kind="space" if any(word in lower for word in ("空间", "大文件", "占用")) else "list", depth=depth)]
+        if "垃圾" in lower:
+            steps[0].goal = "受限目录元数据扫描：" + text[:1900]
+            steps.append(Step(kind="unsupported", goal=text, query="仅完成授权目录的有限深度元数据扫描，未实现全盘垃圾识别；不能据此判断文件可删除或承诺释放空间。"))
+        return Route(steps=steps)
     if any(word in lower for word in ("空间", "大小统计", "大文件", "占用")) and (any(word in lower for word in ("目录", "文件夹", "文件", "磁盘")) or "统计" in lower):
         return Route(steps=[Step(kind="space", depth=depth)])
     if any(word in lower for word in ("目录", "文件夹", "文件清单", "文件列表", "有哪些文件", "文件类型", "全部文件")):
@@ -136,11 +149,9 @@ async def understand(chat, cid, text, materials, history, active, *, nonstream=F
     """仅发送用户指令、显式来源元数据和有界用户上下文；不自动上传证据正文。"""
     # 多动词连接、多个任务对象交给类型化Main；不能靠先匹配的规则丢掉后续目标。
     authored_tasks = task_text(text)
-    verbs = re.findall(r"列出|读取|总结|生成|移动|重命名|搜索|统计|导出|运行|填写|输入|点击|提交|发送|上传|删除|交易|购买|勾选|聚焦|选择选项", authored_tasks)
-    connector = r"(?:然后|接着|再|并且|并|同时|之后|以及|；|;)"
+    verbs = re.findall(r"列出|读取|总结|生成|移动|重命名|搜索|统计|导出|运行|填写|输入|点击|提交|发送|上传|删除|交易|购买|勾选|聚焦|选择选项|扫描|分析|输出|给出|找出|指出", authored_tasks)
+    connector = r"(?:然后|接着|再|并且|并|同时|之后|以及|；|;|\n|[，,。](?=\s*(?:请|并|然后|扫描|分析|输出|给出|总结|生成|列出|读取|统计|找出|指出)))"
     compound = bool(re.search(connector, authored_tasks)) and len(verbs) >= 2
-    if len(verbs) > 4:
-        return Route(steps=[Step(kind="clarify", query="请求包含超过4个任务步骤；请明确拆分，未执行或省略后续目标。")])
     if compound:
         # 同站点的填写/发送等保留一个有限成功条件；跨业务目标仍必须各自成步。
         browser_only = {"填写", "输入", "点击", "提交", "发送", "上传", "删除", "交易", "购买", "勾选", "选择选项"}
@@ -154,15 +165,20 @@ async def understand(chat, cid, text, materials, history, active, *, nonstream=F
             offset = match.end()
         pieces.append(text[offset:].strip())
         pieces = [piece for piece in pieces if piece]
+        if len(pieces) > 16:
+            return Route(steps=[Step(kind="clarify", goal=text, query="目标清单超过16项，请明确拆分；原文完整保留，尚未执行。")])
         candidates = []
         planned_materials = bool(materials)
         planned_synthesis = any(item["kind"] == "synthesis" for item in history)
         planned_urls = []
         for piece in pieces:
             candidate = obvious(piece, has_materials=planned_materials, has_synthesis=planned_synthesis)
-            candidates.append(candidate)
+            # 每个原文分句必须占位；不能让模型只返回首步后覆盖其余目标。
             if candidate is None:
-                break
+                candidate = Route(steps=[Step(kind="clarify", query="请明确此目标的对象或已有能力范围：" + piece[:500])])
+            for step in candidate.steps:
+                step.goal = step.goal or piece
+            candidates.append(candidate)
             for step in candidate.steps:
                 if step.kind == "read_url":
                     planned_materials = True
@@ -173,11 +189,14 @@ async def understand(chat, cid, text, materials, history, active, *, nonstream=F
                         step.query = (step.query + "\n明确网页：" + "、".join(planned_urls))[:1200]
         if all(item is not None for item in candidates):
             steps = [step for item in candidates for step in item.steps]
-            if len(steps) <= 4:
+            executable = [step for step in steps if step.kind not in {"unsupported", "clarify", "task_summary"}]
+            if len(executable) <= 4 and len(steps) <= 16:
                 return Route(steps=steps)
-            return Route(steps=[Step(kind="clarify", query="复合请求超过4步骤，请明确拆分；没有删减目标。")])
+            return Route(steps=[Step(kind="clarify", goal=text, query="复合请求超过4个执行步骤或16项目标，请明确拆分；原文完整保留，没有执行或删减目标。")])
     result = None if compound else obvious(text, has_materials=bool(materials), has_synthesis=any(item["kind"] == "synthesis" for item in history))
     if result is not None:
+        for step in result.steps:
+            step.goal = step.goal or text
         return result
     mission = await chat.store.get_mission(cid)
     profile = next(item for item in mission.models if item.role == "main")
@@ -205,6 +224,11 @@ async def understand(chat, cid, text, materials, history, active, *, nonstream=F
         raise ToolError("INVALID_ROUTING", "固定Main意图结果不完整，未执行任务")
     try:
         route = Route.model_validate_json(completion.text or "")
+        if len(route.steps) > 4:
+            return Route(steps=[Step(kind="clarify", goal=text, query="复合请求超过4个执行步骤，请明确拆分；原文完整保留。")])
+        for step in route.steps:
+            # 展示原文而非模型自述的目标，模型不能改写已保留的需求。
+            step.goal = text
         instruction = task_text(text, quoted=False)
         readable = bool(re.search(r"读取|阅读|打开|查看网页|网页内容|(?:总结|概括|分析|核对|验证).*(?:网页|页面|文章|链接|https?://)", instruction))
         mentioned = {url.rstrip("，。；！？）),.;!?") for url in re.findall(r"https?://[^\s<>\"']+", instruction)}

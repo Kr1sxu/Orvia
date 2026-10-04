@@ -3,7 +3,7 @@ export function nearBottom(scrollTop: number, clientHeight: number, scrollHeight
   return scrollHeight - scrollTop - clientHeight < 64;
 }
 export const taskLabels: Record<string, string> = {
-  draft: '草稿', running: '处理中', waiting_input:'等待必要资料',waiting_approval:'等待独立确认',planned: '等待审批', awaiting_approval: '等待审批',
+  draft: '草稿', running: '处理中', waiting_input:'等待信息或选择',waiting_approval:'等待独立确认',planned: '等待审批', awaiting_approval: '等待审批',
   approved: '已批准', completed: '已完成', failed: '失败', interrupted: '已中断',
   cancelled: '已取消', undone: '已撤销', partially_undone: '部分撤销',
 };

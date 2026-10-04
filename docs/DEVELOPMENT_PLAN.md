@@ -235,3 +235,13 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ 中文文档、敏感检查与正常本地提交；交付以`fix(V3-003): manage history and permanently delete conversations`定位。
 - [ ] 用户手动push；本轮未重建安装包，未执行独立Windows/真实模型测试。
 - [ ] V3-004～005未实施；V3-003提交后停止。
+
+## V3-004（2026-10-04）
+- [x] √ 完整原文、有序目标、未支持/未知目标占位与每步事实持久化。
+- [x] √ 全目标完成校验；明确接受未执行/受限范围或取消，普通继续不能跳过。
+- [x] √ 局部澄清保留后续目标、非流式降级继续剩余步骤、文档核验依赖绑定。
+- [x] √ 重启/刷新只恢复进度展示，旧token失效，无自动重放。
+- [x] √ L0构建、67个不同后端用例、9个前端用例、4个Electron流程与截图检查；详细证据见PROGRESS。
+- [x] √ 中文文档与敏感审计、本地提交；交付标题`fix(V3-004): preserve compound goals and verify completion`。
+- [ ] 用户手动push；未重建安装包、未执行真实模型/独立Windows验收。
+- [ ] V3-005本轮未实施；V3-004本地提交后停止。

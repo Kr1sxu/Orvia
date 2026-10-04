@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import {workflowSchema,materialSchema,streamStateSchema} from './m20-contracts';
+import {taskProgressSchema,workflowSchema,materialSchema,streamStateSchema} from './m20-contracts';
 
 /** 会话业务契约不包含根路径、命令或模型覆盖字段，跨进程边界拒绝额外参数。 */
 export const chatIdSchema = z.object({ id: z.string().uuid() }).strict();
@@ -110,7 +110,7 @@ export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.str
   sources: z.array(browserEvidenceSchema).max(20).optional(), sources_truncated:z.boolean().optional(),
   status: taskStatusSchema.optional(), operations: z.array(operationHistorySchema).max(10).optional(), operations_truncated: z.boolean().optional(),
   workflow:workflowSchema.nullable().optional(),materials:z.array(materialSchema).max(3).optional(),stream:streamStateSchema.nullable().optional(),
-  workspace_history:workspaceHistorySchema.optional(),
+  workspace_history:workspaceHistorySchema.optional(),task_progress:taskProgressSchema.nullable().optional(),
 });
 export const chatListSchema = z.object({ conversations: z.array(z.object({ id: z.string().uuid(), title: z.string(), pinned:z.boolean().optional(), updated_at:z.string().optional(), status: taskStatusSchema.optional() })) });
 export type ConversationSummary = z.infer<typeof chatListSchema>['conversations'][number];

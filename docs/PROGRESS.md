@@ -1118,3 +1118,44 @@ D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留�
 试用：`npm start`，将焦点或鼠标移到左侧历史会话，打开更多菜单；改名与置顶重启后保留。只对可以丢弃的测试会话确认永久删除。提交后停止，不开始下一项。
 
 最终实际index卫生审计：复用backend/tests/m19_hygiene.py，将RESULT指向V3-003；30暂存文件、74产物，禁入路径/凭据/私钥/产物凭据/资源manifest差异均0，证据hygiene-staged.json。git diff --check与git diff --cached --check通过；未暂存用户文件、数据库、日志和构建产物。
+
+## V3-004 复合目标与完成判定（2026-10-04）
+
+用户“继续004”授权。预检main基线652b3f3，远端默认origin/main已知44fe9d6，读取AGENTS、V3原复现、既有M20/V3验证记录。预存`.zcodeignore`、`docs/INTERVIEW.md`保留，不纳入提交；不push、不发布、不重建安装包，不进入V3-005。
+
+根因：路由动词与连接词漏识别扫描/分析/输出/给出等；单个obvious结果覆盖复合意图；协调器仅走完模型返回步骤就终结，无全目标事实；局部澄清替换掉剩余目标；非流式普通回答降级后直接终结；文档可能选取无关旧synthesis。
+
+- [x] √ 明确分句逐一保留原文目标和顺序，未支持项/未知项占位；原文完整保留。目标最多16项、能力执行最多4步，超限明确拆分不执行。应用闲置、全盘垃圾识别/风险分析明确能力缺口，不作为目录扫描结果。
+- [x] √ SQLite追加step_states，实际完成、未开始、待授权/审批/信息、不支持、部分结果、前置缺失、已接受限制、失败/取消/中断分别记录；全局完成校验计划长度/位置/全部目标事实。
+- [x] √ 不支持或受限项必须选择“接受此项未完成或受限范围，继续”或取消；普通继续拒绝，token一次性且绑定会话。接受不等于实际完成，不授予权限；每项都需明确处理，余下目标不丢弃。
+- [x] √ 澄清只替换当前目标；普通回答经批准降级后继续余下步骤。文档绑定当前请求已核验引用回答；元数据不足/缺前置时暂停，不用无关历史回答生成文档。
+- [x] √ 目标进度独立于消息裁剪；刷新重开/进程重启显示已保存目标，旧token失效，无扫描/模型/副作用重放。旧版无逐目标事实时不倒推伪造。
+- [x] √ UI目标清单独立滚动，原因折叠，结束/取消后整体折叠保留最新回答视口；等待状态显示等待信息或选择。
+
+所有报告、隔离E2E profile、截图在`artifacts/test-results/V3-004/`。后端真实临时SQLite/checkpoint和合成目录，模型/失败仅mock。Electron/Python真实通信与本地Word输出；原生目录/模型发送/保存选择由测试启动器模拟。真实模型0，不扫描真实C盘、用户目录或真实应用；不访问真实供应商，不把模拟原生选择称为人工验收。
+
+| 等级 | 实际命令与结果 | 范围/证据 |
+|---|---|---|
+| L0 | `npm run check`、`npm run build`通过；构建含两套TypeScript检查 | UI/契约/产物；未打安装包 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m20_natural.py -q --junitxml=artifacts/test-results/V3-004/natural.xml`，初次25通过/4失败 | 4旧断言期待不支持或受限扫描直接结束；改为暂停并显式选择，按消息kind读取扫描结果 |
+| L1/L2 | 同pytest运行`backend/tests/test_v3_compound.py backend/tests/test_m20_natural.py`，33通过，`compound.xml` | 完整复现指令、跨会话/重复token拒绝、全部目标逐项接受、未生成无依据文档、原文件保留、局部澄清不丢尾、重启不重放；含M20原有29项回归 |
+| L1/L2 | 同pytest运行`backend/tests/test_v3_management.py backend/tests/test_v3_workspace.py backend/tests/test_m20_stream_persistence.py`，31通过，`regression.xml` | V3会话管理/按需工作区及模型前缀持久化兼容 |
+| L1/L2 | 同pytest运行`backend/tests/test_v3_compound.py`，扩展为6通过，`compound-final.xml`；完成门槛加强后6通过，`gate-final.xml` | 新增普通回答降级继续余下步骤、无关旧回答不能生成本请求文档；不同后端用例合计67项（含后补快照预算用例） |
+| L1 | `npx vitest run apps/desktop/tests/v3-compound.test.tsx apps/desktop/tests/m20-contracts.test.ts apps/desktop/tests/m20-ui.test.tsx --reporter=default --reporter=json --outputFile=artifacts/test-results/V3-004/unit.json`，9通过 | 状态契约、无权限字段、只读进度、原有M20展示；最后折叠调整仅重跑v3-compound，1通过，progress-ui-final.json |
+| L3 | `$env:ORVIA_TEST_MODULE='V3-004'; npx playwright test tests/e2e/v3-compound.spec.ts` | 首次刷新后测试未重开历史会话导致定位失败，修正测试按已有产品行为重开后1通过。完整原指令、目录选择接续、目标保留、无Doc调用、重启不重放、零模型；截图compound-progress.png实际查看 |
+| L3 | 设置同上MODULE及`ORVIA_TEST_RESULTS=artifacts/test-results/V3-004`，`npx playwright test tests/e2e/v3-compound.spec.ts tests/e2e/m20.spec.ts --grep 'V3-004|先摘要需求后附件|网址自然请求复合'` | 2通过/1失败：新增展开清单挤走网页摘要视口。修复为完成/取消后折叠，再只重跑`m20.spec.ts --grep '网址自然请求复合'`，1通过；支持的附件→引用回答→Word链路已通过 |
+| L3 | 同环境`npx playwright test tests/e2e/m20.spec.ts --grep '缺凭据、不支持任务'`，1通过 | 不支持任务现在显式取消后才能新请求；仍拒绝内网URL，缺凭据无备用模型。不同Electron流程合计4项通过 |
+
+已知限制：无任意自然语言完备性承诺，未知分句保守澄清；超4能力步骤保留完整原文要求拆分，不自动扩大执行预算。重启只恢复展示，不自动恢复执行，需核对后新请求。已安装应用/使用频率、全盘垃圾识别和完整风险分析仍未实现；目录大小不等于可清理大小。旧版已错误完成任务没有逐目标证据，不追溯伪造状态。已有LangGraph弃用警告，未改依赖。未做真实供应商调用、独立Windows或新安装包验收。
+
+- [x] √ 中文注释、根与模块README、架构、开发清单、V3记录和敏感检查。
+- [x] √ 正常本地提交，标题`fix(V3-004): preserve compound goals and verify completion`，沿用既有作者的一次性git -c身份，不改持久配置。
+- [ ] 用户手动push；Agent未推送/发布。
+
+试用`npm start`，输入“列出目录，然后统计空间”并只选择合成测试目录；或输入V3-004完整原指令，检查首步后剩余目标、不支持项和专用接受/取消选择。未批准用户文件变更或真实外发。提交后停在V3-004。
+
+补充L2：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_compound.py::test_long_progress_keeps_all_identities_with_bounded_transport -q --junitxml=artifacts/test-results/V3-004/progress-budget.xml`，1通过。目标进度展示独立12KiB预算，完整原文与16项目标身份/状态不丢弃，长标题/原因只缩短展示摘录，避免挤爆stdio快照；包含2000个非BMP字符输入边界。
+
+收尾复核：局部澄清改用真实路由解析补充文本，避免再次把旧未知句作为新目标导致循环，同时保留原目标标签与后续目标；有现成资料/明确网页的风险问答仍进入资料链。最后重跑test_v3_compound.py为7通过（compound-final.xml），前端v3-compound为1通过；完整累计67个不同后端/9个前端用例。新增DTO字符串长度按Unicode码点对齐Python；当前选择提示使用自然语言，不展示task_decision内部标识。
+
+最终实际index审计：复用backend/tests/m19_hygiene.py、RESULT=V3-004，24暂存文件、1287产物，禁入路径/凭据/私钥/产物凭据/资源manifest差异全部0（hygiene-staged.json）。git status、git diff、git diff --cached与空白检查已核对；未暂存用户文件、数据库、日志或构建产物。

@@ -10,7 +10,7 @@ export const scanPageInput=z.object({id,scan_id:id,offset:z.number().int().min(0
 export const streamPullInput=z.object({id,request_id:id,after_seq:z.number().int().min(0).max(100000).default(0),limit:z.literal(40).optional()}).strict();
 export const streamAckInput=z.object({id,request_id:id,seq:z.number().int().min(0).max(100000)}).strict();
 export const attachmentInput=z.object({id,request_id:id}).strict();
-export const workflowSchema=z.object({request_id:id,continuation_id:id,state:z.enum(['waiting_input','waiting_approval','running']),reason:z.string().max(1000),action:z.enum(['directory','materials','clarification','synthesis','stream_fallback','publication','development','cleanup','script','desktop','browser','files','none']),question:z.string().max(2000),choices:z.array(z.object({id:z.string().max(128),label:z.string().max(300)}).strict()).max(20).optional(),input:z.record(z.unknown()).optional()}).strict();
+export const workflowSchema=z.object({request_id:id,continuation_id:id,state:z.enum(['waiting_input','waiting_approval','running']),reason:z.string().max(1000),action:z.enum(['directory','materials','clarification','synthesis','stream_fallback','publication','development','cleanup','script','desktop','browser','files','task_decision','none']),question:z.string().max(2000),choices:z.array(z.object({id:z.string().max(128),label:z.string().max(300)}).strict()).max(20).optional(),input:z.record(z.unknown()).optional()}).strict();
 export const fallbackConfirmInput=z.object({id,request_id:id,continuation_id:id}).strict();
 export type Workflow=z.infer<typeof workflowSchema>;
 export const materialSchema=z.object({kind:z.enum(['document','browser']),evidence_id:evidence,title:z.string().max(300),status:z.enum(['ready','failed'])}).strict();
@@ -39,3 +39,6 @@ export type StreamPull=z.infer<typeof streamPullSchema>;
 export const m20StreamEventSchema=streamEventSchema;
 export const m20ScanPageSchema=scanPageSchema;
 export type M20StreamEvent=StreamEvent;
+
+/** V3-004目标进度来自后端事实，不授予执行或接续权限。 */
+export const taskProgressSchema=z.object({request_id:id,state:z.string(),instruction:z.string().refine(value=>Array.from(value).length<=2000),steps:z.array(z.object({index:z.number().int().min(0),title:z.string().refine(value=>Array.from(value).length<=300),kind:z.string(),status:z.enum(['not_started','running','waiting_authorization','waiting_approval','waiting_input','unsupported','limited','blocked','completed','accepted','failed','cancelled','interrupted']),detail:z.string().refine(value=>Array.from(value).length<=600)}).strict()).max(16)}).strict();
