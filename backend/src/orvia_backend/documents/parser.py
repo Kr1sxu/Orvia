@@ -44,8 +44,12 @@ def _unit(number: int, locator: str, text: str, method="text", confidence=None, 
 
 def _ocr(image):
     # 模型来自已安装 wheel；明确指定本地模型路径，不访问模型下载服务。
-    import rapidocr_onnxruntime
-    from rapidocr_onnxruntime import RapidOCR
+    # 缺少本地识别依赖时返回固定原因，不将模块路径或异常正文带入界面。
+    try:
+        import rapidocr_onnxruntime
+        from rapidocr_onnxruntime import RapidOCR
+    except ImportError:
+        raise DocumentError("ocr_unavailable") from None
     models = Path(rapidocr_onnxruntime.__file__).parent / "models"
     engine = RapidOCR(
         det_model_path=str(models / "ch_PP-OCRv4_det_infer.onnx"),

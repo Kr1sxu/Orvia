@@ -19,7 +19,7 @@ async function generate(page:import('@playwright/test').Page){
   await page.getByRole('button',{name:'添加附件'}).click();
   const panel=page.getByLabel('生成式文档与来源回答');await panel.getByRole('checkbox').first().check();
   await panel.getByRole('button',{name:'预览拟发送片段'}).click();
-  await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();
+  await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认发送并生成回答'}).click();
   await expect(page.getByLabel('模型综合回答')).toBeVisible();
   await page.getByRole('button',{name:'制作 Word／PPT／PDF 简报'}).click();
   return page.getByLabel('简报成品制作');

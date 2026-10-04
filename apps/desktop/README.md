@@ -190,3 +190,8 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 复用固定`chatContinue`接口：仅当前`task_decision`的一次性token加`answer:'accept_limit'`能接受当前项未完成/受限范围；普通“明确继续”不构成接受，不授予文件或网络权限。未支持项仍可取消。DTO严格校验最多16项目标，旧快照可无此可选字段；无新依赖或凭据。
 
 运行`npm run build`、`npm start`；示例“列出目录，然后统计空间”逐步执行，或输入V3文档完整复现指令查看能力缺口。相关测试：`npx vitest run apps/desktop/tests/v3-compound.test.tsx apps/desktop/tests/m20-contracts.test.ts apps/desktop/tests/m20-ui.test.tsx`，`$env:ORVIA_TEST_MODULE='V3-004'; npx playwright test tests/e2e/v3-compound.spec.ts`。隔离profile、合成目录/原生选择模拟；不扫描真实C盘、不调用真实模型。报告见`artifacts/test-results/V3-004/`。未重建安装包。
+
+## V3-005 文档信息分层
+DocumentCard 从既有 DocumentEvidence 的完整性元数据得到已准备回答/部分内容无法读取/无法回答，处理中沿用附件任务状态；preview_truncated 仅表示短摘录，不能误报读取缺失。DocumentDetail 完整保留技术字段且从折叠详情或引用点击进入。历史 document/synthesis 消息仍原样保存在数据库，默认展示结构化卡片，不重复输出旧技术说明。PDF/DOCX/PPTX/图片共用组件。
+SynthesisResult 的引用标签使用 coverage.title 与 locator，点击仍使用原 kind/evidence_id；SynthesisPreviewCard 保留准确正文、部分内容范围、DeepSeek接收方和费用。所有外部文字按React文本转义，不新增HTML或链接权限。依赖/公共IPC/数据结构不变。
+运行 `npm start`；组件测试 `npx vitest run apps/desktop/tests/v3-document-presentation.test.tsx apps/desktop/tests/m15-contracts.test.ts`；Electron流程见 tests/e2e/v3-document.spec.ts，产物在 artifacts/test-results/V3-005。模型自然语言布局需真实模型后续体验验证，mock通过不代表生成质量保证。

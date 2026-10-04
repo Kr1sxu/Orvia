@@ -83,7 +83,7 @@ test('M20先摘要需求后附件自动接续、真实SSE增量、引用和Word�
     await expect(page.getByLabel('当前需求待办')).toContainText('添加本地资料');await plus(page,'file');
     const preview=page.getByLabel('模型发送范围预览');await expect(preview).toContainText('deepseek-flash');await expect(preview).toContainText('保留来源');
     const denied=await page.evaluate(async()=>{const list=await window.orvia.chatList();if(!list.ok)throw Error('list');return (window.orvia as any).chatNatural({id:list.result.conversations[0].id,request_id:crypto.randomUUID(),text:'测试',path:'C:/',approved:true});});expect(denied.ok).toBe(false);
-    await preview.getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();
+    await preview.getByRole('button',{name:'确认发送并生成回答'}).click();
     await expect(page.getByLabel('实时结果').last()).toContainText('合成');
     const answer=page.getByLabel('模型综合回答').last();await expect(answer).toContainText('资料要求保留来源');
     await answer.locator('summary').click();await answer.getByRole('button',{name:/synthetic.docx/}).first().click();await expect(page.getByLabel('文档证据详情')).toContainText('文件版本');await expect(page.getByLabel('文档证据详情')).toBeInViewport();
@@ -99,9 +99,9 @@ test('M20先摘要需求后附件自动接续、真实SSE增量、引用和Word�
 test('M20网址自然请求复合摘要、可回查引用、恶意网页不扩大权限',async()=>{
   const f=await fixture();const app=await f.launch();
   try{const page=await app.firstWindow();await ready(page);await send(page,'读取 https://m20.example/article ，概括这篇网页');
-    const preview=page.getByLabel('模型发送范围预览');await expect(preview).toContainText('合成网页');await preview.getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();
+    const preview=page.getByLabel('模型发送范围预览');await expect(preview).toContainText('合成网页');await preview.getByRole('button',{name:'确认发送并生成回答'}).click();
     await expect(page.getByLabel('模型综合回答')).toContainText('资料要求保留来源');await expect(page.getByLabel('模型综合回答')).toBeInViewport();const state=await snapshot(page);expect(state.grant).toBeNull();expect(state.operation).toBeNull();expect(state.materials?.[0].kind).toBe('browser');
-    await page.getByLabel('模型综合回答').locator('summary').click();await page.getByLabel('模型综合回答').getByRole('button',{name:/M20合成网页/}).click();await expect(page.getByLabel('证据详情')).toContainText('https://m20.example/article');await expect(page.getByLabel('证据详情')).toBeInViewport();
+    await page.getByLabel('模型综合回答').locator('summary').click();await page.getByLabel('模型综合回答').getByRole('button',{name:/M20合成网页/}).first().click();await expect(page.getByLabel('证据详情')).toContainText('https://m20.example/article');await expect(page.getByLabel('证据详情')).toBeInViewport();
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(760,560));await expect(page.getByLabel('输入需求')).toBeInViewport();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
     await page.screenshot({path:path.join(f.work,'natural-answer-small-window.png')});
@@ -149,11 +149,11 @@ test('M20模型流期间读历史和输入草稿不被焦点/滚动/终态覆盖
 test('M20断流保留部分事实、单次同模型原生降级、重启不自动重放',async()=>{
   const f=await fixture('broken');let app=await f.launch();
   try{let page=await app.firstWindow();await ready(page);await send(page,'总结这份文档');await expect(page.getByLabel('当前需求待办')).toContainText('添加本地');await plus(page,'file');
-    await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();await expect(page.getByLabel('当前需求待办')).toContainText('非流式');
+    await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认发送并生成回答'}).click();await expect(page.getByLabel('当前需求待办')).toContainText('非流式');
     await expect(page.getByLabel('模型综合回答')).toHaveCount(0);expect(await f.calls()).toEqual([{role:'main',stream:true}]);
     const partial=(await snapshot(page)).messages.find(item=>item.kind==='model_partial');expect(partial?.data?.provisional).toBe(true);expect(partial?.data?.text).toBeTruthy();
     expect(partial?.data?.state).toBe('failed');
-    await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();await expect(page.getByLabel('模型综合回答')).toContainText('合成摘要');
+    await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认发送并生成回答'}).click();await expect(page.getByLabel('模型综合回答')).toContainText('合成摘要');
     expect(await f.calls()).toEqual([{role:'main',stream:true},{role:'main',stream:false}]);await app.close();app=await f.launch();page=await app.firstWindow();await ready(page);await page.getByRole('navigation',{name:'历史会话'}).getByRole('button').first().click();
     await expect(page.getByLabel('模型综合回答')).toContainText('合成摘要');expect(await f.calls()).toHaveLength(2);const reopened=await snapshot(page);expect(reopened.grant).toBeNull();
     const savedPartial=reopened.messages.filter(item=>item.kind==='model_partial'&&item.data?.stream_id===partial?.data?.stream_id);expect(savedPartial).toHaveLength(1);expect(savedPartial[0].id).toBe(partial!.id);expect(savedPartial[0].data?.text).toBe(partial!.data?.text);

@@ -74,3 +74,6 @@ npx playwright test tests/e2e/m13.spec.ts
 ## M14 本机打包验证
 
 最新未签名候选版为0.2.0-rc.1，包含对话及文档能力；上文“安装包未重建”描述保留为历史模块状态。PDF/OCR冻结资源、安装包流程、升级/卸载的命令与边界见根目录 packaging/README.md、docs/PROGRESS.md。测试产物统一为 artifacts/test-results/M14/。真实本地组件测试不等于云模型/Tavily验证；生产签名和独立Windows验收经用户确认暂缓。
+
+## V3-005 可读状态
+输入输出结构与受限解析预算不变；本地OCR导入依赖缺失返回固定 ocr_unavailable，不泄露模块路径。UI据此建议换用含可选中文字的文件；其它worker故障仍提示重启，不猜测OCR故障原因。图片/PDF/DOCX/PPTX共享展示规则，不扩展解析能力或自动安装依赖。完整证据、原始错误码与OCR置信度仍可在来源详情核对。目标验证：test_v3_document_presentation.py、test_m13_parser.py、test_m13_documents.py；结果在 artifacts/test-results/V3-005。

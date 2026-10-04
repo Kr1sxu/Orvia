@@ -245,3 +245,10 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ 中文文档与敏感审计、本地提交；交付标题`fix(V3-004): preserve compound goals and verify completion`。
 - [ ] 用户手动push；未重建安装包、未执行真实模型/独立Windows验收。
 - [ ] V3-005本轮未实施；V3-004本地提交后停止。
+
+## V3-005（2026-10-04，取代上文未实施状态）
+- [x] √ 统一附件状态、自然语言错误建议、可读引用及默认折叠来源详情；历史消息展示兼容。
+- [x] √ 发送预览/原生确认和固定模型保留，严格引用校验未放宽。
+- [x] √ L0/L1/L2/L3验证与中文模块文档，证据见PROGRESS。
+- [x] √ 敏感审计与正常本地提交，标题 `fix(V3-005): simplify document answers and source details`。
+- [ ] 用户手动push；本轮未重建安装包、未真实模型/独立Windows验收。完成后停止。

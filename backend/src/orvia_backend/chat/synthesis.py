@@ -41,7 +41,7 @@ async def prepare(chat, cid: str, mode: str, question: str, sources: list[dict])
         kind, eid = source["kind"], source["evidence_id"]
         value = await (chat.documents if kind == "document" else chat.evidence).get(cid, eid)
         if value.get("error"):
-            raise ToolError("SOURCE_UNAVAILABLE", "所选证据有读取或提取错误，请改选可用版本")
+            raise ToolError("SOURCE_UNAVAILABLE", "这份文件暂时无法读取，请换用可正常打开且含文字的文件。")
         candidates = []
         if kind == "document":
             for unit in value["units"]:
@@ -60,7 +60,7 @@ async def prepare(chat, cid: str, mode: str, question: str, sources: list[dict])
                                        "evidence_id": eid, "locator": value.get("source_url") or "搜索摘要",
                                        "chunk": index, "text": piece})
         if not candidates:
-            raise ToolError("SOURCE_UNAVAILABLE", "所选证据没有可发送正文")
+            raise ToolError("SOURCE_UNAVAILABLE", "未找到可用于回答的文字，请换用含可选中文字的文件，或补充相关内容。")
         # 摘要采样前中后；问答优先 M06 命中，剩余位置补充开头，避免把片段当全文。
         preferred = []
         if mode == "answer":

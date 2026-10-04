@@ -24,7 +24,7 @@ describe('M15 明确正文发送和模型结果边界',()=>{
     expect(synthesisPreviewSchema.safeParse(preview).success).toBe(true);
     const html=renderToStaticMarkup(React.createElement(SynthesisPreviewCard,{preview,disabled:false,confirm:()=>{},close:()=>{}}));
     expect(html).toContain('&lt;script&gt;');expect(html).not.toContain('<script>');
-    expect(html).toContain('1/3');expect(html).toContain('来源含 OCR');expect(html).toContain('确认这些片段');
+    expect(html).toContain('本次仅选用部分内容');expect(html).toContain('图片识别文字');expect(html).toContain('确认发送并生成回答');
   });
   it('生成消息需有完整契约，引用可回查且外部文字不执行',()=>{
     const data={answer:'<img src=x>',claims:[{text:'OCR待核对',kind:'inference',citations:[fragment.citation]}],
@@ -33,6 +33,6 @@ describe('M15 明确正文发送和模型结果边界',()=>{
     expect(chatMessageSchema.safeParse(message).success).toBe(true);
     expect(chatMessageSchema.safeParse({...message,data:{answer:'x'}}).success).toBe(false);
     const html=renderToStaticMarkup(React.createElement(SynthesisResult,{message,show:()=>{},compose:()=>{}}));
-    expect(html).toContain('&lt;img src=x&gt;');expect(html).not.toContain('<img');expect(html).toContain('引用版本与覆盖范围');
+    expect(html).toContain('&lt;img src=x&gt;');expect(html).not.toContain('<img');expect(html).toContain('查看来源详情');
   });
 });

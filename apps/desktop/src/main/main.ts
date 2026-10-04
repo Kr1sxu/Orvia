@@ -239,9 +239,9 @@ app.whenReady().then(async () => {
     const fresh=await backend.chatSynthesisPreview({id:request.id,mode:request.mode,question:request.question,sources:request.sources});
     if(fresh.revision!==request.revision)throw new BackendRequestError('STALE_APPROVAL');
     // 产品正文上云必须再次经原生确认；renderer 调接口或选择附件本身均不能直接发送。
-    const confirmation=await dialog.showMessageBox(window!,{type:'question',title:'确认向固定 Main 模型发送证据片段',
+    const confirmation=await dialog.showMessageBox(window!,{type:'question',title:'确认发送文件内容',
       message:request.stream_mode==='confirmed_nonstream'?`固定Main流式不兼容。明确发起同一deepseek-flash非流式新请求，可能产生第二次费用；发送${fresh.fragments.length}个片段？`:`向 deepseek-flash 发送 ${fresh.fragments.length} 个片段（${fresh.fragments.reduce((n,item)=>n+Array.from(item.text).length,0)} 字）？`,
-      detail:'仅发送预览中列出的当前会话证据片段、定位和本次问题；可能产生模型费用。截断、OCR 与来源冲突需自行核对。',
+      detail:'仅发送预览中的内容、来源位置和本次问题，可能产生费用。回答范围以预览为准，结论请结合原文核对。',
       buttons:['取消','确认发送并生成'],defaultId:0,cancelId:0,noLink:true});
     if(confirmation.response!==1)return {cancelled:true};
     activeSend={id:request.id,request_id:request.request_id};

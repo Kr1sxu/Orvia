@@ -14,10 +14,26 @@ export function DocumentDetail({source}:{source:DocumentEvidence}) {
     </details>)}
   </div>;
 }
+/** 只根据完整性元数据判断可用性；短预览不是读取失败，不能据此推断全文为空。 */
+export function documentStatus(source:DocumentEvidence){
+  if(source.error)return '无法回答';
+  if(source.total_units===0||source.missing_units.length>=source.total_units)return '无法回答';
+  return source.truncated||source.missing_units.length?'部分内容无法读取':'已准备回答';
+}
+export function documentFailure(code:string){
+  if(code.includes('ocr'))return '图片中的文字暂时无法识别。请换用含可选中文字的文件，或提供相关文字。';
+  if(code==='extraction_timeout')return '读取时间过长。请拆分文件后重试。';
+  if(code==='input_size_limit')return '文件过大。请使用不超过 10 MiB 的文件。';
+  if(code==='unsupported_format')return '暂不支持此格式。请使用 PDF、DOCX、PPTX、PNG 或 JPEG。';
+  if(code==='worker_unavailable'||code==='worker_failed')return '本地文件读取服务不可用。请重启应用后重试。';
+  return '未能读取文件内容。请检查文件是否损坏或受密码保护，或换用含可选中文字的文件。';
+}
 export function DocumentCard({message,disabled,show}:{message:ChatMessage;disabled:boolean;show:(id:string)=>void}) {
   const data=documentMessageSchema.parse(message.data);
-  return <div className="source-card" aria-label="文档与引用">{data.error&&<p className="warning">{data.error.message}（{data.error.code}）</p>}{!data.items.length&&<p>没有匹配文档，不生成无来源结论。</p>}
-    {data.items.map((item,index)=><details key={item.evidence_id+':'+index}><summary>{item.title} · 引用 {item.evidence_id.slice(0,12)}</summary><DocumentDetail source={item}/><button disabled={disabled} onClick={()=>show(item.evidence_id)}>查看文档证据</button></details>)}
+  return <div className="source-card" aria-label="文档与引用">{data.error&&!data.items.some(item=>item.error?.code===data.error?.code)&&<p className="warning">{documentFailure(data.error.code)}</p>}{!data.items.length&&!data.error&&<p>没有找到相关内容，请换一个关键词或添加文件。</p>}
+    {data.items.map((item,index)=><div key={item.evidence_id+':'+index}><strong>{item.title}</strong><p>{documentStatus(item)}</p>
+      {documentStatus(item)==='无法回答'&&<p>{documentFailure(item.error?.code??'no_text')}</p>}
+      <details><summary>查看来源详情</summary><DocumentDetail source={item}/><button disabled={disabled} onClick={()=>show(item.evidence_id)}>查看文档证据</button></details></div>)}
   </div>;
 }
 export function ExportPreview({preview,disabled,save}:{preview:DocumentPreview;disabled:boolean;save:()=>void}) {

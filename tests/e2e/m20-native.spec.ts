@@ -39,7 +39,7 @@ test('M20真实原生＋目录与文件选择、原生Main审批取消不发送'
     await send(page,'总结这份文档');await expect(page.getByLabel('当前需求待办')).toBeVisible();await page.getByRole('button',{name:'添加本地资料',exact:true}).click();
     const attachment=page.getByRole('menuitem',{name:'添加文件（最多3个）',exact:true}).click();await native('File','添加本地资料（最多3个，每个10 MiB；不上传云端）',path.join(work,'synthetic.docx'));await attachment;
     const preview=page.getByLabel('模型发送范围预览');await expect(preview).toContainText('deepseek-flash');const pending=await snapshot(page);
-    const approval=preview.getByRole('button',{name:'确认这些片段并调用 Main 模型',exact:true}).click();await native('Cancel','确认向固定 Main 模型发送证据片段');await approval;
+    const approval=preview.getByRole('button',{name:'确认发送并生成回答',exact:true}).click();await native('Cancel','确认发送文件内容');await approval;
     await expect(page.getByText('已取消正文发送；未调用模型。',{exact:true})).toBeVisible();
     const after=await snapshot(page);expect(after.workflow?.continuation_id).toBe(pending.workflow?.continuation_id);expect(after.messages.some(message=>message.kind==='synthesis')).toBe(false);
     expect(await app.evaluate(()=>(globalThis as any).__m20Native.generateRequests)).toBe(0);

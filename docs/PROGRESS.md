@@ -1159,3 +1159,37 @@ D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留�
 收尾复核：局部澄清改用真实路由解析补充文本，避免再次把旧未知句作为新目标导致循环，同时保留原目标标签与后续目标；有现成资料/明确网页的风险问答仍进入资料链。最后重跑test_v3_compound.py为7通过（compound-final.xml），前端v3-compound为1通过；完整累计67个不同后端/9个前端用例。新增DTO字符串长度按Unicode码点对齐Python；当前选择提示使用自然语言，不展示task_decision内部标识。
 
 最终实际index审计：复用backend/tests/m19_hygiene.py、RESULT=V3-004，24暂存文件、1287产物，禁入路径/凭据/私钥/产物凭据/资源manifest差异全部0（hygiene-staged.json）。git status、git diff、git diff --cached与空白检查已核对；未暂存用户文件、数据库、日志或构建产物。
+
+## V3-005 文档回答信息分层（2026-10-04）
+
+用户“继续005”授权。预检：main/HEAD 5fe4d1a，origin为Kr1sxu/Orvia，远端默认origin/main仍为44fe9d6；保留未跟踪.zcodeignore、docs/INTERVIEW.md。本轮仅005，不push/不打安装包。
+
+- [x] √ PDF/DOCX/PPTX/图片统一状态；短预览不误判全文缺失。默认答案与文件名/定位引用，证据ID/哈希/版本/读取时间/提取方式在来源详情保留；历史消息只改展示，不改审计记录。
+- [x] √ 发送预览保留准确内容与范围、DeepSeek固定接收方和费用；按钮“确认发送并生成回答”，原生二次确认与取消不发送依旧有效。
+- [x] √ 提示模型组织主要内容、发现、方法或结论、局限，只说明与当前问题有关的缺失影响；不编造无依据栏目。部分采样/读取不全仍明确限定回答范围。
+- [x] √ OCR导入依赖缺失返回固定原因；其它失败给出可操作建议。校验、提取预算、固定模型、权限链不变。
+
+报告、截图和隔离profile统一在 `artifacts/test-results/V3-005/`。模型全为mock、真实供应商调用0；L1/L2使用真实SQLite和本地解析/OCR。L3真实Electron-Python通信、正常PDF实际解析；缺页/OCR不可用由专用测试后端注入，选择文件/原生确认由测试启动器模拟。没有访问真实用户资料，不代表人工原生确认或真实模型质量验收。
+
+| 等级 | 实际命令与结果 | 覆盖 |
+|---|---|---|
+| L0 | `npm run build`通过（含两套TypeScript检查），`git diff --check`通过 | 开发构建，未重建安装包 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_document_presentation.py backend/tests/test_m13_parser.py backend/tests/test_m13_documents.py backend/tests/test_m15_synthesis.py -q --junitxml=artifacts/test-results/V3-005/backend.xml`，30通过 | OCR缺依赖原因、实际解析/预算、证据保存、引用、过期确认、越权拒绝 |
+| L1 | `npx vitest run apps/desktop/tests/v3-document-presentation.test.tsx apps/desktop/tests/m13-contracts.test.ts apps/desktop/tests/m15-contracts.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V3-005/unit.json`，初次8通过/6失败 | 新fixture漏content_hash和旧文案断言；修正后只重跑失败两文件，9通过（unit-final.json）；原M13的5项已通过 |
+| L1 | 同vitest命令仅m15-contracts，3通过（labels.json）；仅v3-document-presentation，6通过（presentation-final.json） | 最后按钮名称及重复失败提示调整后最小集合；不同前端用例合计14项 |
+| L3 | `$env:ORVIA_TEST_MODULE='V3-005'; $env:ORVIA_TEST_RESULTS='artifacts/test-results/V3-005'; npx playwright test tests/e2e/v3-document.spec.ts tests/e2e/m20.spec.ts --grep 'V3-005|先摘要需求后附件'` | Word流程已通过；初次新启动器在Python -I下缺测试模块搜索路径，修正；随后3通过/1失败，partial测试未等附件完成便Enter，改为等待发送按钮可用 |
+| L3 | 同环境 `npx playwright test tests/e2e/v3-document.spec.ts --grep 'normal|partial'`，2通过；`--grep 'normal|ocr'`，2通过 | 正常PDF、缺页、OCR故障、取消后零模型、再次确认一次模型、文件名页码引用回查；新增截图实际查看。最后去重失败提示后仅`--grep ocr`重验，1通过 |
+
+不同Electron流程合计4项通过。截图检查覆盖默认回答（normal-HltinG/answer.png）、来源详情、OCR失败（ocr-B0FerW/result.png）；截图发现重复错误提示后去重。既有LangGraph弃用警告未改依赖。已更新M15/M16/M20原有E2E按钮定位，未声称重跑全部历史/真实模型测试。
+
+已知限制：正文仍受8000字/50单元、每来源最多3片段限制；不能称为全文阅读。具体缺失对问题的语义影响由受约束模型判断，前端不推测相关性；未做真实模型生成质量评估。OCR模型文件损坏等worker故障仍使用读取服务错误，不冒充已诊断依赖缺失。旧回答文本不重生成。不扩展解析能力、自动安装、授权或业务。
+
+- [x] √ 根/模块README、架构、开发清单、V3文档和中文注释更新。
+- [x] √ 正常本地提交，标题 `fix(V3-005): simplify document answers and source details`，沿用一次性git -c身份。
+- [ ] 用户手动push；Agent未推送/发布、未重建安装包、未做独立Windows验收。
+
+试用 `npm start`，添加合成PDF后输入“总结这份文档”；核对发送内容、取消或明确批准，答案中点击文件名/页码可查看原文详情。本轮提交后停在V3-005。
+
+暂存审计：复用 backend/tests/m19_hygiene.py（RESULT=V3-005），实际index 28文件、最终1347产物，禁入路径/凭据匹配/私钥/产物凭据/资源manifest差异均0。git status、git diff、git diff --cached及空白检查已核对；两项用户预存未跟踪文件保留且未暂存。
+
+补充L3：同V3-005环境运行 `npx playwright test tests/e2e/m20.spec.ts --grep 网址自然请求复合`，1通过；确认共享摘要组件的网页来源回查与小窗口无横向溢出。不同Electron流程最终合计5项。

@@ -49,7 +49,7 @@ test(`M20 ${mode} 固定Main真实SSE、引用核验和真业务链`,async()=>{
     await page.getByRole('button',{name:'添加本地资料',exact:true}).click();await page.getByRole('menuitem',{name:'添加文件（最多3个）'}).click();
     const preview=page.getByLabel('模型发送范围预览');await expect(preview).toContainText('deepseek-flash');
     await consumeBudget();
-    await preview.getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();
+    await preview.getByRole('button',{name:'确认发送并生成回答'}).click();
     await expect(page.getByLabel('模型综合回答')).toBeVisible({timeout:40000});
     const state=await page.evaluate(async()=>{const list=await window.orvia.chatList();if(!list.ok)throw Error('list');const answer=await window.orvia.chatGet({id:list.result.conversations[0].id});if(!answer.ok)throw Error('get');return answer.result;});
     const saved=state.messages.find(item=>item.kind==='synthesis')!.data as any;

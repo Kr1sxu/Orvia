@@ -144,3 +144,6 @@ M11 故障测试注入网络不可用、超时、数据库忙/空间不足、磁
 重启只投影已保存的新请求目标进度，原token失效；不重放扫描、模型或写动作。旧版请求没有逐目标事实时不倒推或补造完整成功，新清单只从V3-004新请求产生；旧原文和历史消息仍在。明确分句保守匹配未知目标会要求澄清，不承诺任意自然语言无歧义解析。无已安装应用、使用历史、全盘垃圾识别、完整清理风险分析新能力；元数据扫描不能证明文件可删除。
 
 无新依赖或配置。运行沿用`npm start`。测试`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_compound.py backend/tests/test_m20_natural.py -q --junitxml=artifacts/test-results/V3-004/compound.xml`；模型仅mock，目录/SQLite/checkpoint真实隔离。E2E与完整命令见PROGRESS。
+
+## V3-005 回答文案
+摘要提示要求自然中文、按主要内容/关键发现/方法或结论/局限组织，仅针对当前问题说明缺失影响和下一步；无依据时明确无法确认。内部安全提示、JSON结构、citation身份和verify_generated严格核验不变。不可读取/无正文给出换用含文字文件的建议。历史证据、摘要采样预算和授权流程不变；不承诺全文覆盖或语义真实性。运行/依赖沿用本模块，验证 test_m15_synthesis.py 与 V3-005 Electron测试，均无真实云模型调用。

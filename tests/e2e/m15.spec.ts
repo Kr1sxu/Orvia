@@ -24,10 +24,10 @@ test('M15 显式选择文档、预览正文、原生确认后生成并回查引�
     await panel.getByRole('button',{name:'预览拟发送片段'}).click();
     const preview=page.getByLabel('模型发送范围预览');await expect(preview).toContainText('deepseek-flash');
     await expect(preview).toContainText('合成');
-    await preview.getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();
+    await preview.getByRole('button',{name:'确认发送并生成回答'}).click();
     const answer=page.getByLabel('模型综合回答');await expect(answer).toContainText('需要保留来源');
     await answer.locator('summary').click();
-    await answer.getByRole('button',{name:/synthetic.docx/}).click();
+    await answer.getByRole('button',{name:/synthetic.docx/}).first().click();
     await expect(page.getByLabel('文档证据详情')).toContainText('保留来源');
     expect(await page.evaluate(()=>({node:typeof (window as any).require,ipc:typeof (window.orvia as any).invoke}))).toEqual({node:'undefined',ipc:'undefined'});
     await page.screenshot({path:path.join(results,'synthesis.png')});
@@ -46,7 +46,7 @@ test('M15 用户在原生框取消后不调用模型',async()=>{
     await page.getByRole('button',{name:'添加附件'}).click();
     const panel=page.getByLabel('生成式文档与来源回答');await panel.getByRole('checkbox').first().check();
     await panel.getByRole('button',{name:'预览拟发送片段'}).click();
-    await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认这些片段并调用 Main 模型'}).click();
+    await page.getByLabel('模型发送范围预览').getByRole('button',{name:'确认发送并生成回答'}).click();
     await expect(page.getByText('已取消正文发送；未调用模型。')).toBeVisible();
     await expect(page.getByLabel('模型综合回答')).toHaveCount(0);
   }finally{await app.close();}
