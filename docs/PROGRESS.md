@@ -1071,3 +1071,19 @@ D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留�
 
 提交前实际index敏感检查通过：27文件，禁入路径0、真实凭据匹配0、私钥块0、资源manifest差异0；3674份本轮产物凭据匹配0（hygiene-staged.json，随后最终文档更新再检查）。V3原始文档两处Markdown行尾空格由cached diff检查指出，规范为空行/正常换行后再次检查；内容保留。仅显式本模块文件暂存，.zcodeignore与INTERVIEW.md保持未跟踪，LICENSE、数据库、日志、安装包与产物均未入index。
 `git commit`首次因本机未配置作者身份失败，未产生提交；核对最近五次提交作者/提交者一致后，仅用本次命令`git -c user.name=... -c user.email=... commit`沿用已有历史身份，不写全局或仓库Git配置。
+
+## V3-002 顶部重复品牌去重（2026-10-04）
+
+用户明确“继续实施002”。预检main基线39cefe2，远端默认main仍44fe9d6；保留未跟踪.zcodeignore、docs/INTERVIEW.md，不push。读取AGENTS、V3设计和V3-001验证结论后，仅修改renderer顶部节点与对应CSS。侧栏保留，顶部42px原生拖动区及右侧按钮空间保留；会话标题、状态、连接信息、欢迎内容不变。系统图标/字体/安装身份和窗口主进程配置无变更。不扩展V3-003。
+
+- [x] √ 去除顶部BrandMark和“序航 Orvia”，清理冗余字体/间距/图标CSS；有中文窗口边界注释。
+- [x] √ L0：`npm run build`通过（包含两套TypeScript检查），`artifacts/test-results/V3-002/build.log`；`git diff --check`及cached检查通过。
+- [x] √ L3：`node node_modules/@playwright/test/cli.js test tests/e2e/v3-titlebar.spec.ts --reporter=line --output=artifacts/test-results/V3-002/e2e`，1 passed/4.2s，e2e.log。真实Electron/Python/SQLite，隔离合成profile；复用M20测试启动器隔离凭据/原生框，本轮无模型/网络/文件选择调用。
+- [x] √ 新建、问候、历史重开、1120×880及760×560窗口，标题区空文本无图标、侧栏品牌保留、42px拖动区与下一行精确衔接、无横向溢出、输入可见；最大化/还原/最小化通过真实BrowserWindow API，app.close正常退出。
+- [x] √ 实际查看new-chat.png和narrow-history.png：顶部重复标识消失，会话状态可读无重叠；其他截图为history.png与narrow-new.png，结构数据window.json。
+- [x] √ README、V3登记、开发清单、AGENTS和进度更新；显式暂存本模块文件并敏感审计。
+- [ ] 人工原生按钮点击/拖动、独立Windows及新安装包验收未执行。原生window-presentation及资源未改，复用M19系统窗口既有结论；API验证不冒充人工点击。渲染截图不包含系统原生按钮。
+- [ ] 用户手动push；无Agent推送或Release。
+
+试用`npm start`（已构建），检查新对话顶部和历史对话；42px保留空间用于系统窗口操作，不缩窄原生命中区。风险为未重建安装包，旧M20候选不含V3源码修复。本轮无后端/权限/模型变化，不重跑业务全量回归。正常本地提交标题`fix(V3-002): remove duplicate titlebar branding`；沿用已核对历史作者的单次git -c身份，不修改Git配置；提交后停止。
+最终实际index卫生审计：复用backend/tests/m19_hygiene.py并将RESULT明确指向V3-002；9暂存文件、69产物，禁入路径/凭据/私钥/资源manifest差异全部0，证据hygiene-staged.json。无用户文件、数据库、日志或构建产物暂存。

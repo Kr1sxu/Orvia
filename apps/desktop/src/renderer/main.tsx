@@ -363,7 +363,8 @@ function App() {
   const retryText=lastUser?.kind==='text'?lastUser.text:undefined;
   const retryable=!!retryText&&lastMessage?.kind==='error'&&['MODEL_UNAVAILABLE','MODEL_TIMEOUT','MISSING_CREDENTIAL','INVALID_PROPOSAL','REQUEST_INTERRUPTED','REQUEST_CANCELLED'].includes(String(lastMessage.data?.code));
   return <div className="app-shell">
-    <header className="window-titlebar" aria-label="应用标题栏"><BrandMark/><span>序航 Orvia</span></header>
+    {/* 原生按钮覆盖在此拖动区右侧；保留42px窗口操作空间，品牌集中在侧栏。 */}
+    <header className="window-titlebar" aria-label="窗口拖动区域"/>
     <aside className="sidebar"><div className="brand"><BrandMark/><strong>序航 <small>Orvia</small></strong></div>
       <button className="new-chat" onClick={newChat}><Icon name="plus"/>新建对话</button><p className="nav-label">最近对话</p>
       <nav aria-label="历史会话" aria-busy={loadingList}>{list.map(item=><button title={item.title} aria-label={item.title} aria-current={conversation?.id===item.id?'page':undefined} className={conversation?.id===item.id?'selected':''} key={item.id} onClick={()=>void open(item.id)}><span className="history-title">{item.title}</span><small>{taskLabels[item.status ?? 'draft'] ?? item.status}</small></button>)}{loadingList?<p role="status" className="muted">正在读取会话…</p>:!list.length&&<p className="muted">从第一个问题开始。</p>}</nav>

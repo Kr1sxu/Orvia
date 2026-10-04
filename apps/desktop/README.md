@@ -168,3 +168,9 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 验证入口：`apps/desktop/tests/v3-workspace.test.tsx`、`backend/tests/test_v3_workspace.py`、`tests/e2e/v3-workspace.spec.ts`；原M20业务E2E复用真实Electron/stdio/SQLite/LPAC/UIA/Chromium及合成模型和原生框。结果在`artifacts/test-results/V3-001/`，精确命令与结论见`docs/PROGRESS.md`。
 
 限制：M17较早历史仍依赖现有消息可见范围，新增投影只保留最近草稿/清理计划；M18账本仍最多最近20条。内存预览不承诺跨重启恢复，权限不恢复、不自动重试或执行。旧M17/M18手工入口E2E已被M20自然入口业务验收取代；安装包未重建，本修复仅源码开发版。
+
+## V3-002 顶部品牌去重
+
+`renderer/main.tsx`的顶部header现在只承担窗口拖动区，无品牌子节点；`style.css`保留42px网格行与右侧原生按钮空间。侧栏品牌、欢迎内容、会话标题/状态和连接信息保持。无新增依赖、接口、输入输出或权限变化，系统名称、图标资源、窗口主进程配置未修改。
+
+运行`npm run build`、`npm start`查看新建/历史对话。测试`node node_modules/@playwright/test/cli.js test tests/e2e/v3-titlebar.spec.ts --reporter=line --output=artifacts/test-results/V3-002/e2e`覆盖1120×880与760×560布局和真实窗口状态；截图与报告在V3-002忽略目录。无真实模型调用，窗口状态通过Electron API核验，不代替人工原生按钮/拖动验收；安装包未重建。
