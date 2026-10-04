@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import type {AutomationCategory,AutomationFact,AutomationObservation,AutomationPlan,BrowserPending} from '../main/m18-contracts';
 import type {Reply,ScriptModelPreview} from '../shared/api';
 import type {Workflow} from '../main/m20-contracts';
+import type {WorkspaceVisibility} from './workspace-state';
 import {scriptPreviewInput,scriptModelInput} from '../main/m18-contracts';
 
 const categoryNames:Record<AutomationCategory|string,string>={local:'本地动作',form:'填写与提交表单',message:'发送消息',upload:'上传单文件',delete:'删除记录',transaction:'购买或交易'};
@@ -56,7 +57,7 @@ export function M18RequestReview({pending,blocked,decide}:{pending:BrowserPendin
   </section>;
 }
 
-export function M18Workspace({cid,workflow,completed,authorized,disabled,notice,refresh}:{cid:string;workflow?:Workflow;completed?:()=>Promise<boolean>;authorized:boolean;disabled:boolean;notice:(value:string)=>void;refresh:()=>Promise<void>}){
+export function M18Workspace({cid,visible,workflow,completed,authorized,disabled,notice,refresh}:{cid:string;visible:Pick<WorkspaceVisibility,'script'|'desktop'|'browser'>;workflow?:Workflow;completed?:()=>Promise<boolean>;authorized:boolean;disabled:boolean;notice:(value:string)=>void;refresh:()=>Promise<void>}){
   const [working,setWorking]=useState(false);
   const [source,setSource]=useState('');
   const [inputs,setInputs]=useState('');
@@ -117,7 +118,8 @@ export function M18Workspace({cid,workflow,completed,authorized,disabled,notice,
     if(workflow.action==='browser'){
       appliedWorkflow.current=workflow.continuation_id;const request=text(value.requirement),target=text(value.url)||request.match(/https:\/\/[^\s<>“”"，。]+/)?.[0];setUrl(target??'');const category:AutomationCategory=/上传/.test(request)?'upload':/删除/.test(request)?'delete':/交易|购买/.test(request)?'transaction':/消息|发送/.test(request)?'message':'form';setAllowed([category]);setBrowserCategory(category);setBrowserExpectation('');const quoted=[...request.matchAll(/[“"]([^”"]+)[”"]/g)].map(item=>item[1]);setBrowserValue(quoted.length>1?quoted.at(-1)!:'');setBrowserAction(/点击/.test(request)?'click':/上传/.test(request)?'upload':'fill');
     }
-  },[workflow?.continuation_id,disabled]);
+  // 旧步骤回传收尾时可能收到新工作流；解除局部忙碌后必须重新检查尚未消费的token。
+  },[workflow?.continuation_id,disabled,working]);
   const desktopFact=history.find(item=>item.operation_id===desktopIdentity.current&&item.kind==='desktop');
   useEffect(()=>{if(!workflow||!completed||completedWorkflow.current===workflow.continuation_id||advancingWorkflow.current===workflow.continuation_id)return;
     const baseline=workflowBaseline.current;
@@ -183,7 +185,7 @@ export function M18Workspace({cid,workflow,completed,authorized,disabled,notice,
   const showCurrent=!!workflow&&['script','desktop','browser'].includes(workflow.action)||!!scriptPlan||!!scriptFact||!!model||!!desktop||!!desktopPlan||!!desktopFact||!!browser||!!browserPlan||!!pending;
   return <details className="m18-workspace" aria-label="M18脚本桌面浏览器可控执行" open={showCurrent||undefined}><summary>脚本、桌面与浏览器执行详情</summary>
     <p>脚本、桌面与网页操作各有独立权限。每个写步骤由原生窗口确认；来源、模型和页面文字不能授予权限。已发出的消息、删除或交易可能无法撤销。</p>
-    <details open={workflow?.action==='script'||!!scriptPlan||!!scriptFact||!!model||undefined}><summary>任意脚本：Python隔离执行</summary><p>CPython 3.12标准库；只读显式输入副本，写入私有产物目录；禁止网络、提权和自动安装。每次执行30秒、512 MiB、4进程；源码最多32 KiB。</p>
+    {visible.script&&<details open={workflow?.action==='script'||!!scriptPlan||!!scriptFact||!!model||undefined}><summary>任意脚本：Python隔离执行</summary><p>CPython 3.12标准库；只读显式输入副本，写入私有产物目录；禁止网络、提权和自动安装。每次执行30秒、512 MiB、4进程；源码最多32 KiB。</p>
       <label>完整Python源码<textarea aria-label="M18 Python源码" maxLength={32768} rows={9} value={source} disabled={blocked} onChange={event=>{setSource(event.target.value);setScriptPlan(undefined);}}/></label>
       <label>授权目录中明确选定的输入相对路径（最多8个；可留空）<textarea aria-label="M18脚本输入路径" value={inputs} disabled={blocked} onChange={event=>{setInputs(event.target.value);setScriptPlan(undefined);}}/></label>
       {!!inputPaths.length&&!authorized&&<p>需要先通过“＋”选择并授权这些输入文件的目录；空输入脚本无需目录授权。</p>}
@@ -196,8 +198,8 @@ export function M18Workspace({cid,workflow,completed,authorized,disabled,notice,
         <pre>{JSON.stringify(scriptFact.result??{},null,2)}</pre>{scriptFact.outputs?.map(output=><div key={output.index}><p>{output.path} · {output.bytes}字节 · SHA256 {output.sha256}</p><button disabled={blocked||output.exported||scriptFact.status!=='completed'} onClick={()=>void exportOutput(output.index)}>原生确认回传此产物</button></div>)}
         <button disabled={blocked} onClick={()=>void guard(facts)}>刷新Python实际状态</button>
       </section>}
-    </details>
-    <details open={workflow?.action==='desktop'||!!desktop||undefined}><summary>桌面点击：准确应用与控件</summary><p>先在原生选择器授权当前应用窗口，再观察UI Automation控件。错窗、未知弹窗、密码框和状态变化会停止；不使用盲点坐标。</p><button disabled={blocked} onClick={()=>void chooseDesktop()}>原生选择并授权桌面应用</button>
+    </details>}
+    {visible.desktop&&<details open={workflow?.action==='desktop'||!!desktop||undefined}><summary>桌面点击：准确应用与控件</summary><p>先在原生选择器授权当前应用窗口，再观察UI Automation控件。错窗、未知弹窗、密码框和状态变化会停止；不使用盲点坐标。</p><button disabled={blocked} onClick={()=>void chooseDesktop()}>原生选择并授权桌面应用</button>
       {desktop&&<section aria-label="桌面控件观察"><h4>{desktop.label}</h4><p>{desktop.notice}</p><button disabled={blocked} onClick={()=>void observeDesktop()}>重新观察桌面控件</button>
         <label>准确控件<select aria-label="M18桌面控件" value={desktopControl} disabled={blocked} onChange={event=>{setDesktopControl(event.target.value);setDesktopPlan(undefined);}}><M18DesktopControlOptions observation={desktop} action={desktopAction}/></select></label>
         <label>单步动作<select aria-label="M18桌面动作" value={desktopAction} disabled={blocked} onChange={event=>{const action=event.target.value as DesktopAction;setDesktopAction(action);setDesktopControl(pickDesktopControl(desktop,desktopControl,action));setDesktopPlan(undefined);}}><option value="focus">聚焦控件</option><option value="invoke">调用按钮或点击</option><option value="set_value">填写文本</option><option value="select">选择条目</option><option value="toggle">切换勾选</option><option value="save_new">应用保存为新副本</option></select></label>
@@ -208,8 +210,8 @@ export function M18Workspace({cid,workflow,completed,authorized,disabled,notice,
         {desktopPlan&&<M18PlanReview plan={desktopPlan} label="桌面" blocked={blocked} approve={()=>void executeDesktop()}/>}
         {desktopFact&&<section aria-label="桌面程序核验事实"><h4>实际状态：{statusText(desktopFact.status)}</h4><p>任务 {desktopFact.operation_id}；运行中不会推进原需求，完成后仍由后端复核本次动作与目标。</p><pre>{JSON.stringify(desktopFact.audit.evidence??{},null,2)}</pre></section>}
       </section>}
-    </details>
-    <details open={workflow?.action==='browser'||!!browser||undefined}><summary>浏览器写操作：专用会话与实际外发</summary><p>只用专用可见窗口，登录由你手工完成；不复用个人Cookie，关闭或重启丢失登录态。公共HTTPS准确站点由原生窗口逐任务授权。</p>
+    </details>}
+    {visible.browser&&<details open={workflow?.action==='browser'||!!browser||undefined}><summary>浏览器写操作：专用会话与实际外发</summary><p>只用专用可见窗口，登录由你手工完成；不复用个人Cookie，关闭或重启丢失登录态。公共HTTPS准确站点由原生窗口逐任务授权。</p>
       <label>明确HTTPS页面<input aria-label="M18浏览器URL" value={url} maxLength={2048} disabled={blocked} onChange={event=>setUrl(event.target.value)}/></label>
       <fieldset><legend>本任务允许的动作类别（仍需逐步审批）</legend>{categories.map(category=><label key={category}><input type="checkbox" disabled={blocked||!!browser} checked={allowed.includes(category)} onChange={()=>{setAllowed(values=>values.includes(category)?values.filter(x=>x!==category):[...values,category]);setBrowserPlan(undefined);}}/>{categoryNames[category]}</label>)}</fieldset>
       <label>额外声明的GET写端点路径（每行一个；动态fetch/xhr与后续导航也会暂停）<textarea aria-label="M18 GET写端点" value={getPaths} disabled={blocked} onChange={event=>setGetPaths(event.target.value)}/></label>
@@ -227,7 +229,7 @@ export function M18Workspace({cid,workflow,completed,authorized,disabled,notice,
         {pending?.result&&<section aria-label="浏览器程序核验事实"><pre>{JSON.stringify(pending.result,null,2)}</pre></section>}
         <label>另行授权准确跨源站点<input aria-label="M18额外站点" value={extraOrigin} maxLength={2048} disabled={blocked} onChange={event=>setExtraOrigin(event.target.value)}/></label><button disabled={blocked||!extraOrigin.trim()} onClick={()=>void origin()}>原生确认额外准确站点</button>
       </section>}
-    </details>
+    </details>}
     <details><summary>执行账本与取消</summary><button disabled={blocked} onClick={()=>void guard(facts)}>读取最新执行账本</button><p>历史记录只保存事实，不能恢复权限或重复执行；结果不确定时先核对现场。</p>
       {history.map(item=><section key={item.operation_id} aria-label="M18执行记录"><p>{item.kind} · {statusText(item.status)} · {item.operation_id}</p><details><summary>最小审计证据</summary><pre>{JSON.stringify(item.audit,null,2)}</pre></details>{item.kind==='script'&&<button disabled={blocked} onClick={()=>void guard(async()=>{scriptIdentity.current=item.operation_id;const result=accept(await window.orvia.m18ScriptStatus({id:cid,operation_id:item.operation_id}));if(result&&scriptIdentity.current===item.operation_id)setScriptFact(result);})}>读取此脚本事实</button>}{['awaiting_approval','running','awaiting_request','awaiting_verification','cancel_requested'].includes(item.status)&&<button disabled={blocked} onClick={()=>void cancel(item)}>取消此步骤并停止后续动作</button>}</section>)}
     </details>

@@ -30,6 +30,20 @@ class Route(BaseModel):
     steps: list[Step] = Field(min_length=1, max_length=4)
 
 
+def local_small_talk(text):
+    """完整匹配简单寒暄；包含任务的句子仍走原路由，肯定语和“继续”不能授予权限。"""
+    value = text.strip().rstrip("！!。.?？～~").casefold()
+    if value in {"你好", "您好", "嗨", "hello", "hi"}:
+        return "你好！有什么可以帮你的吗？"
+    if value in {"谢谢", "谢谢你", "感谢"}:
+        return "不客气，有需要随时告诉我。"
+    if value in {"好的", "好", "嗯", "收到"}:
+        return "好的，有新的需求可以直接告诉我。"
+    if value == "继续":
+        return "请告诉我需要继续的具体内容。任务授权和审批仍需通过对应入口确认。"
+    return None
+
+
 def remaining(active, cap=30):
     """用户等待资料不计工作阶段；实际路由/模型/只读网络共享50秒deadline。"""
     budget = min(cap, active.get("deadline", asyncio.get_running_loop().time() + cap) - asyncio.get_running_loop().time())

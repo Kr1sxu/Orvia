@@ -1032,3 +1032,42 @@ D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留�
 
 
 提交前最终卫生审查：`backend/.venv/Scripts/python.exe -X utf8 backend/tests/m20_hygiene.py`修正Windows超长路径入口后exit0，`hygiene-staged-longpath.log`/`hygiene-staged.json`：actual staged index 116文件，禁止路径0、凭据匹配0、私钥块0、图标/字体manifest差异0；86024份保留产物凭据匹配0。初次普通路径扫描在归档Chromium深路径lstat失败，没有跳过文件或计通过；仅测试入口改为Windows长路径，再完整扫过。`final-index-check.json`另核对7份补充上游许可原字节、最终暂存内容及tree；无Key/数据库/日志/用户文件/构建产物入index。`git diff --check`、`git diff --cached --check`通过；除.zcodeignore外所有本轮变更显式暂存，LICENSE未动。本轮按上述提交标题正常提交后立即停止，待用户手动push。
+
+
+## V3-001 按需能力工作区（2026-10-04）
+
+本轮用户要求按照`docs/V3_OPTIMIZATION.md`开始修复，后续要求继续未完成工作。按AGENTS每轮一项完成V3-001；V3-002～005保留待设计/待确认，未扩展实施。预检路径正确，main基线`44fe9d625691a5bfbba8a3ce264335bc891c3f19`，`git ls-remote --symref origin HEAD`确认远端默认main且同SHA；已有未跟踪`.zcodeignore`、`docs/INTERVIEW.md`、`docs/V3_OPTIMIZATION.md`。前两份保留且不提交；用户指定的V3文档完整保留原内容并追加实施记录，纳入本项提交。LICENSE无差异、未暂存；未fetch/push或改网络配置。
+
+- [x] √ 主页面按当前工作流及当前会话历史挂载M17/M18，各能力子区独立显示；普通会话连折叠标题也没有，不再自动调用m18History。
+- [x] √ 有界只读`workspace_history`跨消息裁剪/重启保留最近草稿、清理计划和自动化类型；不读取用户文件、不恢复权限、不重放执行。M17可主动读取最近保存项；M18仍走原最近20条账本。
+- [x] √ 原实现“你好”实际调用Main；现完整匹配简单寒暄本地回答、无模型调用。带任务句不截断，待办冲突/原生审批优先，“好的”“继续”不授予权限。
+- [x] √ 局部working解除后重新检查未消费工作流token，修复上一操作回传收尾与下一任务重叠时可能漏掉预览。
+- [x] √ 中文注释、README、架构/开发清单、目标分级测试与工作树/暂存敏感审查。
+- [ ] 安装包重建、真实供应商调用、独立Windows/签名：本轮未执行；旧M20包不含修复。
+- [ ] 用户手动push；Agent未push、未发布Release。
+
+### 本轮验证与失败记录
+
+结果均在Git忽略的`artifacts/test-results/V3-001/`。普通寒暄测试零模型；业务测试仅合成资料、mock模型/网络、原生选择/批准固定测试替身，真实Electron/stdio/SQLite及相应LPAC/UIA/Chromium。无真实Key或用户原文件送入测试。
+
+| 等级 | 实际命令 | 结果与证据 |
+|---|---|---|
+| L0 | `npm run check`；`npm run build` | 通过。最终build在`build-final.log`，最终renderer `index-6exyWi5f.js`。 |
+| L1 | `node node_modules/vitest/vitest.mjs run apps/desktop/tests/v3-workspace.test.tsx apps/desktop/tests/m17-contracts.test.ts apps/desktop/tests/m18-ui.test.ts apps/desktop/tests/chat.test.ts apps/desktop/tests/m20-contracts.test.ts --reporter=json --outputFile=artifacts/test-results/V3-001/unit.json` | 23 passed，含五能力/三工作流状态、普通正文不触发、裁剪后历史、契约预算/字段拒绝。 |
+| L1 | `$env:ORVIA_TEST_RESULTS='artifacts/test-results/V3-001/gallery'; node node_modules/vitest/vitest.mjs run apps/desktop/tests/v3-workspace.test.tsx apps/desktop/tests/m17-contracts.test.ts apps/desktop/tests/m18-ui.test.ts apps/desktop/tests/m19-gallery.test.tsx --reporter=json --outputFile=artifacts/test-results/V3-001/unit-final.json` | 最终组件15 passed（含已跑相关项），图库SSR检查不是交互E2E。 |
+| L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_workspace.py backend/tests/test_m17_chat.py backend/tests/test_m20_natural.py -q --basetemp=artifacts/test-results/V3-001/backend-temp --junitxml=artifacts/test-results/V3-001/backend.xml` | 首轮14 passed，24准备错误：并发启动时新结果父目录未建立，不是业务断言失败；XML保留。 |
+| L2 | 同上加`--lf`，`--basetemp=artifacts/test-results/V3-001/backend-retry-temp --junitxml=artifacts/test-results/V3-001/backend-retry.xml` | 只重跑失败24项，24 passed/14 deselected；总38个目标均通过。真实SQLite、消息裁剪、六执行状态、重启/跨会话及无授权写入拒绝。 |
+| L3 | `node node_modules/@playwright/test/cli.js test tests/e2e/v3-workspace.spec.ts --reporter=line --output=artifacts/test-results/V3-001/e2e-retry` | 2 passed/10.6s。首次测试helper错误地在填文字前等待发送按钮可用，2失败；修正测试顺序及历史nav选择器后通过。`e2e-retry.log`保留结果。 |
+| L3 | `$env:ORVIA_TEST_RESULTS='artifacts/test-results/V3-001'; node node_modules/@playwright/test/cli.js test tests/e2e/m20-business.spec.ts --grep 'React\|网页原型\|临时文件\|Python\|网页写任务\|桌面复合' --reporter=line --output=artifacts/test-results/V3-001/business-e2e` | 5 passed/1 failed：第二个文件脚本未出现预览；`business-e2e.log`保留。发现working解除不重新触发工作流准备，补依赖后定向复测。 |
+| L3 | 同环境，`node node_modules/@playwright/test/cli.js test tests/e2e/m20-business.spec.ts tests/e2e/v3-workspace.spec.ts --grep 'Python\|V3' --reporter=line --output=artifacts/test-results/V3-001/final-e2e` | 3 passed/31.6s；连续两个真实LPAC operation、产物逐个回传，新会话零IPC、五能力入口隔离、脚本待审批重启历史再次通过。`final-e2e.log`。 |
+| L3 | 同环境，`node node_modules/@playwright/test/cli.js test tests/e2e/m20.spec.ts --grep '缺凭据' --reporter=line --output=artifacts/test-results/V3-001/missing-key-e2e` | 1 passed/4.6s；需要模型的问题仍报告缺凭据，不支持任务/内网URL拒绝。旧安装测试中的同类输入同步从纯问候改为概念问题，但安装E2E本轮未运行。 |
+| L0卫生 | `backend/.venv/Scripts/python.exe -X utf8 backend/tests/v3_hygiene.py --working`；提交前同命令去掉`--working` | 复用已有index与产物审计，仅报存在性和计数；工作树0秘密/私钥/禁入路径/资源manifest差异，实际暂存审计见下文。 |
+
+截图`electron-oiEfut/greeting.png`、`electron-Aj4YRr/restored-script.png`已实际查看：普通对话无高级工作区，重启后仅脚本及账本入口，无桌面/浏览器无关子区。最终重复验收截图另在本轮electron-*目录。窗口顶部品牌重复属于V3-002，本轮未改。旧M17/M18手工入口脚本早于M20自然入口，当前回归使用M20业务E2E，不将旧脚本称为本轮通过。
+
+风险/限制：简单寒暄使用有限完整匹配集合，不代表所有普通问题离线回答。已有相关历史的会话继续保留相应工作区；只有内存预览且无落盘事实时不承诺取消/重启恢复。M17投影只返回最近一份草稿/清理计划，不新增历史分页；M18历史仍20条。L3原生批准是测试替身，未重跑真实手工系统确认或独立机器；此前权限链结论复用，产品没有增加测试授权入口。
+
+交付方式：`npm run build`后`npm start`试用源码，新会话“你好”只显示聊天，再独立提出明确相关需求。正常本地提交标题`fix(V3-001): show capability workspaces only when relevant`，哈希由提交后回执给出；本地完成与手动push分别记录，提交后停止。
+
+提交前实际index敏感检查通过：27文件，禁入路径0、真实凭据匹配0、私钥块0、资源manifest差异0；3674份本轮产物凭据匹配0（hygiene-staged.json，随后最终文档更新再检查）。V3原始文档两处Markdown行尾空格由cached diff检查指出，规范为空行/正常换行后再次检查；内容保留。仅显式本模块文件暂存，.zcodeignore与INTERVIEW.md保持未跟踪，LICENSE、数据库、日志、安装包与产物均未入index。
+`git commit`首次因本机未配置作者身份失败，未产生提交；核对最近五次提交作者/提交者一致后，仅用本次命令`git -c user.name=... -c user.email=... commit`沿用已有历史身份，不写全局或仓库Git配置。

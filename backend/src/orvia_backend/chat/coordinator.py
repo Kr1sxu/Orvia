@@ -13,7 +13,7 @@ from ..configuration.client import ModelUnavailable
 from .contracts import BrowserAsk, BrowserRead, BrowserSearch, Send
 from .contracts import SynthesisPreview
 from .json_stream import AnswerJSONStream, JSONStreamError
-from .routing import Route, Step, understand, remaining
+from .routing import Route, Step, understand, remaining, local_small_talk
 
 
 class NaturalCoordinator:
@@ -279,6 +279,12 @@ class NaturalCoordinator:
         active = {"request_id": rid, "model": None, "cancelled": False, "deadline": asyncio.get_running_loop().time() + 50}
         self.chat._active[cid] = active
         try:
+            # 待办冲突已在入口检查；本地寒暄仅结束本条聊天，不推进历史任务或批准动作。
+            reply = local_small_talk(request.text)
+            if reply is not None:
+                await self.chat.repository.append(cid, "assistant", reply, "natural_answer", {"request_id": rid, "origin": "local"})
+                await self._terminal(cid, rid, "completed")
+                return
             active["purpose"] = "routing"
             history, _ = await self.chat.repository.messages(cid)
             plan = await understand(self.chat, cid, request.text, await self.materials(cid), history, active)

@@ -156,3 +156,15 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 ## M14 本机打包验证
 
 历史M14未签名0.2.0-rc.1候选包包含M10–M13对话及文档能力，不含M15–M20；上文“安装包未重建”描述保留为历史模块状态。本轮完整0.3候选、冻结资源、安装／升级／卸载与开发对照的实际状态以根目录 packaging/README.md、docs/PROGRESS.md为准，不能以构建或M19定向视觉包冒充完成。M14历史产物仍在artifacts/test-results/M14/，本轮产物在M20/。真实本地组件测试不等于云模型/Tavily验证；生产签名和独立Windows验收经用户确认暂缓。
+
+## V3-001 按需工作区与历史入口
+
+用途：普通聊天聚焦消息，只有当前工作流或当前会话已保存事实才显示对应代码/清理/脚本/桌面/浏览器区域。`renderer/workspace-state.ts`由快照计算可见性；`M17Cards`/`M18Cards`接收明确的`visible`属性。主页面按会话ID挂载，未挂载M18时不发账本IPC。工作流预览在局部忙碌解除后重新核对未消费身份，每个token只准备一次。
+
+现有`chat.get`等快照增加可选`workspace_history`：`development=null|{draft_id,kind}`、`cleanup=null|{plan_id}`、`automation=[]|[script,desktop,browser]`（至多3类）。后端在既有SQLite锁内按会话查询，最多返回最近一个草稿/清理计划身份；输出无根路径、源码、权限。消息裁剪不影响这些入口，旧快照仍可根据程序消息身份显示。读取历史由既有身份校验接口处理，不改变审批和跨会话限制。
+
+简单寒暄仅完整匹配固定集合后本地回答，例如“你好”“谢谢”“好的”“继续”；带任务的句子仍走原路由，等待授权/审批的任务不会被肯定语推进。没有新增依赖、凭据、网络或模型配置。启动`npm run build`、`npm start`；新会话问候后无工作区，再明确提出“生成 React 页面”并授权项目后显示代码区；“清理旧临时文件”显示清理计划；历史脚本只读账本不能代替批准。
+
+验证入口：`apps/desktop/tests/v3-workspace.test.tsx`、`backend/tests/test_v3_workspace.py`、`tests/e2e/v3-workspace.spec.ts`；原M20业务E2E复用真实Electron/stdio/SQLite/LPAC/UIA/Chromium及合成模型和原生框。结果在`artifacts/test-results/V3-001/`，精确命令与结论见`docs/PROGRESS.md`。
+
+限制：M17较早历史仍依赖现有消息可见范围，新增投影只保留最近草稿/清理计划；M18账本仍最多最近20条。内存预览不承诺跨重启恢复，权限不恢复、不自动重试或执行。旧M17/M18手工入口E2E已被M20自然入口业务验收取代；安装包未重建，本修复仅源码开发版。

@@ -22,7 +22,7 @@ describe('M17 固定桌面契约',()=>{
   it('草稿与清理计划含审查和恢复事实，模型文字按纯文本展示',()=>{
     expect(developmentDraftSchema.safeParse({draft_id:id,kind:'code',stack:'web-native',revision:hash,files:[{index:0,path:'index.html',content:'<script>bad</script>',diff:'+<script>bad</script>',status:'pending',operation:'create'}],prototype:null}).success).toBe(true);
     expect(cleanupPlanSchema.safeParse({plan_id:id,revision:hash,status:'planned',entries:[{index:0,name:'old.tmp',size:12,mtime:'2026-08-01',risk:'low',status:'pending',error:null}],truncated:false,logical_bytes:12,quarantined_bytes:0,released_bytes:0,restore_until:'2026-10-30'}).success).toBe(true);
-    const html=renderToStaticMarkup(React.createElement(M17Workspace,{cid:id,authorized:true,disabled:false,messages:[{id,role:'assistant',kind:'development',text:'<script>越权</script>',created_at:'2026-09-29',data:{draft_id:id,kind:'code'}}],availableSources:[],notice:()=>{},refresh:async()=>{}}));
+    const html=renderToStaticMarkup(React.createElement(M17Workspace,{cid:id,visible:{development:true,cleanup:true},authorized:true,disabled:false,messages:[{id,role:'assistant',kind:'development',text:'<script>越权</script>',created_at:'2026-09-29',data:{draft_id:id,kind:'code'}}],availableSources:[],notice:()=>{},refresh:async()=>{}}));
     expect(html).not.toContain('<script>');
     expect(html).toContain('代码生成与网页原型');
     expect(html).toContain('系统清理');

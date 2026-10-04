@@ -208,3 +208,13 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [ ] 每轮只提交当前模块文件，显式检查 `git status`、`git diff`、`git diff --cached`；不提交 `artifacts/test-results/`、数据库、日志、用户文件或任何真实密钥。
 - [ ] Agent 只创建本地 commit，不执行 `git push`；用户手动 push 的状态单独记录，不能将本地完成写成远端已发布。
 - [ ] M09–M14 全部完成不代表开放“任意脚本、桌面点击、浏览器写操作”或其他 AGENTS 明确禁止的能力。
+
+## V3-001（2026-10-04）：按需能力工作区
+
+- [x] √ 当前工作流/会话历史驱动M17/M18及各子区域显示，普通会话无能力IPC。
+- [x] √ 有界历史投影独立于消息裁剪，不恢复权限或执行；简单寒暄不调用模型。
+- [x] √ L0类型/构建、L1组件、L2真实SQLite、L3 Electron–Python及现有业务回归，具体证据见PROGRESS。
+- [x] √ 中文注释、模块README、V3记录及敏感信息检查；交付提交以 `fix(V3-001): show capability workspaces only when relevant` 定位。
+- [ ] 用户手动push；Agent未推送。
+- [ ] 本轮安装包重建、独立Windows/真实供应商验收未执行。
+- [ ] V3-002～005留待后续逐项实施，本轮在V3-001本地commit后停止。

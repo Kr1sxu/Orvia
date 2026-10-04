@@ -7,7 +7,7 @@ import {promisify} from 'node:util';
 import type {} from '../../apps/desktop/src/shared/api';
 
 async function fixture(desktop=false){
-  const results=path.resolve('artifacts/test-results/M20');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS??'artifacts/test-results/M20');await mkdir(results,{recursive:true});
   const work=await mkdtemp(path.join(results,'business-')),project=path.join(work,'project');await mkdir(project);
   await writeFile(path.join(project,'alpha.txt'),'M20 rename synthetic identity');await writeFile(path.join(project,'App.tsx'),'export const App = () => <p>old synthetic</p>;');
   const source=path.join(project,'synthetic.py');await writeFile(source,"from pathlib import Path\nPath('output/file.txt').write_text('M20 synthetic file LPAC',encoding='utf-8')\nprint('synthetic file executed')\n");

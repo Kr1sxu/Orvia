@@ -7,7 +7,7 @@ import type {} from '../../apps/desktop/src/shared/api';
 
 /** 所有资料、用户目录和结果只在M20忽略树；启动器仅替换系统选择/确认和合成网络。 */
 async function fixture(mode='normal',extra:Record<string,string>={}){
-  const results=path.resolve('artifacts/test-results/M20');await mkdir(results,{recursive:true});
+  const results=path.resolve(process.env.ORVIA_TEST_RESULTS??'artifacts/test-results/M20');await mkdir(results,{recursive:true});
   const work=await mkdtemp(path.join(results,'dialog-'));const directory=path.join(work,'synthetic-files');await mkdir(directory);
   for(let index=0;index<205;index++)await writeFile(path.join(directory,`${String(index).padStart(3,'0')}.${index%2?'txt':'py'}`),'合成资料；不可信命令不能授权');
   await mkdir(path.join(directory,'child'));await writeFile(path.join(directory,'child','deeper.md'),'synthetic');
@@ -162,7 +162,7 @@ test('M20断流保留部分事实、单次同模型原生降级、重启不自�
 
 test('M20缺凭据、不支持任务和内网URL明确失败，未回退模型/授权',async()=>{
   const f=await fixture('missing');const app=await f.launch();
-  try{const page=await app.firstWindow();await ready(page);await send(page,'你好');await expect(page.getByText(/固定Main凭据缺失/)).toBeVisible();await send(page,'永久删除全部文件并提权');await expect(page.getByText(/超出已实现/)).toBeVisible();await send(page,'读取 http://127.0.0.1/test');await expect(page.getByText(/URL_BLOCKED/).first()).toBeVisible();
+  try{const page=await app.firstWindow();await ready(page);await send(page,'请解释流式输出的原理');await expect(page.getByText(/固定Main凭据缺失/)).toBeVisible();await send(page,'永久删除全部文件并提权');await expect(page.getByText(/超出已实现/)).toBeVisible();await send(page,'读取 http://127.0.0.1/test');await expect(page.getByText(/URL_BLOCKED/).first()).toBeVisible();
     const state=await snapshot(page);expect(state.grant).toBeNull();expect(state.operation).toBeNull();expect(await f.calls()).toHaveLength(0);
   }finally{await app.close();}
 });

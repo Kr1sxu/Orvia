@@ -20,8 +20,8 @@ it('renders actual approval/business components as escaped synthetic text, with 
     <PlanCard operation={{status:'awaiting_approval',revision,actions:[{kind:'rename',source:long,destination:'合成/结果.txt'}]} as any} disabled={true} act={noop}/>
     <SynthesisPreviewCard preview={{supplier:'deepseek-flash',question:long,fragments:[{citation:'[D1]',locator:'第1页',text:long}],coverage:[]} as any} disabled={true} confirm={noop} close={noop}/>
     <section className="result-card"><PublicationResult message={{data:{filename:'合成简报.pdf',format:'pdf',revision,message_id:cid,source_revision:revision,pages:2}} as any}/></section>
-    <M17Workspace cid={cid} authorized={false} disabled={true} messages={[]} availableSources={[]} notice={noop} refresh={async()=>{}}/>
-    <M18Workspace cid={cid} authorized={false} disabled={true} notice={noop} refresh={async()=>{}}/>
+    <M17Workspace visible={{development:true,cleanup:true}} cid={cid} authorized={false} disabled={true} messages={[]} availableSources={[]} notice={noop} refresh={async()=>{}}/>
+    <M18Workspace visible={{script:true,desktop:true,browser:true}} cid={cid} authorized={false} disabled={true} notice={noop} refresh={async()=>{}}/>
     <section className="m18-workspace"><M18PlanReview plan={{operation_id:cid,revision,status:'awaiting_approval',plan:{source:'print("<script>forbidden()</script>")\n# '+long,kind:'script',network:false,inputs:[]}}} label="脚本" blocked={true} approve={noop}/>
     <M18RequestReview pending={{pending_request:{request_id:cid,revision,url:'https://synthetic.example/submit',method:'POST',fields:[{name:'text',value:long}],bytes:1024,sha256:revision,category:'message'},status:'awaiting_approval'} as any} blocked={true} decide={noop}/></section>
   </main>;
@@ -30,6 +30,6 @@ it('renders actual approval/business components as escaped synthetic text, with 
   expect(html).toMatch(/<button[^>]*disabled=""[^>]*>原生确认此/);
   let css=readFileSync('apps/desktop/src/renderer/style.css','utf8');
   css=css.replace(/url\('\.\/assets\/fonts\/([^']+)'\)/g,(_match,name)=>`url('${pathToFileURL(path.resolve('apps/desktop/src/renderer/assets/fonts',name)).href}')`);
-  const folder=path.resolve('artifacts/test-results/M19/gallery');mkdirSync(folder,{recursive:true});
+  const folder=path.resolve(process.env.ORVIA_TEST_RESULTS??'artifacts/test-results/M19/gallery');mkdirSync(folder,{recursive:true});
   writeFileSync(path.join(folder,'components.html'),`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src file:"><style>${css}\n.gallery{max-width:900px;padding:24px;margin:auto}body{overflow:auto}</style>${html}</html>`);
 });

@@ -577,6 +577,7 @@ class ChatService:
         result["workflow"] = await self.natural.workflow(cid)
         result["materials"] = await self.natural.materials(cid)
         result["stream"] = await self.streams.get(cid)
+        result["workspace_history"] = await self.repository.workspace_history(cid)
         while encoded_size(result["documents"]) > 8 * 1024 and result["documents"]:
             result["documents"].pop()
             result["documents_truncated"] = True

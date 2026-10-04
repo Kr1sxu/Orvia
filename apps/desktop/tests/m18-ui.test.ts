@@ -12,7 +12,7 @@ const cid='6f1b7524-1eac-4567-a6b5-c3c9f563052c',revision='a'.repeat(64);
 
 describe('M18 三能力审查界面与隔离桥',()=>{
   it('同一模块呈现脚本、桌面和浏览器边界，执行不能从模型或页面内容获得授权',()=>{
-    const html=renderToStaticMarkup(React.createElement(M18Workspace,{cid,authorized:false,disabled:false,notice:()=>{},refresh:async()=>{}}));
+    const html=renderToStaticMarkup(React.createElement(M18Workspace,{cid,visible:{script:true,desktop:true,browser:true},authorized:false,disabled:false,notice:()=>{},refresh:async()=>{}}));
     for(const label of ['任意脚本：Python隔离执行','桌面点击：准确应用与控件','浏览器写操作：专用会话与实际外发','执行账本与取消','完整Python源码','原生选择并授权桌面应用','原生授权并打开专用浏览器'])expect(html).toContain(label);
     expect(html).toContain('每个写步骤由原生窗口确认');
     expect(html).toContain('不复用个人Cookie');

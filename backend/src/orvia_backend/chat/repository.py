@@ -148,3 +148,16 @@ class ChatRepository:
                 rows = await cursor.fetchall()
         return [{"operation_id": row["id"], "revision": json.loads(row["plan_json"]).get("revision", ""),
                  "status": row["status"], "created_at": row["created_at"], "updated_at": row["updated_at"], "can_undo": False} for row in rows[:10]], len(rows) > 10
+
+    async def workspace_history(self, conversation_id):
+        """只投影当前会话的历史入口，独立于消息裁剪；不读取用户文件或恢复执行授权。"""
+        async with self.store._lock:
+            db = self.store._db()
+            async with db.execute("SELECT id,kind FROM m17_drafts WHERE conversation_id=? ORDER BY created_at DESC,id DESC LIMIT 1", (conversation_id,)) as cursor:
+                draft = await cursor.fetchone()
+            async with db.execute("SELECT id FROM m17_cleanup WHERE conversation_id=? ORDER BY created_at DESC,id DESC LIMIT 1", (conversation_id,)) as cursor:
+                cleanup = await cursor.fetchone()
+            async with db.execute("SELECT DISTINCT kind FROM m18_operations WHERE conversation_id=? AND kind IN ('script','desktop','browser') ORDER BY kind", (conversation_id,)) as cursor:
+                automation = [row[0] for row in await cursor.fetchall()]
+        return {"development": {"draft_id": draft[0], "kind": draft[1]} if draft else None,
+                "cleanup": {"plan_id": cleanup[0]} if cleanup else None, "automation": automation}

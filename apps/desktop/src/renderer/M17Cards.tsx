@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
-import type {ChatMessage,CleanupPlan,DevelopmentContext,DevelopmentDraft,SynthesisSource} from '../main/chat-contracts';
+import type {ChatMessage,CleanupPlan,Conversation,DevelopmentContext,DevelopmentDraft,SynthesisSource} from '../main/chat-contracts';
+import type {WorkspaceVisibility} from './workspace-state';
 import {developmentContextRequestSchema} from '../main/chat-contracts';
 import type {Workflow} from '../main/m20-contracts';
 
@@ -20,7 +21,7 @@ function PrototypePreview({draft}:{draft:DevelopmentDraft}){
   </section>;
 }
 
-export function M17Workspace({cid,workflow,completed,authorized,disabled,messages,availableSources,notice,refresh}:{cid:string;workflow?:Workflow;completed?:()=>Promise<boolean>;authorized:boolean;disabled:boolean;messages:ChatMessage[];availableSources:{kind:'document'|'browser';evidence_id:string;title:string}[];notice:(value:string)=>void;refresh:()=>Promise<void>}){
+export function M17Workspace({cid,visible,history,workflow,completed,authorized,disabled,messages,availableSources,notice,refresh}:{cid:string;visible:Pick<WorkspaceVisibility,'development'|'cleanup'>;history?:Conversation['workspace_history'];workflow?:Workflow;completed?:()=>Promise<boolean>;authorized:boolean;disabled:boolean;messages:ChatMessage[];availableSources:{kind:'document'|'browser';evidence_id:string;title:string}[];notice:(value:string)=>void;refresh:()=>Promise<void>}){
   const [kind,setKind]=useState<'code'|'prototype'>('code');
   const [stack,setStack]=useState<'react-vite'|'web-native'>('react-vite');
   const [requirement,setRequirement]=useState('');
@@ -44,7 +45,7 @@ export function M17Workspace({cid,workflow,completed,authorized,disabled,message
       void guard(async()=>{const reply=await window.orvia.developmentContext(parsed.data);if(reply.ok)setContext(reply.result);else notice(reply.message);});
     }
     if(workflow.action==='cleanup'&&typeof workflow.input?.plan_id==='string'){appliedWorkflow.current=workflow.continuation_id;void loadPlan(workflow.input.plan_id);}
-  },[workflow?.continuation_id,disabled]);
+  },[workflow?.continuation_id,disabled,working]);
   async function guard(action:()=>Promise<void>){setWorking(true);try{await action();}catch{notice('本次操作未完成，请刷新草稿或计划并核对现场。');}finally{setWorking(false);}}
   async function previewContext(){await guard(async()=>{
     const reply=await window.orvia.developmentContext({id:cid,requirement:requirement.trim(),paths:chosenPaths,sources:selectedSources,result_message_id:resultMessageId});
@@ -76,8 +77,11 @@ export function M17Workspace({cid,workflow,completed,authorized,disabled,message
   });}
   const recentDrafts=messages.filter(item=>item.kind==='development'&&typeof item.data?.draft_id==='string');
   const recentPlans=messages.filter(item=>item.kind==='cleanup'&&typeof item.data?.plan_id==='string');
+  // 最近消息裁剪后仍可主动读取最近落盘草稿/计划；挂载本身不读取文件或重放任务。
+  const olderDraft=history?.development&&!recentDrafts.some(item=>item.data?.draft_id===history.development?.draft_id)?history.development:undefined;
+  const olderPlan=history?.cleanup&&!recentPlans.some(item=>item.data?.plan_id===history.cleanup?.plan_id)?history.cleanup:undefined;
   return <section className="m17-workspace" aria-label="代码、原型和系统清理">
-    <details open={workflow?.action==='development'||!!context||!!draft||undefined}><summary>代码生成与网页原型</summary>
+    {visible.development&&<details open={workflow?.action==='development'||!!context||!!draft||undefined}><summary>代码生成与网页原型</summary>
       <p>固定 Computer 模型只生成待审查草稿。支持 TS/React（Vite）与原生网页；最多 12 个文本文件、合计 64 KiB。选择已授权项目中的最多 3 个相对路径作为上下文；目录授权本身不上传正文。</p>
       <label>交付类型<select value={kind} disabled={blocked} onChange={event=>{setKind(event.target.value as typeof kind);setContext(undefined);setDraft(undefined);}}><option value="code">代码文件</option><option value="prototype">可交互网页原型</option></select></label>
       {kind==='code'&&<label>语言与框架<select value={stack} disabled={blocked} onChange={event=>{setStack(event.target.value as typeof stack);setContext(undefined);}}><option value="react-vite">TypeScript / React / Vite</option><option value="web-native">HTML / CSS / JavaScript</option></select></label>}
@@ -94,19 +98,21 @@ export function M17Workspace({cid,workflow,completed,authorized,disabled,message
         {!context.files.length&&!context.fragments.length&&!context.saved_result&&<p>未选择资料；只发送需求文字。</p>}
         <button className="primary" disabled={blocked||!requirement.trim()} onClick={()=>void generate()}>原生确认后生成草稿</button></section>}
       {!!recentDrafts.length&&<details><summary>已保存草稿</summary>{recentDrafts.map(item=><button key={item.id} disabled={blocked} onClick={()=>void loadDraft(String(item.data?.draft_id))}>查看 {String(item.data?.kind)} 草稿 {String(item.data?.draft_id).slice(0,8)}</button>)}</details>}
+      {olderDraft&&<button disabled={blocked} onClick={()=>void loadDraft(olderDraft.draft_id)}>读取最近已保存{olderDraft.kind==='prototype'?'原型':'代码'}草稿</button>}
       {draft&&<section aria-label="代码草稿差异"><h4>{draft.kind==='prototype'?'网页原型':'代码'}草稿 · {draft.stack} · 版本 {draft.revision.slice(0,12)}</h4><p>生成成功 ≠ 静态检查通过 ≠ 实际运行通过。未自动运行代码、安装依赖或部署。</p>
         {draft.kind==='prototype'&&<PrototypePreview draft={draft}/>}
         {draft.files.map(file=><details key={file.index} open={file.index===0}><summary>{file.operation==='modify'?'修改':'新建'} {file.path} · {file.status}</summary><h5>逐文件差异</h5><pre>{file.diff}</pre><details><summary>完整可编辑源码</summary><pre>{file.content}</pre></details><button disabled={blocked||file.status!=='pending'} onClick={()=>void apply(file.index)}>确认此文件并写入</button></details>)}
       </section>}
-    </details>
-    <details open={workflow?.action==='cleanup'||!!plan||undefined}><summary>系统清理：旧临时文件隔离</summary><p>只看当前用户 Temp 顶层超过 30 天的 .tmp/.log 普通文件；系统目录、注册表、链接和占用文件均不处理。先扫描再逐项审批。</p>
+    </details>}
+    {visible.cleanup&&<details open={workflow?.action==='cleanup'||!!plan||undefined}><summary>系统清理：旧临时文件隔离</summary><p>只看当前用户 Temp 顶层超过 30 天的 .tmp/.log 普通文件；系统目录、注册表、链接和占用文件均不处理。先扫描再逐项审批。</p>
       <button disabled={blocked} onClick={()=>void scan()}>扫描白名单</button>
       {!!recentPlans.length&&<details><summary>已保存清理计划</summary>{recentPlans.map(item=><button key={item.id} disabled={blocked} onClick={()=>void loadPlan(String(item.data?.plan_id))}>查看计划 {String(item.data?.plan_id).slice(0,8)}</button>)}</details>}
+      {olderPlan&&<button disabled={blocked} onClick={()=>void loadPlan(olderPlan.plan_id)}>读取最近已保存清理计划</button>}
       {plan&&<section aria-label="清理逐项计划"><h4>计划版本 {plan.revision.slice(0,12)} · {plan.status}</h4><p>候选逻辑大小 {bytes(plan.logical_bytes)}；已隔离 {bytes(plan.quarantined_bytes)}；实际释放空间 {bytes(plan.released_bytes)}。{plan.truncated?'扫描有上限，结果已截断。':''}</p>
         <p>受限恢复截止：{plan.restore_until}。到期不自动永久删除隔离文件；冲突、占用或内容变化会拒绝恢复。</p>
         <ul>{plan.entries.map(item=><li key={item.index}><label><input type="checkbox" checked={selected.includes(item.index)} disabled={blocked||plan.status!=='planned'||item.status!=='pending'} onChange={()=>setSelected(values=>values.includes(item.index)?values.filter(i=>i!==item.index):[...values,item.index])}/>{item.name}</label> · {bytes(item.size)} · {item.risk==='medium'?'中风险（日志可能仍有用途）':'低风险'} · 修改于 {item.mtime} · {item.status}{item.error&&` · ${item.error}`}{item.status==='moved'&&<button disabled={blocked} onClick={()=>void restore(item.index)}>确认恢复</button>}</li>)}</ul>
         {plan.status==='planned'&&<button className="primary" disabled={blocked||!selected.length} onClick={()=>void execute()}>批准选中项的此版本并隔离</button>}
       </section>}
-    </details>
+    </details>}
   </section>;
 }

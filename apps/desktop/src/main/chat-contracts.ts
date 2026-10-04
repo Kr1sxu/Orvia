@@ -99,6 +99,8 @@ export const chatMessageSchema = z.object({ id: z.string(), role: z.enum(['user'
   if(message.kind==='publication'&&!publicationMessageSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'成品核验消息不符合契约'});
   if(message.kind==='model_partial'&&!modelPartialSchema.safeParse(message.data).success)ctx.addIssue({code:z.ZodIssueCode.custom,message:'部分模型文字不符合身份或预算契约'});
 });
+/** 历史入口仅含有界身份，不含路径、源码或权限；旧快照可缺省。 */
+export const workspaceHistorySchema=z.object({development:z.object({draft_id:z.string().uuid(),kind:z.enum(['code','prototype'])}).strict().nullable(),cleanup:z.object({plan_id:z.string().uuid()}).strict().nullable(),automation:z.array(z.enum(['script','desktop','browser'])).max(3)}).strict();
 export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.string(), mission_id: z.string().uuid(), messages: z.array(chatMessageSchema),
   grant: z.object({ root_label: z.string().nullable(), grant_id: z.string().uuid(), calls_remaining: z.number() }).nullable(), operation: operationSchema.nullable(),
   messages_truncated: z.boolean().optional(),
@@ -106,6 +108,7 @@ export const chatSnapshotSchema = z.object({ id: z.string().uuid(), title: z.str
   sources: z.array(browserEvidenceSchema).max(20).optional(), sources_truncated:z.boolean().optional(),
   status: taskStatusSchema.optional(), operations: z.array(operationHistorySchema).max(10).optional(), operations_truncated: z.boolean().optional(),
   workflow:workflowSchema.nullable().optional(),materials:z.array(materialSchema).max(3).optional(),stream:streamStateSchema.nullable().optional(),
+  workspace_history:workspaceHistorySchema.optional(),
 });
 export const chatListSchema = z.object({ conversations: z.array(z.object({ id: z.string().uuid(), title: z.string(), status: taskStatusSchema.optional() })) });
 export type ConversationSummary = z.infer<typeof chatListSchema>['conversations'][number];

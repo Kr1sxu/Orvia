@@ -155,7 +155,7 @@ with zipfile.ZipFile(p/'synthetic.pptx','w') as z:
 test(`M20 ${mode} 固定角色缺凭据明确失败、非法路径IPC拒绝与未开放通用接口`,async()=>{
   const f=await fixture(),app=await f.launch();
   try{
-    const page=await app.firstWindow();await ready(page);const settings=await missingSettings(page);await send(page,'你好');
+    const page=await app.firstWindow();await ready(page);const settings=await missingSettings(page);await send(page,'请解释流式输出的原理');
     await expect(page.getByText(/固定Main凭据缺失/)).toBeVisible();const snapshot=await current(page);
     expect(snapshot.messages.at(-1)?.data?.code).toBe('MISSING_CREDENTIAL');expect(snapshot.workflow).toBeNull();expect(snapshot.grant).toBeNull();
     const denied=await page.evaluate(async id=>{

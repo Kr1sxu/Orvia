@@ -10,6 +10,7 @@ import { SynthesisPreviewCard, SynthesisResult } from './SynthesisCards';
 import { PublicationComposer,PublicationResult } from './PublicationCards';
 import { M17Workspace } from './M17Cards';
 import { M18Workspace } from './M18Cards';
+import {workspaceVisibility} from './workspace-state';
 import { nearBottom, submitsMessage, taskLabels } from './chat-state';
 import {BrandMark,Icon} from './Visual';
 import {AddMaterialMenu} from './AddMaterialMenu';
@@ -353,6 +354,7 @@ function App() {
     });
   }
   const locked=busy||remoteBusy;
+  const workspaces=workspaceVisibility(conversation);
   const inputLimit=2000;
   const disabled=locked||!conversation?.grant||!online;
   const lastMessage=conversation?.messages.at(-1);
@@ -400,8 +402,8 @@ function App() {
         </details>}
         {synthesisPreview&&synthesisPreview.cid===conversation?.id&&<SynthesisPreviewCard preview={synthesisPreview.value} disabled={locked||!online} close={()=>setSynthesisPreview(undefined)} confirm={()=>void generateSynthesis()}/>}
         {publication&&publication.cid===conversation?.id&&<PublicationComposer key={publication.message.id+'-'+(publication.format??'docx')} cid={publication.cid} message={publication.message} initialFormat={publication.format} disabled={locked||!online} close={()=>setPublication(undefined)} notice={setNotice} saved={(reply,id)=>{if(reply.ok&&activeId.current===id){const fact=reply.result.messages.slice().reverse().find(message=>message.kind==='publication');if(fact)revealSavedResult.current={cid:id,message_id:fact.id};}accept(reply,id);void refreshList();if(activeId.current===id&&conversation?.workflow?.action==='publication')void completeNativeStep();}}/>}
-        {conversation&&<M17Workspace key={conversation.id} cid={conversation.id} workflow={conversation.workflow??undefined} completed={completeNativeStep} authorized={!!conversation.grant} disabled={locked||!online} messages={conversation.messages} availableSources={[...(conversation.documents??[]).map(item=>({kind:'document' as const,evidence_id:item.evidence_id,title:item.title})),...(conversation.sources??[]).filter(item=>!!item.content&&!item.error).map(item=>({kind:'browser' as const,evidence_id:item.evidence_id,title:item.title||item.source_url||'网页来源'}))]} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
-        {conversation&&<M18Workspace key={`m18-${conversation.id}`} cid={conversation.id} workflow={conversation.workflow??undefined} completed={completeNativeStep} authorized={!!conversation.grant} disabled={locked||!online} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
+        {conversation&&(workspaces.development||workspaces.cleanup)&&<M17Workspace key={conversation.id} cid={conversation.id} visible={workspaces} history={conversation.workspace_history} workflow={conversation.workflow??undefined} completed={completeNativeStep} authorized={!!conversation.grant} disabled={locked||!online} messages={conversation.messages} availableSources={[...(conversation.documents??[]).map(item=>({kind:'document' as const,evidence_id:item.evidence_id,title:item.title})),...(conversation.sources??[]).filter(item=>!!item.content&&!item.error).map(item=>({kind:'browser' as const,evidence_id:item.evidence_id,title:item.title||item.source_url||'网页来源'}))]} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
+        {conversation&&(workspaces.script||workspaces.desktop||workspaces.browser)&&<M18Workspace key={`m18-${conversation.id}`} cid={conversation.id} visible={workspaces} workflow={conversation.workflow??undefined} completed={completeNativeStep} authorized={!!conversation.grant} disabled={locked||!online} notice={setNotice} refresh={async()=>{accept(await window.orvia.chatGet({id:conversation.id}),conversation.id);await refreshList();}}/>}
         {conversation?.operation&&<PlanCard operation={conversation.operation} disabled={disabled} act={kind=>void act(kind)}/>}
         {!!conversation?.operations?.length&&<details className="operation-history"><summary>任务操作历史（最近 {conversation.operations.length} 项）</summary><ol>{conversation.operations.map(op=><li key={op.operation_id}><span>{taskLabels[op.status] ?? op.status}</span><code>版本 {op.revision.slice(0,12)}</code><time>{op.updated_at}</time>{op.can_undo&&<span>可受限撤销</span>}</li>)}</ol>{conversation.operations_truncated&&<p className="muted">仅显示最近操作；历史记录不构成执行或撤销授权。</p>}</details>}
         {phase&&<p role="status" className="progress"><span className="spinner"/>{phase}</p>}
