@@ -124,3 +124,12 @@ M11 故障测试注入网络不可用、超时、数据库忙/空间不足、磁
 验证入口：`apps/desktop/tests/v3-workspace.test.tsx`、`backend/tests/test_v3_workspace.py`、`tests/e2e/v3-workspace.spec.ts`；原M20业务E2E复用真实Electron/stdio/SQLite/LPAC/UIA/Chromium及合成模型和原生框。结果在`artifacts/test-results/V3-001/`，精确命令与结论见`docs/PROGRESS.md`。
 
 限制：M17较早历史仍依赖现有消息可见范围，新增投影只保留最近草稿/清理计划；M18账本仍最多最近20条。内存预览不承诺跨重启恢复，权限不恢复、不自动重试或执行。旧M17/M18手工入口E2E已被M20自然入口业务验收取代；安装包未重建，本修复仅源码开发版。
+
+## V3-003 会话管理
+用途与结构：`repository.py`追加置顶/更新时间、原位迁移与改名；`management.py`负责删除阻塞检查、永久清理及中断收尾；`agents/graph.py`清除属于会话的全部历史checkpoint。无新依赖、环境变量或模型调用。
+
+公共接口：`chat.pin({id,pinned})`、`chat.rename({id,title})`返回正常快照；`chat.delete_check({id})`返回`{id,title,blocked}`，`chat.delete({id})`返回`{id,deleted:true}`。后者只由Electron原生确认后的私有管道调用，检查全部任务历史和后台收尾任务，不使用最近20项投影代替权限检查。未知状态、待审批（包括未批准代码草稿）、仍开的Browser会话、未恢复隔离文件均阻止删除。私有脚本目录仅允许UUID直接子目录，拒绝祖先及内容中的重解析点；不触碰用户原件、导出成品或执行回滚。
+
+清理覆盖会话消息/请求、浏览器与文档证据、检索索引/偏好/摘要、任务及条目、草稿、流和扫描资料、checkpoint以及脚本输入输出私有副本。先落删除进度标记，旧ID随即不可访问；跨库或文件中断会在重启后幂等继续清理，失败不报告成功。仅保留ID与进度，无正文审计。不是磁盘取证擦除，不清除外部备份；文件系统预检不能消除外部进程恶意替换路径的全部竞态。无法安全清理时关闭能力，不自动重放任务。
+
+运行沿用应用入口`npm start`；例如对无未完任务的历史会话在更多菜单确认删除。测试：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_management.py backend/tests/test_chat.py backend/tests/test_v3_workspace.py -q --junitxml=artifacts/test-results/V3-003/backend-final.xml`。真实临时SQLite和checkpoint、合成文件及故障注入，真实模型0；不使用用户资料。界面与IPC测试见desktop README。

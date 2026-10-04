@@ -10,6 +10,7 @@ import { SynthesisPreviewCard, SynthesisResult } from './SynthesisCards';
 import { PublicationComposer,PublicationResult } from './PublicationCards';
 import { M17Workspace } from './M17Cards';
 import { M18Workspace } from './M18Cards';
+import {ConversationList} from './ConversationList';
 import {workspaceVisibility} from './workspace-state';
 import { nearBottom, submitsMessage, taskLabels } from './chat-state';
 import {BrandMark,Icon} from './Visual';
@@ -21,7 +22,8 @@ import type {Workflow} from '../main/m20-contracts';
 import './style.css';
 
 function App() {
-  const [list, setList] = useState<{id:string;title:string;status?:string}[]>([]);
+  const [list, setList] = useState<import('../main/chat-contracts').ConversationSummary[]>([]);
+  const deletedIds=useRef(new Set<string>());
   const [conversation, setConversation] = useState<Conversation>();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
@@ -71,7 +73,7 @@ function App() {
     const health = await window.orvia.health(); setOnline(health.ok);
     const reply = await window.orvia.settings(); if (reply.ok) setSettings(reply.result); else setNotice(reply.message);
   }
-  async function refreshList() { try { const reply = await window.orvia.chatList(); if (reply.ok) setList(reply.result.conversations); else setNotice(reply.message); } finally { setLoadingList(false); } }
+  async function refreshList() { try { const reply = await window.orvia.chatList(); if (reply.ok) setList(reply.result.conversations.filter(item=>!deletedIds.current.has(item.id))); else setNotice(reply.message); } finally { setLoadingList(false); } }
   useEffect(() => { void (async () => { try {
     const status=await window.orvia.connectionStatus();
     if(status.ok&&status.result.busy)return;
@@ -158,6 +160,7 @@ function App() {
   }
   function accept(reply: Reply<Conversation>, id?: string) {
     if (!reply.ok) { setNotice(reply.message); return false; }
+    if(deletedIds.current.has(reply.result.id))return false;
     // 回包只能更新发起请求时的会话，不能覆盖后来选择的会话。
     if (id && activeId.current !== id) return false;
     activeId.current = reply.result.id; setConversation(reply.result);
@@ -195,6 +198,20 @@ function App() {
     if (!accept(reply)) return undefined;
     return reply.ok ? reply.result.id : undefined;
   }
+  async function pinConversation(item:import('../main/chat-contracts').ConversationSummary){await run('正在更新置顶…',async()=>{const reply=await window.orvia.chatPin({id:item.id,pinned:!item.pinned});if(!reply.ok)setNotice(reply.message);await refreshList();});}
+  async function renameConversation(id:string,title:string){let success=false;await run('正在保存名称…',async()=>{const reply=await window.orvia.chatRename({id,title});if(!reply.ok)setNotice(reply.message);else{success=true;accept(reply,id);}await refreshList();});return success;}
+  async function deleteConversation(id:string){await run('等待永久删除确认…',async()=>{
+    const reply=await window.orvia.chatDelete({id});
+    if(!reply.ok){setNotice(reply.message);await refreshList();return;}
+    if(!reply.result.deleted)return;
+    // 先退出已删除视图再刷新列表；晚到的旧快照和轮询不能重新挂载此身份。
+    deletedIds.current.add(id);if(activeId.current===id)newChat();
+    drafts.current.delete(id);readingPositions.current.delete(id);delete streamValues.current[id];setStreams({...streamValues.current});
+    streamQueue.current=streamQueue.current.filter(item=>item.id!==id);
+    for(const [key,value] of requestStreams.current)if(value.id===id)requestStreams.current.delete(key);
+    setPublication(value=>value?.cid===id?undefined:value);
+    setList(items=>items.filter(item=>item.id!==id));await refreshList();setNotice('对话及本地消息、证据已永久删除。用户原文件和导出成品未删除。');
+  });}
   function newChat() {viewEpoch.current++;saveDraft();invalidateContinuation();hasChosenView.current=true;activeId.current=undefined;setConversation(undefined);changeText(drafts.current.get('new')??'');setQuery('');setNotice('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);webSubmission.current=undefined;submission.current=undefined;follow.current=true;historicalView.current=false;restoreReading.current=undefined;setUnread(false);}
   async function open(id:string) {viewEpoch.current++;saveDraft();invalidateContinuation();hasChosenView.current=true;activeId.current=id;setConversation(undefined);changeText(drafts.current.get(id)??'');setQuery('');setSource(undefined);setDocument(undefined);setPreview(undefined);setSynthesisPreview(undefined);setSelectedSources([]);webSubmission.current=undefined;submission.current=undefined;follow.current=false;historicalView.current=true;restoreReading.current={id,top:readingPositions.current.get(id)??0};setUnread(false);try{accept(await window.orvia.chatGet({id}),id);}catch{setNotice('读取会话失败，请核对本地连接。');}}
   async function send(retryText?: string) {
@@ -367,7 +384,7 @@ function App() {
     <header className="window-titlebar" aria-label="窗口拖动区域"/>
     <aside className="sidebar"><div className="brand"><BrandMark/><strong>序航 <small>Orvia</small></strong></div>
       <button className="new-chat" onClick={newChat}><Icon name="plus"/>新建对话</button><p className="nav-label">最近对话</p>
-      <nav aria-label="历史会话" aria-busy={loadingList}>{list.map(item=><button title={item.title} aria-label={item.title} aria-current={conversation?.id===item.id?'page':undefined} className={conversation?.id===item.id?'selected':''} key={item.id} onClick={()=>void open(item.id)}><span className="history-title">{item.title}</span><small>{taskLabels[item.status ?? 'draft'] ?? item.status}</small></button>)}{loadingList?<p role="status" className="muted">正在读取会话…</p>:!list.length&&<p className="muted">从第一个问题开始。</p>}</nav>
+      <ConversationList items={list} current={conversation?.id} loading={loadingList} disabled={locked||!online} open={id=>void open(id)} pin={pinConversation} rename={renameConversation} remove={deleteConversation}/>
       <div className="sidebar-bottom"><button disabled={locked} onClick={()=>setShowSettings(true)}><Icon name="settings"/>设置</button><span className="connection"><i className={online?'online':''}/>{online?'本地服务已连接':'本地服务未连接'}</span></div>
     </aside>
     <main className="chat-main"><header className="topbar"><span>{conversation?.title ?? '新对话'}</span><span className="badge" data-status={locked?'running':conversation?.status??'draft'} aria-live="polite">{locked?'处理中':taskLabels[conversation?.status ?? 'draft'] ?? '草稿'}</span></header>

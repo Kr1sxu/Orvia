@@ -96,6 +96,18 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  async chatDeleteCheck(params:{id:string}) {await this.start();return z.object({id:z.string().uuid(),title:z.string(),blocked:z.boolean()}).strict().parse(await this.request('chat.delete_check',params));}
+  async chatDelete(params:{id:string}) {
+    await this.start();const result=z.object({id:z.string().uuid(),deleted:z.literal(true)}).strict().parse(await this.request('chat.delete',params));
+    // 删除后同时释放主进程中尚未ACK的正文；其他会话的流继续保留。
+    for(const [key,state] of this.streams){if(!key.startsWith(`${result.id}:`))continue;
+      const events=[...state.events,...state.reorder.values()];
+      this.streamBytes-=events.reduce((sum,event)=>sum+this.eventBytes(event),0);this.streamCount-=events.length;
+      if(state.gapTimer)clearTimeout(state.gapTimer);this.streams.delete(key);
+    }
+    if(this.consumerWait){const waiting=this.consumerWait;this.consumerWait=undefined;clearTimeout(waiting.timer);waiting.resolve();}
+    return result;
+  }
   async chatList() { await this.start(); return chatListSchema.parse(await this.request('chat.list')); }
   async chatCancel(params: { id: string; request_id: string }) {
     await this.start();
@@ -233,7 +245,7 @@ export class BackendClient {
     if(!allowed.includes(suffix))throw new BackendRequestError('METHOD_NOT_FOUND');
     await this.start();return this.request(`chat.automation.${suffix}`,params);
   }
-  async chat(method: 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.generate' | 'chat.publication.save' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
+  async chat(method: 'chat.rename' | 'chat.pin' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.generate' | 'chat.publication.save' | 'chat.approve' | 'chat.resume' | 'chat.undo', params: object) {
     await this.start(); return chatSnapshotSchema.parse(await this.request(method, params));
   }
   async missions() { await this.start(); return z.object({ missions: z.array(missionSchema) }).strict().parse(await this.request('missions.list')); }
@@ -251,7 +263,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));

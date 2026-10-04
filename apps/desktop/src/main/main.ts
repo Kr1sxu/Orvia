@@ -4,7 +4,7 @@ import path from 'node:path';
 import {stat} from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { BackendClient, BackendRequestError, BackendConnectionError } from './backend';
-import { chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, chatPublicationPreviewSchema, chatPublicationSaveSchema, developmentContextRequestSchema, developmentGenerateRequestSchema, developmentDraftRequestSchema, developmentApplyRequestSchema, cleanupPlanRequestSchema, cleanupExecuteRequestSchema, cleanupRestoreRequestSchema, type DevelopmentContext, type DevelopmentDraft, type CleanupPlan, type SynthesisPreview, type PublicationPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
+import { chatRenameSchema, chatPinSchema, chatDocumentAttachSchema, chatDocumentSourceSchema, chatDocumentAskSchema, chatDocumentPreviewSchema, chatDocumentExportSchema, chatSynthesisPreviewSchema, chatSynthesisGenerateSchema, chatPublicationPreviewSchema, chatPublicationSaveSchema, developmentContextRequestSchema, developmentGenerateRequestSchema, developmentDraftRequestSchema, developmentApplyRequestSchema, cleanupPlanRequestSchema, cleanupExecuteRequestSchema, cleanupRestoreRequestSchema, type DevelopmentContext, type DevelopmentDraft, type CleanupPlan, type SynthesisPreview, type PublicationPreview, chatIdSchema, chatCreateSchema, chatSendSchema, chatApprovalSchema, chatCancelSchema, chatBrowserSearchSchema, chatBrowserReadSchema, chatBrowserAskSchema, chatBrowserSourceSchema, parseInspect } from './chat-contracts';
 import { chatErrorMessage } from './chat-errors';
 import { mayInvoke } from './ipc-policy';
 import { CredentialVault } from './credentials';
@@ -124,6 +124,18 @@ app.whenReady().then(async () => {
     try { return await action(); } finally { chatBusy = false; }
   }
   m18Authorization=registerM18({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
+  handle('orvia:chat-rename',1,input=>chatAction(()=>backend.chat('chat.rename',chatRenameSchema.parse(input))));
+  handle('orvia:chat-pin',1,input=>chatAction(()=>backend.chat('chat.pin',chatPinSchema.parse(input))));
+  handle('orvia:chat-delete',1,input=>chatAction(async()=>{
+    const request=chatIdSchema.parse(input),check=await backend.chatDeleteCheck(request);
+    if(check.blocked)throw new BackendRequestError('DELETE_BLOCKED');
+    // renderer只能给会话身份；永久删除必须在主进程原生确认后，后端再核对所有任务状态。
+    const decision=await dialog.showMessageBox(window!,{type:'warning',title:'永久删除对话',message:`永久删除“${check.title}”？`,detail:'将永久删除本机的会话消息、引用证据、任务记录和私有脚本副本，无法恢复，也将失去任务撤销入口。不会删除用户原文件、已导出的成品或回滚已发生的操作。备份和磁盘取证擦除不在此操作范围。',buttons:['取消','永久删除'],defaultId:0,cancelId:0,noLink:true});
+    if(decision.response!==1)return{id:request.id,cancelled:true as const};
+    const result=await backend.chatDelete(request);
+    invalidatePreviews();m18Authorization?.clear();activeComputerGrants.delete(request.id);
+    return result;
+  }));
   handle('orvia:chat-list', 0, () => backend.chatList());
   handle('orvia:chat-create', 1, input => chatAction(() => backend.chat('chat.create', chatCreateSchema.parse(input))));
   handle('orvia:chat-get', 1, input => backend.chat('chat.get', chatIdSchema.parse(input)));

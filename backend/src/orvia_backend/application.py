@@ -122,7 +122,7 @@ class Application:
         methods |= {"chat.cleanup.scan", "chat.cleanup.plan", "chat.cleanup.execute", "chat.cleanup.restore"}
         from .automation.contracts import CONTRACTS as AUTOMATION_CONTRACTS
         methods |= {"chat.automation." + suffix for suffix in AUTOMATION_CONTRACTS}
-        methods |= {"chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
+        methods |= {"chat.rename", "chat.pin", "chat.delete", "chat.delete_check", "chat.create", "chat.list", "chat.get", "chat.send", "chat.grant", "chat.inspect",
                     "chat.browser.search", "chat.browser.read", "chat.browser.ask", "chat.browser.source",
                     "chat.approve", "chat.resume", "chat.undo", "chat.cancel"}
         methods |= {"context.index", "context.search", "context.clear", "context.preferences.set", "context.preferences.get",

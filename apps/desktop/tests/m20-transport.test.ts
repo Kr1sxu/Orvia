@@ -32,6 +32,16 @@ async function fixture(){
 beforeEach(()=>{vi.useFakeTimers();vi.mocked(spawn).mockReset();});
 afterEach(()=>{vi.clearAllTimers();vi.useRealTimers();});
 
+it('V3-003确认删除后释放该会话已排队的流式正文',async()=>{
+  const f=await fixture();f.write(f.event(1,'model_delta',{text:'合成私有正文',provisional:true}));await f.flush();
+  expect(f.client.streamPull({id:cid,request_id:rid,after_seq:0}).events).toHaveLength(1);
+  const deleted=f.client.chatDelete({id:cid});await f.flush();
+  const request=f.requests.at(-1)!;expect(request.method).toBe('chat.delete');
+  f.write({v:1,id:request.id,ok:true,result:{id:cid,deleted:true}});await f.flush();await deleted;
+  expect(f.client.streamPull({id:cid,request_id:rid,after_seq:0}).events).toHaveLength(0);
+  await f.close();
+});
+
 it('冷握手与初始化各自有20秒，连接后健康期限仍保持短限且不重启',async()=>{
   const child=Object.assign(new EventEmitter(),{stdin:new PassThrough(),stdout:new PassThrough(),stderr:new PassThrough(),kill:vi.fn(()=>true)});
   const requests:Request[]=[];child.stdin.on('data',(value:Buffer)=>requests.push(JSON.parse(value.toString())));

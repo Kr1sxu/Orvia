@@ -15,12 +15,23 @@ class ChatRepository:
     async def open(self):
         async with self.store._lock:
             db = self.store._db()
+            await db.execute("CREATE TABLE IF NOT EXISTS chat_deletions(id TEXT PRIMARY KEY,state TEXT NOT NULL)")
             await db.execute("""CREATE TABLE IF NOT EXISTS chat_conversations (
                 id TEXT PRIMARY KEY REFERENCES missions(id), title TEXT NOT NULL,
                 operation_id TEXT, thread_id TEXT, created_at TEXT NOT NULL)""")
+            # 旧库原位追加展示元数据；模型快照、消息和操作账本均不重建。
+            async with db.execute("PRAGMA table_info(chat_conversations)") as cursor:
+                columns = {row[1] for row in await cursor.fetchall()}
+            for name, definition in (("pinned", "INTEGER NOT NULL DEFAULT 0"), ("updated_at", "TEXT")):
+                if name not in columns:
+                    await db.execute(f"ALTER TABLE chat_conversations ADD COLUMN {name} {definition}")
             await db.execute("""CREATE TABLE IF NOT EXISTS chat_messages (
                 sequence INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL,
                 message_json TEXT NOT NULL)""")
+            await db.execute("""UPDATE chat_conversations SET updated_at=COALESCE(
+                (SELECT json_extract(message_json,'$.created_at') FROM chat_messages
+                 WHERE conversation_id=chat_conversations.id ORDER BY sequence DESC LIMIT 1),created_at)
+                WHERE updated_at IS NULL""")
             await db.execute("""CREATE TABLE IF NOT EXISTS chat_requests (
                 conversation_id TEXT NOT NULL, request_id TEXT NOT NULL, text TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
@@ -47,12 +58,12 @@ class ChatRepository:
 
     async def create(self, mission):
         async with self.store._lock:
-            await self.store._db().execute("INSERT OR IGNORE INTO chat_conversations VALUES (?, ?, NULL, NULL, ?)",
-                                          (str(mission.id), mission.title, mission.created_at.isoformat()))
+            await self.store._db().execute("INSERT OR IGNORE INTO chat_conversations(id,title,created_at,updated_at) VALUES (?, ?, ?, ?)",
+                                          (str(mission.id), mission.title, mission.created_at.isoformat(), mission.created_at.isoformat()))
 
     async def get(self, conversation_id):
         async with self.store._lock:
-            async with self.store._db().execute("SELECT * FROM chat_conversations WHERE id = ?", (conversation_id,)) as cursor:
+            async with self.store._db().execute("SELECT * FROM chat_conversations WHERE id = ? AND id NOT IN (SELECT id FROM chat_deletions)", (conversation_id,)) as cursor:
                 row = await cursor.fetchone()
             if row is None:
                 raise ToolError("NOT_FOUND", "会话不存在")
@@ -60,8 +71,26 @@ class ChatRepository:
 
     async def list(self):
         async with self.store._lock:
-            async with self.store._db().execute("SELECT id,title FROM chat_conversations ORDER BY created_at DESC,id DESC LIMIT 100") as cursor:
-                return [dict(row) for row in await cursor.fetchall()]
+            async with self.store._db().execute("SELECT id,title,pinned,updated_at FROM chat_conversations WHERE id NOT IN (SELECT id FROM chat_deletions) ORDER BY pinned DESC,updated_at DESC,id DESC LIMIT 100") as cursor:
+                return [{**dict(row), "pinned": bool(row["pinned"])} for row in await cursor.fetchall()]
+
+    async def rename(self, cid, title):
+        """标题独立于固定模型快照；用户改名在聊天和Mission元数据保持一致。"""
+        async with self.store._lock:
+            db = self.store._db()
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                await db.execute("UPDATE chat_conversations SET title=?,updated_at=? WHERE id=?", (title, datetime.now(timezone.utc).isoformat(), cid))
+                await db.execute("UPDATE missions SET title=? WHERE id=?", (title, cid))
+                await db.commit()
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def pin(self, cid, pinned):
+        """置顶只改变排序分组，不伪造对话最近活动时间。"""
+        async with self.store._lock:
+            await self.store._db().execute("UPDATE chat_conversations SET pinned=? WHERE id=?", (int(pinned), cid))
 
     async def bind(self, conversation_id, operation_id, thread_id):
         async with self.store._lock:
@@ -112,8 +141,13 @@ class ChatRepository:
     async def append(self, conversation_id, role, text, kind="text", data=None):
         message = self._message(role, text, kind, data)
         async with self.store._lock:
+            # 防止删除并发前已进入的只读/撤权请求在确认后重新写入消息。
+            async with self.store._db().execute('SELECT 1 FROM chat_deletions WHERE id=?', (conversation_id,)) as cursor:
+                if await cursor.fetchone():
+                    raise ToolError('NOT_FOUND', '会话已删除')
             await self.store._db().execute("INSERT INTO chat_messages(conversation_id,message_json) VALUES (?, ?)",
                                           (conversation_id, json.dumps(message, ensure_ascii=False)))
+            await self.store._db().execute("UPDATE chat_conversations SET updated_at=? WHERE id=?", (message["created_at"], conversation_id))
 
     async def messages(self, conversation_id):
         async with self.store._lock:

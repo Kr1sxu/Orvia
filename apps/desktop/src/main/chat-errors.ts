@@ -5,6 +5,8 @@ export function chatErrorMessage(code: string): string {
     STREAM_INTERRUPTED:'流式回答中断；部分文本尚未完成引用校验，未自动重试或制作成品。',
     STREAM_INVALID:'固定模型增量格式无效，结果未通过校验；请查看已保存事实。',
     UNSUPPORTED_TASK:'当前尚不支持这项任务；没有执行或编造结果。',
+    DELETE_BLOCKED:'此对话仍有运行中、待审批、结果不确定的任务，或尚未恢复的隔离文件。请先核对任务并处理，不能自动取消副作用。',
+    DELETE_UNAVAILABLE:'本地私有资料清理未完成，删除尚未确认成功；请重新连接以完成已确认的清理。',
     SOURCE_REQUIRED:'这项任务需要当前会话有效资料或已保存的带引用回答。请添加或明确选择资料。',
     STEP_NOT_VERIFIED:'本步骤尚未满足原需求的真实核验条件，仍等待确认；请核对执行账本、准确目标与后续步骤。',
     MATERIAL_LIMIT:'本次有效资料最多3项、附件合计30 MiB；请先移除不需要的关联。历史引用仍保留。',

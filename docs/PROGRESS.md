@@ -1087,3 +1087,34 @@ D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留�
 
 试用`npm start`（已构建），检查新对话顶部和历史对话；42px保留空间用于系统窗口操作，不缩窄原生命中区。风险为未重建安装包，旧M20候选不含V3源码修复。本轮无后端/权限/模型变化，不重跑业务全量回归。正常本地提交标题`fix(V3-002): remove duplicate titlebar branding`；沿用已核对历史作者的单次git -c身份，不修改Git配置；提交后停止。
 最终实际index卫生审计：复用backend/tests/m19_hygiene.py并将RESULT明确指向V3-002；9暂存文件、69产物，禁入路径/凭据/私钥/资源manifest差异全部0，证据hygiene-staged.json。无用户文件、数据库、日志或构建产物暂存。
+
+## V3-003 历史会话管理（2026-10-04）
+
+用户本轮明确要求“会话消息和证据也永久删除”，替代最初讨论的审计正文保留建议。仅本模块：菜单、置顶、改名、永久删除，不开始V3-004/005。预检main起点539d560（V3-002），远端默认main已知44fe9d6；无重置、无push，预存未跟踪`.zcodeignore`、`docs/INTERVIEW.md`保留且不提交。
+
+- [x] √ 更多按钮支持悬停/焦点、方向键/Home/End、Escape归还焦点、外部点击与会话切换关闭、portal视口约束。置顶先分组、最近活动排序；标题与Mission同步，旧库原位迁移，固定模型快照保持。
+- [x] √ 原生永久删除确认默认取消；运行中、后台收尾、待审批（包括代码草稿）、不确定结果、开放Browser会话或未恢复隔离文件阻止删除。全部历史检查，不截为最近20项。程序再次核对，不取消/批准外部副作用。
+- [x] √ 清除本地消息、证据、FTS/上下文、任务账本/条目、草稿/资料/扫描/流、全部所属图checkpoint和私有脚本输入输出副本，撤销目录与桌面权限，清空相关内存计划和流缓冲。用户原文件和已导出成品保持；失去会话撤销入口。只保留随机UUID与清理进度，无正文审计。
+- [x] √ 跨文件/数据库删除先标记pending；失败不报成功，旧身份不可读；启动幂等继续清理，不恢复或重放任务。私有目录拒绝非UUID、越界和重解析点；隔离用户文件不作为私有副本处理。
+
+测试均输出到`artifacts/test-results/V3-003/`，真实模型0、真实用户资料0、真实供应商网络0。L3真实Electron+Python+SQLite，原生对话框选择由测试启动器模拟，不冒充人工点击原生窗口。
+
+| 等级 | 实际命令/结果 | 证据与边界 |
+|---|---|---|
+| L0 | `npm run check`初次发现遗漏的固定方法类型与LiveStream字段；修正后通过。`npm run build`通过 | TypeScript及Vite；无安装包重建 |
+| L1/L2 | `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v3_management.py backend/tests/test_chat.py backend/tests/test_v3_workspace.py -q --junitxml=artifacts/test-results/V3-003/backend-final.xml`，31通过 | 真实临时库、合成文件；重命名/置顶迁移、跨会话隔离、删除/恢复和原有聊天/显示回归 |
+| L1/L2 | 同pytest执行`backend/tests/test_v3_management.py::test_delete_all_local_evidence_and_private_copies_only`，1通过，报告`delete-expanded.xml` | 增补初始输入checkpoint、全部历史线程、权限撤销、晚到消息拒绝和完成任务条目清理；首次证据夹具不足导致快照校验失败，改为直接检查保留会话存储后通过 |
+| L1/L2 | 同pytest执行`backend/tests/test_v3_management.py::test_management_persistence_validation_and_migration backend/tests/test_v3_management.py::test_private_copy_rejects_reparse_before_removing_files`，2通过，报告`migration-reparse.xml` | 增补取消置顶再次重启，以及重解析属性注入后保留文件；合计32个不同后端用例 |
+| L1 | `npx vitest run apps/desktop/tests/v3-management.test.ts apps/desktop/tests/chat.test.ts apps/desktop/tests/m20-transport.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V3-003/unit.json`，19通过 | 契约、IPC来源限制、M20传输回归 |
+| L1 | `npx vitest run apps/desktop/tests/m20-transport.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V3-003/transport-final.json` | 新增删除缓存测试初次缺少provisional契约字段：13通过/1失败；补全合成事件后只重跑`-t 'V3-003'`，1通过/13未选中，报告`transport-delete-retry.json`；合计20个不同桌面用例 |
+| L3 | `$env:ORVIA_TEST_MODULE='V3-003'; npx playwright test tests/e2e/v3-management.spec.ts`，1通过 | 改名、空标题、置顶排序、重启、窄窗口、键盘/外部关闭、原生取消/确认默认值、当前置顶会话删除与再重启；`e2e.json`和`conversation-menu.png`，截图已实际查看 |
+
+已有LangGraph依赖弃用提示，未改依赖。磁盘取证擦除、外部备份/供应商副本不属删除范围；外部进程恶意文件系统竞态未宣称彻底消除。待审批或不确定任务没有强制删除入口，不应为删除而批准不需要的操作。清理永久失败时启动可能保持不可用，需先解决存储/路径异常；不会声称已删成功。新安装包、真实模型、独立Windows验收未执行。旧M20安装包不含本轮修复。
+
+- [x] √ README、模块README、架构、开发清单、V3记录、中文注释与提交前检查完成。
+- [x] √ 正常本地提交，标题`fix(V3-003): manage history and permanently delete conversations`；沿用既有一次性作者身份，不修改持久Git配置。
+- [ ] 用户手动push；Agent未推送或发布。
+
+试用：`npm start`，将焦点或鼠标移到左侧历史会话，打开更多菜单；改名与置顶重启后保留。只对可以丢弃的测试会话确认永久删除。提交后停止，不开始下一项。
+
+最终实际index卫生审计：复用backend/tests/m19_hygiene.py，将RESULT指向V3-003；30暂存文件、74产物，禁入路径/凭据/私钥/产物凭据/资源manifest差异均0，证据hygiene-staged.json。git diff --check与git diff --cached --check通过；未暂存用户文件、数据库、日志和构建产物。

@@ -59,6 +59,17 @@ class MissionGraph(AbstractAsyncContextManager):
             self._checkpoint_context = None
             self._graph = None
 
+    async def delete_conversation(self, cid: str):
+        """按实际checkpoint中的mission身份删除全部历史线程，而非仅当前thread_id。"""
+        threads = set()
+        async for entry in self._checkpointer.alist(None):
+            channels = entry.checkpoint.get('channel_values', {})
+            initial = channels.get('__start__', {})
+            if channels.get('mission_id') == cid or isinstance(initial, dict) and initial.get('mission_id') == cid:
+                threads.add(entry.config['configurable']['thread_id'])
+        for thread in threads:
+            await self._checkpointer.adelete_thread(thread)
+
     def _build(self) -> StateGraph:
         graph = StateGraph(MissionState)
         graph.add_node("route", self._route)

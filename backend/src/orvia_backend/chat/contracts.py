@@ -3,7 +3,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..computer.actions import Action
 
@@ -19,6 +19,22 @@ class Create(Params):
 
 class Conversation(Params):
     id: UUID
+
+
+class Rename(Conversation):
+    title: str = Field(min_length=1, max_length=100)
+
+    @field_validator("title")
+    @classmethod
+    def clean_title(cls, value):
+        value = value.strip()
+        if not value or any(ord(char) < 32 for char in value):
+            raise ValueError("名称不能为空或包含控制字符")
+        return value
+
+
+class Pin(Conversation):
+    pinned: bool = Field(strict=True)
 
 
 class Cancel(Conversation):

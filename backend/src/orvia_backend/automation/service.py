@@ -53,6 +53,7 @@ class AutomationService:
         if suffix in {"cancel", "script.status", "browser.pending", "browser.request", "browser.close", "history"}:
             return await self._handle(suffix, cid, request)
         async with self.locks.setdefault(cid, asyncio.Lock()):
+            await self.chat.repository.get(cid)
             if suffix.startswith("desktop."):
                 # UI焦点是整机共享状态；后台动作未收尾时不接受第二个窗口/会话派发。
                 async with self.desktop_dispatch_lock:

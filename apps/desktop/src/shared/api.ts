@@ -18,6 +18,9 @@ declare global { interface Window { orvia: {
   connectionStatus: () => Promise<Reply<ConnectionStatus>>;
   reconnect: () => Promise<Reply<{connected: true}>>;
   chatCancel: (input: {id: string; request_id: string}) => Promise<Reply<{cancelled: boolean}>>;
+  chatRename: (input:{id:string;title:string}) => Promise<Reply<Conversation>>;
+  chatPin: (input:{id:string;pinned:boolean}) => Promise<Reply<Conversation>>;
+  chatDelete: (input:{id:string}) => Promise<Reply<{id:string;deleted?:true;cancelled?:true}>>;
   chatList: () => Promise<Reply<{ conversations: ConversationSummary[] }>>;
   chatCreate: (input: {client_request_id: string; title: string}) => Promise<Reply<Conversation>>;
   chatGet: (input: {id: string}) => Promise<Reply<Conversation>>;

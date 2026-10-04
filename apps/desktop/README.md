@@ -174,3 +174,12 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 `renderer/main.tsx`的顶部header现在只承担窗口拖动区，无品牌子节点；`style.css`保留42px网格行与右侧原生按钮空间。侧栏品牌、欢迎内容、会话标题/状态和连接信息保持。无新增依赖、接口、输入输出或权限变化，系统名称、图标资源、窗口主进程配置未修改。
 
 运行`npm run build`、`npm start`查看新建/历史对话。测试`node node_modules/@playwright/test/cli.js test tests/e2e/v3-titlebar.spec.ts --reporter=line --output=artifacts/test-results/V3-002/e2e`覆盖1120×880与760×560布局和真实窗口状态；截图与报告在V3-002忽略目录。无真实模型调用，窗口状态通过Electron API核验，不代替人工原生按钮/拖动验收；安装包未重建。
+
+## V3-003 历史会话管理
+`renderer/ConversationList.tsx`负责行内更多按钮、portal菜单和改名对话框；SVG使用现有图标。悬停或键盘焦点显示按钮，方向键/Home/End选项导航、Escape关闭并归还焦点，外部点击/切换会话/窗口改变关闭菜单。窄窗口菜单定位限制在视口内。
+
+输入输出：preload只暴露`chatPin({id,pinned})`、`chatRename({id,title})`和`chatDelete({id})`；前两者返回会话快照，删除返回`deleted:true`或`cancelled:true`。标题去首尾空白、1–100字符、拒绝控制字符；不接受force、路径或权限字段。主进程先检查删除阻塞状态，再原生确认（默认取消）；后端在执行前再次检查。删除当前会话后回到新对话视图，清理草稿与流缓存，晚到快照不得重新挂载已删除身份。
+
+无新依赖或凭据。运行`npm run build`、`npm start`，历史行更多菜单即可试用。测试`npx vitest run apps/desktop/tests/v3-management.test.ts apps/desktop/tests/chat.test.ts apps/desktop/tests/m20-transport.test.ts`；`$env:ORVIA_TEST_MODULE='V3-003'; npx playwright test tests/e2e/v3-management.spec.ts`。后者真实Electron/Python与隔离临时库，测试启动器替换原生选择结果，不调用真实模型。结果在`artifacts/test-results/V3-003/`。
+
+限制：无批量、同步或回收站；永久删除不回滚外部动作，也不移除用户原文件/导出成品。未完成审批、未知结果或隔离文件未恢复时不能强制删除，不应为了删除会话批准不需要的动作。旧安装包未更新。

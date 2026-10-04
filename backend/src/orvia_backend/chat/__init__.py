@@ -24,6 +24,8 @@ from ..development import DevelopmentService
 from ..development.service import context_preview, _digest as development_digest
 from ..cleanup import CleanupService
 from .contracts import DevelopmentContext, DevelopmentGenerate, DevelopmentDraft, DevelopmentApply, CleanupPlan, CleanupExecute, CleanupRestore
+from .contracts import Rename, Pin
+from .management import delete as delete_conversation, purge, deletion_blockers
 from .repository import ChatRepository
 from ..automation.service import AutomationService
 from .contracts import Continue, MaterialRemove, ScanPage
@@ -69,6 +71,11 @@ class ChatService:
         await self.streams.open()
         await self.scans.open()
         await self.natural.open()
+        async with self.store._lock:
+            async with self.store._db().execute("SELECT id FROM chat_deletions WHERE state='pending'") as cursor:
+                pending = [row[0] for row in await cursor.fetchall()]
+        for cid in pending:
+            await purge(self, cid)
 
     async def handle(self, method, params):
         """仅 Application 私有管道调用；拒绝未知字段与跨会话操作引用。"""
@@ -85,8 +92,17 @@ class ChatService:
             mission = await self.store.create_mission(MissionCreate(**request.model_dump()))
             await self.repository.create(mission)
             return await self.snapshot(str(mission.id))
+        if method == "chat.delete":
+            request = Conversation.model_validate(params)
+            return await delete_conversation(self, str(request.id))
+        if method == "chat.delete_check":
+            request = Conversation.model_validate(params)
+            cid = str(request.id)
+            row = await self.repository.get(cid)
+            return {"id": cid, "title": row["title"], "blocked": await deletion_blockers(self, cid)}
         if method == "chat.cancel":
             request = Cancel.model_validate(params)
+            await self.repository.get(str(request.id))
             if await self.natural.cancel(str(request.id), str(request.request_id)):
                 return {"cancelled": True}
             active = self._active.get(str(request.id))
@@ -96,7 +112,7 @@ class ChatService:
                 active["model"].cancel()
                 return {"cancelled": True}
             return {"cancelled": False}
-        contracts = {"chat.get": Conversation, "chat.send": Send, "chat.grant": Grant,
+        contracts = {"chat.rename": Rename, "chat.pin": Pin, "chat.get": Conversation, "chat.send": Send, "chat.grant": Grant,
                      "chat.natural": Send, "chat.continue": Continue, "chat.material.remove": MaterialRemove,
                      "chat.fallback.confirm": Continue,
                      "chat.revoke": Conversation, "chat.scan.page": ScanPage,
@@ -125,7 +141,12 @@ class ChatService:
             await self.repository.append(cid, "system", "目录授权已撤销；历史清单保留，后续访问停止。")
             return await self.snapshot(cid)
         async with self._locks.setdefault(cid, asyncio.Lock()):
-            if method == "chat.send":
+            await self.repository.get(cid)
+            if method == "chat.rename":
+                await self.repository.rename(cid, request.title)
+            elif method == "chat.pin":
+                await self.repository.pin(cid, request.pinned)
+            elif method == "chat.send":
                 await self.send(request)
             elif method == "chat.natural":
                 await self.natural.natural(request)
@@ -553,6 +574,7 @@ class ChatService:
         return "completed" if request_status else "draft"
 
     async def snapshot(self, cid):
+        await self.repository.get(cid)
         # 重启/输出中断后的已发现清单仅从SQLite恢复历史入口；不重扫或恢复授权。
         await self.scans.recover_history(cid, self.repository)
         await self.streams.recover_history(cid, self.repository)
