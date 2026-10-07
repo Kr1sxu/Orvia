@@ -31,7 +31,10 @@ async def prepare(chat, cid: str, mode: str, question: str, sources: list[dict])
     if mode == "answer":
         try:
             # M06 是检索辅助而非生成前置条件；长问句或其保留语法仍可走有界采样。
-            hits = (await ContextService(chat.store).search(cid, question[:200], 20))["evidence"]
+            if getattr(chat, "retrieval", None) is not None:
+                hits = (await chat.retrieval.search(cid, question[:200], 20, sources))["evidence"]
+            else:
+                hits = (await ContextService(chat.store).search(cid, question[:200], 20))["evidence"]
         except ContextError:
             hits = []
     else:
@@ -47,7 +50,8 @@ async def prepare(chat, cid: str, mode: str, question: str, sources: list[dict])
             for unit in value["units"]:
                 if not unit["text"].strip():
                     continue
-                for index, piece in enumerate(chunk_text(unit["text"], 600, 0)):
+                # 与现存FTS/向量片段采用同一分块，索引命中可准确映射原文引用。
+                for index, piece in enumerate(chunk_text(unit["text"], 600, 80)):
                     candidates.append({"citation": f"document:{eid}:{unit['number']}:{index}",
                                        "kind": kind, "evidence_id": eid, "locator": unit["locator"],
                                        "unit": unit["number"], "chunk": index, "text": piece,
@@ -55,7 +59,7 @@ async def prepare(chat, cid: str, mode: str, question: str, sources: list[dict])
         else:
             content = value.get("content", "")
             if content.strip():
-                for index, piece in enumerate(chunk_text(content, 600, 0)):
+                for index, piece in enumerate(chunk_text(content, 600, 80)):
                     candidates.append({"citation": f"browser:{eid}:{index}", "kind": kind,
                                        "evidence_id": eid, "locator": value.get("source_url") or "搜索摘要",
                                        "chunk": index, "text": piece})
@@ -67,7 +71,9 @@ async def prepare(chat, cid: str, mode: str, question: str, sources: list[dict])
             for hit in hits:
                 key = (f"document:{eid}:" if kind == "document" else f"browser:{eid}")
                 if hit["source"].startswith(key):
-                    preferred.extend(candidate for candidate in candidates if hit["text"] in candidate["text"])
+                    preferred.extend(candidate for candidate in candidates
+                                     if hit["text"] == candidate["text"] and hit["chunk_index"] == candidate["chunk"]
+                                     and (kind == "browser" or hit["source"] == f"document:{eid}:{candidate['unit']}"))
         indices = [0, len(candidates) // 2, len(candidates) - 1]
         chosen = []
         for candidate in [*preferred, *(candidates[index] for index in indices)]:

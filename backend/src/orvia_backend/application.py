@@ -25,6 +25,10 @@ from .computer.system import SystemToolError
 from .chat import ChatService
 from .auxiliary import AuxiliaryService, AuxiliaryConfig
 from .skills import SkillsService, SkillError
+from .retrieval import RetrievalService, RetrievalError
+from .retrieval.runtime import LocalEmbedder
+from .retrieval.model import manifest as embedding_manifest
+from .retrieval.integration import ScopedRetrieval
 
 
 class Params(BaseModel):
@@ -38,6 +42,18 @@ class Initialize(Params):
 
 class ReplaceCredentials(Params):
     credentials: Credentials
+
+
+class RetrievalConversation(Params):
+    id: Annotated[str, Field(pattern=r"^[0-9a-f-]{36}$")]
+
+
+class RetrievalQuery(RetrievalConversation):
+    query: str = Field(min_length=1, max_length=200)
+
+
+class ModelPath(Params):
+    path: str = Field(min_length=1, max_length=1000)
 
 
 class MissionId(Params):
@@ -143,6 +159,8 @@ class Application:
         self.chat: ChatService | None = None
         self.auxiliary: AuxiliaryService | None = None
         self.skills: SkillsService | None = None
+        self.embedding: LocalEmbedder | None = None
+        self.retrieval: RetrievalService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
         self.event_sink = event_sink
 
@@ -157,6 +175,7 @@ class Application:
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
         methods |= {"auxiliary.status", "auxiliary.configure", "auxiliary.probe"}
+        methods |= {"retrieval.model", "retrieval.status", "retrieval.prepare", "retrieval.activate", "retrieval.download", "retrieval.rebuild", "retrieval.search", "retrieval.clear"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
@@ -210,6 +229,10 @@ class Application:
                     await auxiliary.open()
                     skills = SkillsService(store)
                     await skills.open()
+                    embedding = LocalEmbedder(directory)
+                    retrieval = RetrievalService(store, embedding)
+                    await retrieval.open()
+                    chat.retrieval = ScopedRetrieval(chat, retrieval)
                     await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
@@ -223,9 +246,34 @@ class Application:
                 # SQLite 初始化后建立只读事实通知；辅助连接失败不能改变业务就绪状态。
                 self.auxiliary = auxiliary
                 self.skills = skills
+                self.embedding, self.retrieval = embedding, retrieval
                 result = {"initialized": True}
             elif self.store is None:
                 return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
+            elif method == "retrieval.model":
+                Params.model_validate(params)
+                result = embedding_manifest()
+            elif method == "retrieval.status":
+                Params.model_validate(params)
+                result = self.embedding.status()
+            elif method == "retrieval.prepare":
+                result = await self.embedding.prepare(ModelPath.model_validate(params).path)
+            elif method == "retrieval.activate":
+                Params.model_validate(params)
+                result = await self.embedding.restore()
+            elif method == "retrieval.download":
+                Params.model_validate(params)
+                result = await self.embedding.download()
+            elif method in {"retrieval.rebuild", "retrieval.clear"}:
+                cid = RetrievalConversation.model_validate(params).id
+                if method == "retrieval.rebuild":
+                    result = await self.chat.retrieval.rebuild(cid)
+                else:
+                    await self.chat.repository.get(cid)
+                    result = await self.retrieval.clear(cid)
+            elif method == "retrieval.search":
+                query = RetrievalQuery.model_validate(params)
+                result = await self.chat.retrieval.search(query.id, query.query)
             elif method == 'skills.list':
                 result = await self.skills.list(SkillList.model_validate(params).offset)
             elif method == 'skills.history':
@@ -351,7 +399,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError) as error:
             return error_response(request_id, error.code, error.message)
         except ContextError as error:
             return error_response(request_id, error.code, error.message)
@@ -375,6 +423,9 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.embedding is not None:
+            await self.embedding.close()
+            self.embedding = None
         if self.auxiliary is not None:
             # 后台观察器先停止，不能在共享库关闭后继续查询或写缓存。
             await self.auxiliary.close()

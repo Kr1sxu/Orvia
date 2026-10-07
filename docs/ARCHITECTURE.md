@@ -211,3 +211,7 @@ SQLite chat_requests 的原子触发器维护随机任务身份、版本、状�
 ## V4-002 声明式工作流（2026-10-07）
 
 V4-002新增Skills框架，完整接口见backend/src/orvia_backend/skills/README.md：原生目录选择→包普通文件/预算/schema校验→完整审查确认→SHA256二次核验→SQLite版本化登记；启停generation使旧计划失效。固定renderer接口只传业务输入/身份，不能提供包路径或grant。原生选择只读目录后建立独立Mission/内存授权，版本绑定计划经原生批准→LangGraph逐步ComputerGateway→schema与完整性复核→SQLite事实；每步再查版本及授权，失败/受限停止。结果不作为新权限，重启planned/running中断，不恢复审批或重放。最近20只读执行记录和单记录回查均从SQLite读取；独立任务不隶属聊天，无模型/网络或附带脚本执行。现阶段只读盘点组合和合法导入读取可运行，其它内置按后续依赖显示未就绪。
+
+### V4-004 已实现架构（2026-10-07）
+
+独立离线CPU嵌入工作器与SQLite retrieval_vectors，精确会话有效资料SQL候选、FTS5/余弦/RRF、hash/version/epoch和级联删除；不以相似度当事实或授权。启动不加载模型，模型准备及首次下载只有原生入口，下载已获批准、六文件大小/摘要核验。工作器统计启动器及自有子进程合计RSS、监测6GiB阈值并回收全部已识别自有进程。实际固定Qwen合成语义、8×600码点、1201tokens拒绝与模型Electron/重启复用已验证；详细资源、版本、权限边界与小样本限制见模块README/PROGRESS，不提供ANN、全盘扫描或发布运行时。按最新指令完成004后暂停，003及以后尚未实施。

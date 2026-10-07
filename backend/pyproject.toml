@@ -27,6 +27,13 @@ dependencies = [
     "redis==7.0.0",
 ]
 
+[project.optional-dependencies]
+embeddings = [
+    "safetensors==0.7.0",
+    "torch",
+    "transformers==4.57.6",
+]
+
 [dependency-groups]
 dev = ["pytest>=8.3,<9"]
 packaging = ["pyinstaller>=6.16,<7"]
@@ -36,3 +43,6 @@ packages = ["src/orvia_backend"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+torch = { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp312-cp312-win_amd64.whl" }

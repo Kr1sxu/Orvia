@@ -142,3 +142,5 @@ V3-002（2026-10-04）源码已移除窗口顶部重复品牌，保留侧栏品�
 
 ## V4-002 Skills（2026-10-07）
 `npm start`→设置→Skills工作流，原生审查并登记Orvia自有v1二文件包，或选File Organize盘点合成目录。输入结构化参数，选择本次目录、原生确认完整计划，再查看逐步事实和最近工作流记录。只读组合不移动/重命名文件，其它内置按后续模块依赖显示未就绪。包格式、公共接口、权限和预算示例见[模块README](backend/src/orvia_backend/skills/README.md)，实际证据见[PROGRESS](docs/PROGRESS.md)。没有新依赖/真实模型调用/安装包重建，待用户手动推送。
+
+V4-004 本地混合检索已完成开发版验收：固定Qwen3-Embedding-0.6B离线CPU向量与SQLite FTS5/余弦/RRF，限定当前会话有效资料，保留原文引用与审批。`npm start`→添加资料→设置→本地混合检索→加载此前模型（或原生选择已核验目录）→选择会话→建立当前资料索引→检索。首次官方六文件下载已获批准并核验，权重约1.12GiB、可选运行库约3.02GiB，仅在本机私有目录。真实合成模型与Electron流程通过，详见[模块README](backend/src/orvia_backend/retrieval/README.md)和[PROGRESS](docs/PROGRESS.md)。当前按用户指令完成004后暂停，不开始003，不重建安装包；提交待用户手动推送。

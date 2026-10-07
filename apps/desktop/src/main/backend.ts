@@ -5,6 +5,8 @@ import { JsonLines, VERSION, MAX_LINE_BYTES, responseSchema, helloSchema, health
 import { z } from 'zod';
 import {auxiliaryStatus, type AuxiliaryConfig} from './auxiliary-contracts';
 import {skillList,skillHistory,skillSummary,skillReview,skillPlan,skillExecution,type SkillsMethod} from './skills-contracts';
+import {retrievalStatus,retrievalModel,retrievalResult,retrievalRebuild,retrievalClear,type RetrievalMethod} from './retrieval-contracts';
+type RetrievalResults={status:z.infer<typeof retrievalStatus>;model:z.infer<typeof retrievalModel>;prepare:z.infer<typeof retrievalStatus>;activate:z.infer<typeof retrievalStatus>;download:z.infer<typeof retrievalStatus>;search:z.infer<typeof retrievalResult>;rebuild:z.infer<typeof retrievalRebuild>;clear:z.infer<typeof retrievalClear>};
 type SkillsResults={cancel:z.infer<typeof skillExecution>;history:z.infer<typeof skillHistory>;list:z.infer<typeof skillList>;enable:z.infer<typeof skillSummary>;preview_import:z.infer<typeof skillReview>;register:z.infer<typeof skillSummary>;plan:z.infer<typeof skillPlan>;execute:z.infer<typeof skillExecution>;execution:z.infer<typeof skillExecution>};
 import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema, developmentContextSchema, developmentDraftSchema, cleanupPlanSchema } from './chat-contracts';
 import { m20StreamEventSchema, m20ScanPageSchema, streamPullInput, streamAckInput, type M20StreamEvent, type StreamPull } from './m20-contracts';
@@ -99,6 +101,10 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  async retrieval<M extends RetrievalMethod>(method:M,params:object):Promise<RetrievalResults[M]>{
+    await this.start();const schemas={status:retrievalStatus,model:retrievalModel,prepare:retrievalStatus,activate:retrievalStatus,download:retrievalStatus,search:retrievalResult,rebuild:retrievalRebuild,clear:retrievalClear};
+    return schemas[method].parse(await this.request(`retrieval.${method}`,params)) as RetrievalResults[M];
+  }
   async skills<M extends SkillsMethod>(method:M,params:object):Promise<SkillsResults[M]>{
     await this.start();
     const schemas={cancel:skillExecution,history:skillHistory,list:skillList,enable:skillSummary,preview_import:skillReview,register:skillSummary,plan:skillPlan,execute:skillExecution,execution:skillExecution};
@@ -275,7 +281,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
@@ -287,7 +293,7 @@ export class BackendClient {
       // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
       // 完整M15–M20冷启动加载锁定解析/隔离依赖，给握手和初始化独立20秒。
       // 健康检查保留短期限；这只等待自有进程，不延长模型预算或自动重启。
-      const timeout=method.startsWith('skills.')?15000:method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
+      const timeout=method==='retrieval.download'?1100000:method.startsWith('retrieval.')?190000:method.startsWith('skills.')?15000:method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
       const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')),timeout);
       const business=params as {id?:unknown;request_id?:unknown};
       this.pending.set(id, { resolve, reject, timer,...(typeof business.id==='string'&&typeof business.request_id==='string'?{business:{id:business.id,request_id:business.request_id}}:{}) });

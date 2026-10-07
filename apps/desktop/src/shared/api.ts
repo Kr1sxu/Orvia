@@ -17,6 +17,13 @@ export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  retrievalStatus:()=>Promise<Reply<import('../main/retrieval-contracts').RetrievalStatus>>;
+  retrievalActivate:()=>Promise<Reply<import('../main/retrieval-contracts').RetrievalStatus>>;
+  retrievalChoose:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/retrieval-contracts').RetrievalStatus}>>;
+  retrievalDownload:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/retrieval-contracts').RetrievalStatus}>>;
+  retrievalSearch:(input:{id:string;query:string})=>Promise<Reply<import('../main/retrieval-contracts').RetrievalResult>>;
+  retrievalRebuild:(input:{id:string})=>Promise<Reply<import('../main/retrieval-contracts').RetrievalRebuild>>;
+  retrievalClear:(input:{id:string})=>Promise<Reply<{mission_id:string;removed_vectors:number}>>;
   skillsList:(input?:{offset:number})=>Promise<Reply<{skills:import('../main/skills-contracts').SkillSummary[];offset:number;total:number}>>;
   skillsHistory:()=>Promise<Reply<{executions:Pick<import('../main/skills-contracts').SkillExecution,'plan_id'|'skill_id'|'version'|'status'>[]}>>;
   skillsExecution:(input:{plan_id:string})=>Promise<Reply<import('../main/skills-contracts').SkillExecution>>;

@@ -269,4 +269,7 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ 真实合成目录只读组合、L0～L3、中文README/架构/进度与敏感检查；命令和限制见PROGRESS。
 - [x] √ 独立正常本地commit，交付标题 `feat(V4-002): register reviewed skills and run bounded workflows`，实际hash见Git历史。
 - [ ] 用户手动push；Agent不发布、不重建安装包。
-- [ ] V4-004→003→005→006→007→008→009→010→011依序实际实施、验证、记录及独立提交，已获授权，当前未完成。
+- [x] √ V4-004固定本地Qwen、受限SQLite向量/FTS5/余弦/RRF与原文引用，实际下载核验、语义/资源/删除/隔离/重启、L0～L3、中文文档与独立正常本地commit；交付标题 `feat(V4-004): add verified local embeddings and scoped hybrid retrieval`，实际hash见Git历史。
+- [ ] V4-003→005→006→007→008→009→010→011尚未实施；按用户最新指令004完成后暂停，待新指令继续。
+
+V4-004本机开发版验收完成：102个不同后端用例、2个前端契约、关键词与实际Qwen共2个Electron流程；固定合成集三通道Recall@5/MRR@5/耗时、向量与SQLite大小、RSS树均有实际记录。满批资源与token超限独立验证，无云模型调用；不把mock/原生模拟当真实模型或人工验收。证据和限制见PROGRESS；未push、发布或重建安装包。

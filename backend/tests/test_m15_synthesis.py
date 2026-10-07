@@ -19,6 +19,9 @@ async def seed(app, cid):
     web = await app.chat.evidence.save(cid, {"title": "合成网页", "source_url": "https://example.com/synthetic",
         "mode": "http", "accessed_at": "2026-09-29", "content": "合成网页称无需保留来源。" * 50,
         "truncated": False, "error": None})
+    # 直接保存的合成证据也须模拟产品实际attach/read建立有效关联，不能绕过M20集合。
+    for kind, item in (("document", doc), ("document", second), ("browser", web)):
+        await app.chat.natural.material_added(cid, kind, item["evidence_id"])
     return [{"kind": "document", "evidence_id": doc["evidence_id"]},
             {"kind": "document", "evidence_id": second["evidence_id"]},
             {"kind": "browser", "evidence_id": web["evidence_id"]}]

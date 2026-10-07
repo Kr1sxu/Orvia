@@ -2,6 +2,13 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
+  retrievalStatus:()=>ipcRenderer.invoke('orvia:retrieval-status'),
+  retrievalActivate:()=>ipcRenderer.invoke('orvia:retrieval-activate'),
+  retrievalChoose:()=>ipcRenderer.invoke('orvia:retrieval-choose'),
+  retrievalDownload:()=>ipcRenderer.invoke('orvia:retrieval-download'),
+  retrievalSearch:(input:unknown)=>ipcRenderer.invoke('orvia:retrieval-search',input),
+  retrievalRebuild:(input:unknown)=>ipcRenderer.invoke('orvia:retrieval-rebuild',input),
+  retrievalClear:(input:unknown)=>ipcRenderer.invoke('orvia:retrieval-clear',input),
   skillsList: (input:unknown={offset:0}) => ipcRenderer.invoke('orvia:skills-list',input),
   skillsHistory: () => ipcRenderer.invoke('orvia:skills-history'),
   skillsExecution: (input:unknown) => ipcRenderer.invoke('orvia:skills-execution',input),

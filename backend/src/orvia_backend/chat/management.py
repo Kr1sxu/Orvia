@@ -94,6 +94,12 @@ async def purge(chat, cid):
         try:
             await db.execute('DELETE FROM operation_entries WHERE task_id IN (SELECT id FROM operation_tasks WHERE mission_id=?)', (cid,))
             await db.execute('DELETE FROM context_chunks WHERE document_id IN (SELECT id FROM context_documents WHERE mission_id=?)', (cid,))
+            # V4派生索引由片段FK级联清理；并发代数也删除，只留既有随机ID删除标记。
+            # 初次迁移/启动恢复可能先于检索表创建，不能因此中断旧会话删除。
+            async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retrieval_epochs'") as cursor:
+                has_retrieval_epochs = await cursor.fetchone() is not None
+            if has_retrieval_epochs:
+                await db.execute('DELETE FROM retrieval_epochs WHERE mission_id=?', (cid,))
             await db.execute('DELETE FROM m20_scan_entries WHERE scan_id IN (SELECT id FROM m20_scans WHERE conversation_id=?)', (cid,))
             for table in ('context_fts','context_documents','context_preferences','context_summaries','browser_evidence','document_evidence','operation_tasks'):
                 await db.execute(f'DELETE FROM {table} WHERE mission_id=?', (cid,))

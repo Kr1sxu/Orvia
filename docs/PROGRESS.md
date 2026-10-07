@@ -1340,3 +1340,156 @@ subagent另有已复用的审计最小集合：`backend/.venv/Scripts/python.exe
 ```powershell
 backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('backend/tests').resolve())); import m19_hygiene as audit; audit.RESULT=pathlib.Path('artifacts/test-results/V4-002').resolve(); raise SystemExit(audit.main())"
 ```
+
+
+## V4-004 已完成：本地混合检索（2026-10-07）
+
+**当前事实摘要**：首次下载已获明确批准，六个固定官方工件核验、真实本地语义/资源与Electron验收已完成，102个不同后端用例、2个前端契约、2个Electron流程通过。交付独立正常本地commit标题 `feat(V4-004): add verified local embeddings and scoped hybrid retrieval`，实际hash以Git历史为准。按用户最新指令本模块完成后暂停，003及其后未开始；完整Goal尚未完成，所有提交仍待用户手动push。下方“实施中/待批准/未执行/自动继续003”为先前阶段历史，当前结果以末尾验收记录与最新停止点为准。
+
+前置模块002已正常提交`c1ca871`；001为`a6c9d30`，均未push。本模块开始前复核main/历史/工作区，仅预存未跟踪`.zcodeignore`与`docs/INTERVIEW.md`保留，不读取其私人正文、不暂存。初始实施阶段004未完成、未暂存、未commit，003及以后未开始；完整Goal仍未完成，004最终状态见下。主Agent负责模型工件/运行器、应用/桌面和整合；subagent独占retrieval service/README/目标测试，另一subagent只读审查，已交接停止写入。
+
+- [x] √ 本机开发代码：固定工件清单与本地独立工作器、SQLite向量/FTS5/余弦/RRF、准确有效关联范围、原生下载确认与模型目录选择、设置检索界面、资料回答原文分块/定位接入。
+- [x] √ 已完成的合成嵌入契约、真实SQLite/FTS、关键词Electron流程与旧权限/删除/文档/配置回归，证据见下；这些不等于真实Qwen验收。
+- [x] √ 首次模型权重下载用户确认：2026-10-07用户明确“批准下载”，沿用已展示官方固定修订/六文件/体积/许可/摘要；现在允许下载并继续004真实验收，历史等待记录保留。
+- [x] √ 下载/逐文件校验固定Qwen、真实中文/混合语言语义基准及工作器树RSS/时间/向量和SQLite大小、实际模型Electron与重启流程；准确命令、指标与限制见末尾验收。
+- [x] √ 最终模块/项目文档、开发清单、暂存敏感审计与V4-004独立正常本地commit；标题与提交后状态见末尾交付记录及Git历史。
+- [ ] 用户手动push；Agent不push/Release/重建安装包。004完成并commit后按用户最新指令暂停，003未开始。
+
+### 已实施的技术决定
+
+仅已明确纳入范围的context_documents/context_chunks原文；不扫描目录或重读原文件。ScopedRetrieval只使用当前会话有效材料，最多3份/每份50单元，构造最多150准确source标签（总48KiB），查前限定SQL，查后复核关联；解除关联不能恢复旧正文到普通回答。空范围[]直接零结果/零嵌入，不转None扩大历史。UI清除当前会话全部向量可释放历史派生预算，原文件/导出/原文FTS保留。
+
+固定1024维little-endian float32，正文SHA256、文档hash、模型修订和预处理签名绑定；FK context_chunks ON DELETE CASCADE覆盖来源替换/删除和会话purge。每任务512段/全库4096段、每段600码点、query200、候选总512、向量读取128/批；模型调用最多8段/请求，工作器内部4段、1024tokens、不静默截断。重建120秒（含排队/核验）、单批30秒，锁外嵌入与事务二次快照/持久epoch，清理/删除/版本变更后晚到结果不写回。关键词最多32去重词OR召回，余弦独立排序、RRF60、重复正文仅嵌入一次，保留全部SQLite来源和最多8个显示定位，输出32KiB明确受限。没有有效索引时零查询嵌入；损坏/超限/签名不匹配/缺模型明确keyword_only原因。
+
+运行器仅可信固定CPU库，4线程/float32、官方query instruction/left padding/last-token pooling/L2；HF离线local_files_only、trust_remote_code=False、safetensors。独立进程剥除Key/代理/Python用户环境；每0.1秒RSS监测、超过6GiB终止，属于监测阈值而非OS硬上限，准备/请求/取消终止晚到工作器，不自动重试。启动应用不加载模型，点击加载此前模型重新校验已批准路径；配置写入原子替换并拒悬空链接。下载只有主进程原生确认后的固定入口，准确HTTPS及摘要/900秒/临时文件有界清理，无网络降级、不覆盖已有工件、不联网补文件。推理是否正确仍待真实模型测试。
+
+保持三角色固定模型与供应商、SQLite事实、原有审批/权限链。资料回答分块改为与context一致600/overlap80，命中准确匹配eid/unit/chunk/text；完整发送预览、原生批准和严格引用验证保留。旧M15合成seed补实际material_added，模拟产品attach/read有效关联，不能用测试直接save绕过M20集合。
+
+### 模型准备待决与依赖事实
+
+官方模型`Qwen/Qwen3-Embedding-0.6B`，修订`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`，Apache-2.0。[官方说明](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)、[固定文件目录](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B/tree/97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3)。只获取官方API元数据（model-source.json），尚未下载下表工件。总1207469240字节≈1.12GiB；可由用户批准首次下载到项目忽略的私有目录，或提供已有目录核验。具体待决来自V4_OPTIMIZATION第2.2节与Goal第三部分的“本地模型…首次下载确认”，不是普通依赖安装追加确认。
+
+|文件|字节|官方校验算法/摘要|
+|---|---:|---|
+|config.json|727|Git blob SHA1 cef2749ee93607b8f9a58ec72f4f6bfaf874e71d|
+|merges.txt|1671853|Git blob SHA1 31349551d90c7606f325fe0f11bbb8bd5fa0d7c7|
+|model.safetensors|1191586416|SHA256 0437e45c94563b09e13cb7a64478fc406947a93cb34a7e05870fc8dcd48e23fd|
+|tokenizer.json|11423705|SHA256 def76fb086971c7867b829c23a26261e38d9d74e02139253b38aeb9df8b4b50a|
+|tokenizer_config.json|9706|Git blob SHA1 7345216a0785dc7086e8c245b2a9d3896ce2b756|
+|vocab.json|2776833|Git blob SHA1 4783fe10ac3adce15ac8f358ef5462739852c569|
+
+已检查Python3.12.6、uv0.12.5、CPU i7-14650HX、31.73GiB内存与D盘约153GiB可用。未发现已有Qwen工件，不用其它本地模型替代。先核查[官方PyTorch CPU wheel索引](https://download.pytorch.org/whl/cpu/torch/)、[Transformers4.57.6](https://pypi.org/project/transformers/4.57.6/)、[Safetensors0.7.0](https://pypi.org/project/safetensors/0.7.0/)、许可/兼容性/下载摘要，runtime-source.json。实际安装命令：
+
+```powershell
+C:/Users/18532/.local/bin/uv.exe add --directory backend --python .venv/Scripts/python.exe --optional embeddings 'transformers==4.57.6' 'safetensors==0.7.0' 'torch @ https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp312-cp312-win_amd64.whl#sha256=2be20b2c05a0cce10430cc25f32b689259640d273232b2de357c35729132256d'
+```
+
+CPU PyTorch2.8.0+cpu，BSD-3-Clause，wheel619352539字节；Transformers4.57.6 Apache-2.0、wheel11993498字节；Safetensors0.7.0 Apache-2.0、winabi3wheel341380字节。pyproject可选embeddings与uv.lock固定来源/版本/hash，105锁定包、只新增13、已有版本变化0。实际新增安装12库：filelock4.0.12、fsspec2026.9.0、huggingface-hub0.36.2、jinja2 3.1.6、markupsafe3.0.4、mpmath1.3.0、networkx3.7、safetensors0.7.0、sympy1.14.0、tokenizers0.22.2、torch2.8.0+cpu、transformers4.57.6；同版editable项目重新安装。hf-xet1.7.0仅跨平台锁定，当前marker未安装。dependency-audit.json按安装分发清单统计新增文件约3247006488字节（约3.02GiB，不含权重/uv缓存/全venv或文件系统分配），全部项目venv；未升级既有库、不装GPU/全局资源。uv跨盘hardlink回退复制是提示，安装成功。真实导入AutoModel/AutoTokenizer/torch通过，torch.cuda.is_available=False；不等于模型推理通过。
+
+### 当前验证（仍缺真实Qwen）
+
+产物统一`artifacts/test-results/V4-004/`，Git忽略，模型/云端API调用0。后端36目标用例为真实临时SQLite/FTS＋合成嵌入；运行器测试用MockTransport或进程/RSS替身，不访问实际下载服务。Electron为真实Electron–Python/SQLite/原文解析，m20-launch仅模拟原生文件选择/确认，首次下载取消，没有下载请求；不冒充人工原生或模型验收。L4评估：仅可选本地检索，无发布或副作用业务变更，当前先做相关L0～L3，真实模型/资源和最终审查仍未完成。
+
+|级别|实际命令/结果|报告|
+|---|---|---|
+|L0|`npm run check`、`npm run build`通过；`C:/Users/18532/.local/bin/uv.exe lock --directory backend --check`通过；`backend/.venv/Scripts/python.exe -m compileall -q backend/src/orvia_backend/retrieval`通过|仅开发构建，无安装包；105锁定包|
+|L1/L2|`backend/.venv/Scripts/python.exe -m pytest backend/tests/test_v4_retrieval.py -q --basetemp=artifacts/test-results/V4-004/retrieval-tmp --junitxml=artifacts/test-results/V4-004/retrieval-junit.xml`，29通过|初轮；后续只重跑新增/变动项|
+|L1/L2|同pytest目标加`-k 'signature_change_during or keyword_does_not'`，retrieval-audit-tmp/retrieval-audit-junit.xml，2通过；`-k 'empty_scope or astral_unicode or batch_scope or deadline or vector_contract or normalization'`，retrieval-boundary-tmp/retrieval-boundary-junit.xml，11通过|每个路径前缀均artifacts/test-results/V4-004/|
+|L1/L2|同目标`-k 'clear_epoch or three_documents or batch_scope'`，retrieval-scope-tmp/retrieval-scope-junit.xml，3通过；`-k 'missing_or_invalid or runtime_signature_change or signature_change_during or persistent_vector or source_deletion'`，retrieval-query-tmp/retrieval-query-junit.xml，12通过|150定位兼容、并发clear epoch、缺索引零查询嵌入|
+|L1/L2|同目标`-k 'batch_scope or rebuild_race or candidate_limit or three_documents or missing_or_invalid or real_sqlite'`，retrieval-final-tmp/retrieval-final-junit.xml，10通过|目标按test ID去重36通过，非36+其它重复数|
+|L1/L2|`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_embedding_runtime.py backend/tests/test_v4_retrieval_protocol.py backend/tests/test_m15_synthesis.py backend/tests/test_application.py -q --basetemp=artifacts/test-results/V4-004/integration-data --junitxml=artifacts/test-results/V4-004/integration.xml`，11通过/2失败|原fixture直接save缺有效关联；补material_added和空scope后最小复验|
+|L1/L2|同pytest仅test_v4_retrieval_protocol.py及test_m15_synthesis.py::test_preview_generate_conflict_restart_isolation_and_idempotency，recheck-data/recheck.xml，2通过；新增50单元后仅test_v4_retrieval_protocol.py，scope-data/scope.xml，2通过|保留旧失败历史，实际失败均已解决；旧M15其它项复用integration.xml|
+|L1/L2|同pytest仅test_v4_embedding_runtime.py，runtime-final-data/runtime-final.xml，6通过|官方清单/流式SHA与Gitblob/额外代码拒绝/缺模型零联网/取消与RSS终止/固定HTTPS下载MockTransport、降级HTTP拒绝与临时清理|
+|L1/L2|同pytest运行test_v3_management.py test_m13_documents.py test_configuration.py，regression-data/regression.xml，48通过|真实删除/文档/角色配置相关回归；模型网络mock|
+|L1|`npx vitest run apps/desktop/tests/v4-retrieval.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-004/unit.json`，2通过|renderer拒路径/来源/URL/批准，响应非BMP600码点/finite/未知字段|
+|L3|`$env:ORVIA_TEST_MODULE='V4-004'; npx playwright test tests/e2e/v4-retrieval.spec.ts`，1通过|缺模型、原生下载取消、合成DOCX关键词、清向量、重启原文查询；e2e.json/electron-A6fsjV截图|
+
+XML按(classname,name)取最新结果去重99个不同后端用例通过、0未解决失败/0skip，verification-in-progress.json。两张Electron截图已生成，keyword.png已实际查看，中文原文/降级/会话选择/细节可读，无横向溢出。子任务只读审查发现空scope、50单元兼容、UTF16/码点、悬空配置链接、清理晚到重建及缺索引浪费推理；均实际修复和相应最小验证。仍有原LangGraph弃用提示，不为此升级依赖。
+
+当前工作树敏感审计命令：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('backend/tests').resolve())); import m19_hygiene as audit; audit.RESULT=pathlib.Path('artifacts/test-results/V4-004').resolve(); original=audit.git_names; audit.git_names=lambda *args:[name for name in original(*args) if name not in {'.zcodeignore','docs/INTERVIEW.md'}]; raise SystemExit(audit.main(working=True))"
+```
+
+hygiene-working.json：27当时模块工作文件，禁入/真实Key/私钥/161产物Key/资源manifest差异均0，仅输出Key是否存在。预存两文件排除、不读取；不把工作树审计当cached提交检查。当前已检查git status/diff/diff --check/cached（空），尚未暂存；文档收尾后需最终审计。没有push或安装包操作。
+
+### 续接点与限制
+
+首次下载准确版本确认已待答。用户批准后才下载六文件、按固定摘要核验，并显式运行`backend/tests/live_v4_embedding.py`（ORVIA_EMBEDDING_MODEL_PATH设已批准普通目录）；该脚本只有固定16主题/8问题合成资料、不读Key、不下载，报告相同FTS5 OR基线与vector/hybrid Recall@5/MRR@5/时间/RSS/SQLite大小及删除/隔离/去重/重启。尚未运行，所有真实模型指标空缺。随后补实际模型Electron、必要失败项修复、准确文档与最终审计、独立004commit；再自动进入003。
+
+目前可`npm start`→添加合成文档→设置→本地混合检索选择会话，缺模型关键词查询；首次下载原生取消不下载。运行库约3.02GiB、固定权重另约1.12GiB；首次下载许可未被依赖安装授权替代。未验证真实Qwen性能/大满额索引资源、未知网络速度、发布模式、独立Windows或GPU；RSS为抽样阈值，引用仅结构/身份校验，不证明语义真实性。旧安装包不含本模块。不能以目前代码/构建/mock标完整004完成，不越过模块顺序。
+
+本次等待前收尾：同工作树敏感命令在全部文档更新后再次通过，hygiene-working.json实际34模块文件/210产物，禁入/密钥/私钥/资源manifest均0；cached仍空，预存两文件保留。compileall包含live_v4_embedding.py语法通过，但未实际运行模型脚本。最后HEAD仍c1ca871，004无提交。
+
+
+### V4-004 自动续接边界补审（仍待首次模型下载确认）
+
+上一Goal轮已产生实质代码/验证/文档进展；本轮自动续接不包含下载批准，继续不依赖模型的边界审查。新增发现并修复两项：chat purge删除retrieval_epochs代数记录，仅保留既有随机ID墓碑，兼容初次迁移尚无检索表；prepare总180秒包含排队、两次父核验和加载，避免阶段60+120+60叠加超过桌面190秒等待。下载900秒加prepare180秒仍在主进程1100秒等待内，不自动重试。未下载模型或进入003。
+
+实际最小复验命令：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_retrieval_protocol.py::test_chat_delete_removes_vectors_and_epoch_leaves_only_tombstone backend/tests/test_v3_management.py::test_delete_all_local_evidence_and_private_copies_only backend/tests/test_v3_management.py::test_confirmed_delete_failure_resumes_on_restart -q --basetemp=artifacts/test-results/V4-004/delete-final-data --junitxml=artifacts/test-results/V4-004/delete-final.xml`，L1/L2三项通过。`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_embedding_runtime.py -q --basetemp=artifacts/test-results/V4-004/runtime-deadline-data --junitxml=artifacts/test-results/V4-004/runtime-deadline.xml`，L1七项通过。全部XML按ID去重101个不同后端通过、0失败/跳过；未改UI源码，不重复既有构建/关键词L3。
+
+已补显式真实Qwen Electron流程：原生选择固定工件/建立2片段/实际hybrid/重启加载/云端调用计数0，只有ORVIA_EMBEDDING_MODEL_PATH显式设置才执行，否则skip；尚未运行，不冒充模型验收。L0 `ORVIA_TEST_MODULE=V4-004 npx playwright test tests/e2e/v4-retrieval.spec.ts --list`确认2个流程可发现，此命令仅列出，不执行模型或关键词流程；原1通过仍有效。git diff --check通过、cached仍空。真实模型基准和该第二Electron流程留待批准后执行。
+
+同一实质待决事项仍为V4第2.2节/Goal明确要求的首次模型下载确认，现有开发代码和所有可独立验证均已完成，不能用自动续接文本代替批准。不创建未验收004 commit，不推进003。
+
+### V4 Goal 受阻记录（2026-10-07）
+
+首次模型下载确认的同一条件已连续三Goal轮出现：首轮实现/验证并请求准确固定版本；第二轮补删除与准备总期限/测试；第三轮核对仍无用户明确批准或已有目录，已无可独立完成的当前模块工作。按Goal规则标blocked，不标完成、不越过顺序。当前HEAD c1ca871；004未暂存/未commit，101个不同后端通过，但真实Qwen脚本与模型Electron均未执行。用户批准首次固定官方Qwen六文件约1.12GiB下载，或提供已有目录后续接004真实验收与独立提交，继而依授权顺序推进余下模块；原完整目标保留。模型来源/固定修订/许可/六文件校验信息见本模块上表。无push、Release或安装包操作。
+
+### V4-004 下载批准后续接（2026-10-07）
+
+用户明确“批准下载”，已解除同一首次模型待决条件；沿用固定修订97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3及上表摘要，不改模型。复核main/HEAD c1ca871和工作区，保留已有004实施文件与预存两文件。现开始项目私有.orvia/models六文件下载、逐文件核验和真实本地验证；无云端正文、push或安装包。完整后续模块授权继续有效，004完成并独立commit后自动继续003。
+
+下载续接初次真实执行：`backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_v4_prepare.py`，首次MODEL_DOWNLOAD_FAILED/约21秒、无模型文件，download-live-first-failed.json保留。小文件连接诊断download-network-check.json：已有SSL_CERT_FILE配置、代理未配置；trust_env=False连接超时，沿用已有环境时官方固定config HTTPS200/727字节。下载器改为沿用既有HTTPS证书/代理配置，验证仍开启，不改系统/Git设置，工作器仍离线剥除代理。顺便修复旧ready工作器掩盖本次下载失败，失败关闭旧工作器并明确降级。L1 `backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_embedding_runtime.py -q --basetemp=artifacts/test-results/V4-004/download-fix-data --junitxml=artifacts/test-results/V4-004/download-fix.xml`7通过；修正后显式重新执行live_v4_prepare，当前尚在下载，不视为完成。
+
+用户最新停止点：2026-10-07“完成本模块后先暂停，待我指令再继续”。当前模块为V4-004；下载已批准，继续全部实际验证、记录和独立commit，完成后按用户要求暂停Goal，不开始003及后续，不push/打包。此项取代此前本轮004commit后自动开始003的要求；历史计划保留。
+
+### V4-004 最终真实验收与交付（2026-10-07）
+
+下载批准与停止调整均来自用户直接指令。固定官方修订仍为97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3，不更换角色模型或供应商；审批、SQLite事实、有效资料范围与引用核验保留。实际权重目录`.orvia/models/qwen3-embedding-0.6b/97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`、私有配置`.orvia/embedding-model.json`及全部报告均Git忽略，不入安装包。模型六文件共1207469240字节，运行库新增文件约3247006488字节，版本/来源/许可/安装命令见上述依赖事实，未安装额外未来模块资源。
+
+实际下载修正后显式重跑`backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_v4_prepare.py`：六文件大小/官方摘要全部核验、离线预加载通过，download-live.json，165.453秒包含下载与加载。保留第一次失败与连接诊断，不自动重试、不关闭TLS校验、不改系统或Git网络配置。下载器沿用既有HTTPS证书配置；模型推理仍完全离线、剥除Key/代理、拒绝远程代码。
+
+资源审查发现Windows项目venv的python.exe是启动器，仅其RSS约4MiB会漏计真正模型子进程。已修复为启动器及已识别自有后代合计RSS，最多4个子进程，关闭/超限/取消回收自有工作器树；psutil Process绑定进程身份，未操作用户应用。之前download-live.json和real-1791371306895570300/benchmark.json中的launcher-only peak不作资源验收依据，保留为历史。实际最小复验：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_embedding_runtime.py -q --basetemp=artifacts/test-results/V4-004/process-tree-data --junitxml=artifacts/test-results/V4-004/process-tree.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_embedding_runtime.py -k launcher_child -q --basetemp=artifacts/test-results/V4-004/process-tree-extra-data --junitxml=artifacts/test-results/V4-004/process-tree-extra.xml
+$env:ORVIA_EMBEDDING_MODEL_PATH=(Resolve-Path -LiteralPath '.orvia/models/qwen3-embedding-0.6b/97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3').Path
+backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_v4_embedding.py
+backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_v4_resources.py
+backend/.venv/Scripts/python.exe -X utf8 backend/tests/live_v4_resources.py --token-only
+npm run build
+$env:ORVIA_TEST_MODULE='V4-004'
+npx playwright test tests/e2e/v4-retrieval.spec.ts --grep '显式已有Qwen'
+```
+
+|级别|实际结果与证据（共同前缀artifacts/test-results/V4-004/）|性质/限制|
+|---|---|---|
+|L1|运行器全套当时7通过，process-tree.xml；新增launcher_child最小1通过/7未选择，process-tree-extra.xml|mock进程/RSS/下载边界；不称真实资源验收|
+|L2/L3真实本地模型|live_v4_embedding.py修正资源后完整通过，real-1791371496972254000/benchmark.json|真实Qwen/SQLite/FTS，固定16主题8问题，云模型调用0；无用户资料或密钥|
+|L2资源|首次live_v4_resources.py满批8×600码点通过，14.109秒/1024维有限单位向量，601码点拒绝；resource-1791371578309173900/resources.json|该次整体失败于错误fixture假设600emoji会超过1024tokens，实际仅601tokens；保留报告，不称整次通过|
+|L2资源失败项最小复验|固定分词器实测600个𒀀为1201tokens，改fixture后--token-only通过，0.141秒拒绝MODEL_TOKEN_LIMIT并关闭工作器；resource-1791371736233745400/resources.json|复用前次满批与字符阶段通过证据，token阶段单独实际重测，不静默截断|
+|L0|npm run build含TypeScript检查通过；此前uv lock --check/compileall通过，文档-only不重复代码测试|只新增已锁定optional embeddings，既有库版本变化0|
+|L3|实际模型Electron1通过/27.7秒，e2e.json、electron-real-6VWdQa/hybrid.png|原生目录选择/确认由m20-launch模拟；真实固定Qwen核验、2片段建立索引、hybrid检索、重启复用向量并显式重载模型；云调用0|
+
+全部后端JUnit按(classname,name)以最后结果去重：**102个不同用例通过，0未解决失败/跳过**；前端目标契约2通过。Electron关键词1通过（electron-A6fsjV）复用，加上述真实模型1通过，共2个不同流程，未把默认未设置模型目录的skip当真实验收。verification-final.json记录统计与闭合；keyword.png、restart.png、hybrid.png均已实际查看，中文状态、原文、通道和来源详情可读，无横向溢出。最后进程清理检查固定worker模块进程数量0，不输出其它进程命令或私人资料。
+
+硬件Intel Core i7-14650HX、RAM34075090944字节、Windows 11 build26200、Python3.12.6，CPU float32/4线程，Torch2.8.0+cpu、Transformers4.57.6、Safetensors0.7.0；无CUDA，固定签名Qwen/Qwen3-Embedding-0.6B@97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3:1024:qwen-lasttoken-v1。以下同一合成集/相同FTS5 OR基线单次指标：
+
+|通道|Recall@5|MRR@5|平均查询秒|
+|---|---:|---:|---:|
+|keyword|1.0|0.7541666667|0.002000|
+|vector|1.0|1.0|0.509750|
+|hybrid|1.0|0.9166666667|0.509750|
+
+向量与混合耗时分别包含独立query嵌入、SQLite候选/余弦或FTS/RRF。中文transport同义和energy/signal中英混合预定语义检查均通过；17片段16种正文去重、来源删除、Mission隔离、重启、有限单位1024维均通过。准备9.125秒、建立索引3.156秒、脚本总31.047秒；工作器树RSS峰值3720794112字节（约3.47GiB），8×600满批峰值3807604736字节（约3.55GiB），token复验峰值3752095744字节。阈值6442450944字节=6GiB，每0.1秒抽样监测，**不是OS硬上限**；不是完整Electron应用内存。
+
+SQLite建立向量前122880字节，最终196608字节包括事实与FTS表；删除一条来源后实际16条向量BLOB合计65536字节。不能将数据库总大小称纯向量索引大小。三通道Recall相同，MRR排序不同；这是8个固定问题的单次观察，无统计置信区间或普遍收益声明。未实际跑满4096段全库长期负载，满额/并发/版本预算由有意义fixture及真实SQLite边界验证；未验收GPU、其它系统、独立Windows、人工原生流程、发布运行时/安装包。引用结构与身份校验不保证原文语义真实；相似度与缓存不能当执行完成事实。保留原LangGraph弃用提示，本轮未升级其版本。L4评估：已跑相关文档/删除/角色配置回归48项及真实模型/资源/L3，不涉及发布或新的文件副作用，因此不重复与本模块无关的全量/打包验收。
+
+最终审查与文档：固定接口/严格输入、普通路径与六文件摘要、准确SQL来源范围、模型/内容签名、空scope、512/4096片段、150来源、32KiB输出、600码点/1024tokens、30/120/180/900秒期限、epoch晚到写入、FK删除与会话purge、取消与工作器树回收均有实现及相关证据。模块README、根/backend/desktop README、ARCHITECTURE、DEVELOPMENT_PLAN、V4状态与本PROGRESS已更新。提交前检查git status、git diff、git diff --cached与diff --check，仅显式选择当前004的38个文件；预存.zcodeignore/docs/INTERVIEW.md、权重/私有配置/数据库/日志/测试产物不纳入。最终hygiene-working.json/hygiene-staged.json记录真实Key/私钥/禁入文件/测试产物/资源manifest检查，最终实际工作树与cached审计各38文件；工作树298个产物文件，首次cached审计298个，新增审计报告后最后cached审计299个；禁入路径、真实Key命中、私钥块、产物Key命中、资源manifest差异均0，仅记录凭据是否存在，不输出值。git diff为空（无未暂存的模块修改），cached diff --check通过；两个用户预存文件仍未跟踪、不读取或暂存。
+
+交付独立正常本地commit标题 `feat(V4-004): add verified local embeddings and scoped hybrid retrieval`；完整hash可用 `git log -1`核对，提交回执另外保存于忽略的证据目录，未amend既有002/001。所有本地提交仍待用户手动push，无Release或安装包重建。试用`npm start`→添加明确选择的资料→设置→本地混合检索→加载此前模型（或原生选择该固定目录）→选择会话→建立当前资料索引→检索关联资料；清除会话向量保留原文/FTS/原文件，缺模型明确关键词降级。
+
+**停止点**：完成V4-004验证/记录/独立提交后依用户最新指令暂停Goal，待用户指令继续V4-003。未开始后续模块；原完整Goal不标完成。
