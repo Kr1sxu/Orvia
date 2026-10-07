@@ -178,6 +178,7 @@ async def serve(reader: BinaryIO, writer: BinaryIO) -> None:
                 # 普通用户进程等待不阻塞本会话事实查看，不旁路任何启动/关闭/终止动作。
                 "process.status", "process.history", "process.list",
                 "research.status", "research.history", "research.cancel",
+                "retry.history",
                 "health", "chat.cancel", "chat.get", "chat.list", "chat.scan.page",
                 "chat.automation.cancel", "chat.automation.script.status",
                 "chat.automation.browser.pending", "chat.automation.browser.request", "chat.automation.browser.close"}

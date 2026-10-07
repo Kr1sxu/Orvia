@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import uuid4, UUID
+from time import monotonic
 
 import jieba
 
@@ -100,7 +101,21 @@ class ContextService:
             return {"mission_id": mission_id, "query": query, "evidence": []}
         # 每个 token 加引号，查询只执行 AND 词匹配，不允许调用方注入 FTS5 控制语法。
         match_query = " AND ".join(f'"{token.replace(chr(34), "")}"' for token in tokens.split())
-        rows = await self.store.search_context(mission_id, match_query, limit)
+        # 仅纯FTS SELECT可重试；分词、索引写入、向量推理及失效清理不在适配器内。
+        retry = getattr(self.store, 'retry', None)
+        if retry is None:
+            rows = await self.store.search_context(mission_id, match_query, limit)
+        else:
+            try:
+                cid = mission_id if str(UUID(mission_id)) == mission_id else None
+            except ValueError:
+                cid = None
+            try:
+                rows = await retry.run('context.sqlite_read', {'mission_id':mission_id,'match':match_query,'limit':limit},
+                                       lambda:self.store.search_context(mission_id,match_query,limit),
+                                       deadline=monotonic()+3.0,cid=cid)
+            except TimeoutError:
+                raise ContextError('SEARCH_TIMEOUT', '本机只读检索3秒预算已耗尽；未返回迟到值或扩大检索范围') from None
         return {"mission_id": mission_id, "query": query,
                 "evidence": [{"source": row["source"], "chunk_index": row["chunk_index"],
                               "text": row["content"], "score": row["score"]} for row in rows]}

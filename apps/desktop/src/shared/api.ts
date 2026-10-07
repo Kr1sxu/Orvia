@@ -17,6 +17,7 @@ export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  retryHistory:(input:{id:string})=>Promise<Reply<import('../main/retry-contracts').RetryHistory>>;
   researchCreate:(input:z.input<typeof import('../main/research-contracts').researchCreateInput>)=>Promise<Reply<import('../main/research-contracts').ResearchTask>>;
   researchCollect:(input:{id:string;operation_id:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/research-contracts').ResearchTask}>>;
   researchReviewCollect:(input:{id:string;operation_id:string})=>Promise<Reply<import('../main/research-contracts').ResearchTask>>;

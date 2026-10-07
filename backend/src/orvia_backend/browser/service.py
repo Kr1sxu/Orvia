@@ -3,6 +3,7 @@
 import asyncio
 import json
 from datetime import UTC, datetime
+from time import monotonic
 from urllib.parse import urljoin
 
 import httpx
@@ -12,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from typing import Literal
 
 from .network import BrowserError, SafeHTTP, origin, validate_url
+from ..retry import HTTPTransient, RetryError, RetryService
 
 MAX_BODY = 512_000
 MAX_TEXT = 8000
@@ -45,9 +47,10 @@ def page_title(markup):
 
 class BrowserService:
     """每次 read 显式 URL 即单页访问范围；资源限同源，无递归抓取。"""
-    def __init__(self, key: SecretStr | None = None, *, network=None):
+    def __init__(self, key: SecretStr | None = None, *, network=None, retry=None):
         self.key = key
         self.network = network or SafeHTTP()
+        self.retry = retry or RetryService()
 
     async def web_search(self, query: str, *, max_results=5) -> dict:
         """固定 Tavily 端点、无重试；缺 Key 不联网，也不返回伪造摘要。"""
@@ -81,7 +84,40 @@ class BrowserService:
         except (TimeoutError, OSError, httpx.HTTPError, ValueError, RecursionError):
             return result | {"results": [], "error": {"code": "SEARCH_FAILED", "message": "搜索请求失败或响应格式无效"}}
 
-    async def _fetch_page(self, url: str, *, budget=None):
+    async def _fetch_page(self, url: str, *, budget=None, deadline=None, cid=None, business_id=None, cancel_event=None):
+        """仅无动态budget的公开静态SafeHTTP可重试；同页重定向/重试共用四请求上限。"""
+        if budget is None and isinstance(self.network, SafeHTTP):
+            current = validate_url(url)
+            requests = 0
+            redirects = 0
+            async def static_attempt():
+                nonlocal current, requests, redirects
+                while requests < 4:
+                    requests += 1
+                    status, headers, raw = await self.network.fetch(current,limit=MAX_BODY)
+                    if status in {429,503}:
+                        raise HTTPTransient(status,headers.get('retry-after'))
+                    if status in {301,302,303,307,308}:
+                        if redirects >= 3 or not headers.get('location'):
+                            raise BrowserError('REDIRECT_LIMIT','重定向缺少目标或超过三次上限')
+                        target=validate_url(urljoin(current,headers['location']))
+                        if origin(target)!=origin(url):
+                            raise BrowserError('SCOPE_BLOCKED','重定向超出显式URL的同源范围')
+                        current=target;redirects+=1
+                        continue
+                    if status!=200:
+                        raise BrowserError('HTTP_FAILED',f'网页返回 HTTP {status}')
+                    if 'attachment' in headers.get('content-disposition','').lower():
+                        raise BrowserError('RESOURCE_BLOCKED','不允许下载附件')
+                    return current,headers,raw
+                raise BrowserError('REDIRECT_LIMIT','静态页重定向及重试合计请求预算已用尽')
+            try:
+                return await self.retry.run('browser.static_read',{'url':url},static_attempt,
+                    deadline=deadline if deadline is not None else monotonic()+20,
+                    cid=cid,business_id=business_id,cancel_event=cancel_event)
+            except HTTPTransient as error:
+                raise BrowserError('HTTP_FAILED',f'网页返回 HTTP {error.status}') from None
+        # Playwright文档/资源路径和未确认网络适配器维持原单次行为，不能靠GET授予重试。
         current = validate_url(url)
         for hop in range(4):
             if budget is not None:
@@ -106,10 +142,11 @@ class BrowserService:
             return current, headers, raw
         raise AssertionError("unreachable")
 
-    async def read(self, url: str, *, mode="auto") -> dict:
+    async def read(self, url: str, *, mode="auto", cid=None, business_id=None, cancel_event=None) -> dict:
         """auto 只在成功取得空壳 HTML 时渲染，不绕过 HTTP 或权限错误。"""
         current = None
         used = "http"
+        deadline = monotonic()+20
         try:
             async with asyncio.timeout(20):
                 current = validate_url(url)
@@ -118,7 +155,7 @@ class BrowserService:
                 if mode == "playwright":
                     used = "playwright"
                     return await self._render(current)
-                current, headers, raw = await self._fetch_page(current)
+                current, headers, raw = await self._fetch_page(current,deadline=deadline,cid=cid,business_id=business_id,cancel_event=cancel_event)
                 media = headers.get("content-type", "").split(";")[0].strip().lower()
                 if media not in {"text/html", "application/xhtml+xml", "text/plain"}:
                     raise BrowserError("RESOURCE_BLOCKED", "仅允许 HTML 或纯文本页面")
@@ -129,11 +166,18 @@ class BrowserService:
                     return await self._render(current)
                 result = evidence(current, mode="http", content=content.strip())
                 result["title"] = page_title(text) if media != "text/plain" else ""
+                # 同步提取也占原页20秒；事件循环阻塞后不能靠延迟timeout回调返回成功正文。
+                if monotonic()>=deadline:
+                    raise TimeoutError
+                if cancel_event is not None and cancel_event.is_set():
+                    raise asyncio.CancelledError
                 if not content.strip():
                     result["error"] = {"code": "EMPTY_CONTENT", "message": "页面没有可读取正文"}
                 return result
         except BrowserError as error:
             return evidence(current, mode=used, truncated=error.code == "RESPONSE_TOO_LARGE", error={"code": error.code, "message": error.message})
+        except RetryError as error:
+            return evidence(current,mode=used,error={'code':error.code,'message':error.message})
         except (TimeoutError, OSError, httpx.HTTPError):
             return evidence(current, mode=used, error={"code": "READ_FAILED", "message": "网页读取超时或网络失败"})
         except PlaywrightError:

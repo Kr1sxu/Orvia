@@ -266,3 +266,10 @@ GraphService与MissionGraph分离：前者仅构造批准资料证据关系，�
 MemoryContext/QueryRewrite内置1.1.0声明式Skill与可信闭包调度memory_context/query_rewrite（没有generate），逐叶8KiB投影且limited停止，保留LangGraph10秒总预算。全部展开leaf本地才允许grant_id=None，混合文件工具必须真实grant并走原Gateway；cid来自明确选择会话而非manifest。旧内置迁移保留禁用状态并失效旧计划。本地skills_executions并入会话purge，所有grant类型核删除墓碑，含本地leaf再核会话存活，晚到不能恢复正文。
 
 独立检索180秒涵盖最多4表达与撤回回退；每次固定Main30秒/1024token，准确实际发送24KiB、预览32KiB、128尝试不淘汰/20预览/32记录、历史20/32KiB、scope最多3资料/150标签/512片段。没有新服务/依赖/模型下载。设置并发本地投影读取不授予审批或外发权限。
+
+
+## V4-011 安全读与终态事实
+
+私有Application可信scope绑定cid/传输请求摘要→RetryService为每次程序读派生独立business_id（同业务attempt1..3不变）→固定Browser静态SafeHTTP/Context纯FTS SELECT适配器→原deadline内有限退避与取消→SQLite无正文retry_runs/attempts事实→单只读IPC/设置面板。其他工具、MCP声明、模型输出不能获得重试资格；无自动模型/写操作重试。安全读返回值与真正业务完成分离。
+
+Chat使用原m20_workflows的step_states保存步骤规范sha/准确result_id/实际消息/扫描/操作及全文版本封印。接续token消费、封印与position推进同事务；最终逐项重读事实并CAS封终态，拒绝旧成功/重复/取消后的更新。明确accepted写真实用户回执，不能伪造执行效果；脚本退出0或代码应用没有用户需求证明时保留limited。SQLite唯一事实，Redis通知不判完成，重启不重放执行许可。

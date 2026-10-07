@@ -10,10 +10,13 @@ from uuid import uuid4
 
 from ..computer.paths import ToolError
 from ..configuration.client import ModelUnavailable
+from ..context import ContextError
+from ..retry import RetryError
 from .contracts import BrowserAsk, BrowserRead, BrowserSearch, Send
 from .contracts import SynthesisPreview
 from .json_stream import AnswerJSONStream, JSONStreamError
 from .task_progress import TaskProgress
+from .verification import digest
 from .routing import Route, Step, understand, remaining, local_small_talk
 
 
@@ -219,9 +222,32 @@ class NaturalCoordinator:
         allowed = {"plan_json", "position", "state", "continuation_id", "workflow_json", "baseline"}
         if not values or set(values) - allowed:
             raise ValueError("工作流更新字段无效")
+        if 'state' in values and values['state'] not in {'running','waiting_input','waiting_approval'}:
+            raise ToolError('TASK_NOT_COMPLETE','终态只能通过逐目标证据检查事务写入')
         async with self.chat.store._lock:
-            await self.chat.store._db().execute("UPDATE m20_workflows SET " + ",".join(name + "=?" for name in values) + " WHERE conversation_id=? AND request_id=?",
+            await self.chat.store._db().execute("UPDATE m20_workflows SET " + ",".join(name + "=?" for name in values) + " WHERE conversation_id=? AND request_id=? AND state IN('running','waiting_input','waiting_approval') AND conversation_id NOT IN(SELECT id FROM chat_deletions)",
                                               [*values.values(), cid, rid])
+
+    async def _append_step(self,cid,rid,index,step,text,kind,data):
+        """消息由当前步骤规范绑定；普通Main回答只能证明回答目标，不能借给动作步骤。"""
+        row=await self.row(cid,rid)
+        if not row or row['state']!='running' or row['position']!=index:return None
+        bound={**data,'request_id':rid,'task_step_index':index,'task_step_revision':digest(step.model_dump())}
+        await self.chat.repository.append(cid,'assistant',text,kind,bound)
+        async with self.chat.store._lock:
+            async with self.chat.store._db().execute("SELECT message_json FROM chat_messages WHERE conversation_id=? AND json_extract(message_json,'$.data.request_id')=? AND json_extract(message_json,'$.data.task_step_index')=? AND json_extract(message_json,'$.kind')=? ORDER BY sequence DESC LIMIT 1",(cid,rid,index,kind)) as cursor:
+                return json.loads((await cursor.fetchone())[0])['id']
+
+    async def _resume(self,cid,rid,token,position):
+        """资料/澄清/降级接续同样原子消费准确token，不能让迟到通知复活已取消请求。"""
+        async with self.chat.store._lock:
+            db=self.chat.store._db();await db.execute('BEGIN IMMEDIATE')
+            try:
+                cursor=await db.execute("UPDATE m20_workflows SET state='running',position=?,continuation_id=NULL,workflow_json=NULL WHERE conversation_id=? AND request_id=? AND position=? AND continuation_id=? AND state IN('waiting_input','waiting_approval') AND conversation_id NOT IN(SELECT id FROM chat_deletions)",(position,cid,rid,position,token))
+                if cursor.rowcount!=1:raise ToolError('STALE_CONTINUATION','当前接续已失效，未推进或重发')
+                await db.execute("UPDATE chat_requests SET status='pending' WHERE conversation_id=? AND request_id=? AND status IN('waiting_input','waiting_approval')",(cid,rid))
+                await db.commit()
+            except BaseException:await db.rollback();raise
 
     async def pause(self, cid, rid, action, question, *, input=None, choices=None, approval=False, notify=True):
         token = str(uuid4())
@@ -234,27 +260,27 @@ class NaturalCoordinator:
             value["choices"] = choices
         baseline = await self.chat.repository.sequence(cid)
         row = await self.row(cid, rid)
+        if not row or row['state'] not in {'running','waiting_input','waiting_approval'}:return
         if action != 'task_decision':
             await self.progress.set(cid, rid, row['position'], 'waiting_authorization' if action == 'directory' else 'waiting_approval' if approval else 'waiting_input', question)
         await self._update(cid, rid, state=state, continuation_id=token, workflow_json=json.dumps(value, ensure_ascii=False), baseline=baseline)
-        await self.chat.repository.finish(cid, rid, state)
+        if not await self.progress.bind_review(cid,rid,token,value):return
+        current=await self.row(cid,rid)
+        if not current or current['state']!=state or current['continuation_id']!=token:return
         await self.chat.repository.append(cid, "assistant", question, "workflow", {"request_id": rid, "action": action})
         if notify:
             await self.chat.streams.emit(cid, rid, "paused", {"action": action, "question": question})
 
     async def fail_parent_without_event(self, cid, rid):
         """子请求运输不能输出父身份事件；返回快照反映失败，保持严格stdio绑定。"""
-        await self.progress.terminal(await self.row(cid, rid), 'failed')
-        await self._update(cid, rid, state="failed", continuation_id=None, workflow_json=None)
-        await self.chat.repository.finish(cid, rid, "failed")
+        if await self.progress.finish(cid,rid,'failed') is None:return
         async with self.chat.store._lock:
             await self.chat.store._db().execute("UPDATE m20_streams SET state='failed' WHERE conversation_id=? AND request_id=?", (cid, rid))
 
     async def _terminal(self, cid, rid, state, *, code=None, message=None):
-        row = await self.row(cid, rid)
-        await self.progress.terminal(row, state)
-        await self._update(cid, rid, state=state, continuation_id=None, workflow_json=None)
-        await self.chat.repository.finish(cid, rid, state)
+        row=await self.progress.finish(cid,rid,state)
+        if row is None:return
+        if state=='failed' and not code:code,message='TASK_FAILED','当前目标未通过程序核验，任务未完成。'
         if code:
             await self.chat.repository.append(cid, "system", message, "error", {"code": code, "request_id": rid})
             await self.chat.streams.emit(cid, rid, "failed", {"code": code, "message": message})
@@ -309,14 +335,14 @@ class NaturalCoordinator:
             if not active["cancelled"]:
                 raise
             await self._terminal(cid, rid, "cancelled")
-        except (ModelUnavailable, TimeoutError, ToolError, JSONStreamError) as error:
+        except (ModelUnavailable, TimeoutError, ToolError, ContextError, RetryError, JSONStreamError) as error:
             await self.failed(cid, rid, error)
         finally:
             self.chat._active.pop(cid, None)
 
     async def failed(self, cid, rid, error):
-        code = error.code if isinstance(error, ToolError) else "INVALID_GENERATION" if isinstance(error, JSONStreamError) else "MISSING_CREDENTIAL" if isinstance(error, ModelUnavailable) and str(error) == "MISSING_CREDENTIAL" else "STREAM_UNSUPPORTED" if isinstance(error, ModelUnavailable) and str(error) == "STREAM_UNSUPPORTED" else "MODEL_TIMEOUT" if isinstance(error, TimeoutError) else "MODEL_UNAVAILABLE"
-        message = error.message if isinstance(error, ToolError) else "固定Main返回的JSON不完整或结构非法；已生成部分未通过严格JSON校验，未保存成功回答、自动降级或重试。" if isinstance(error, JSONStreamError) else "固定Main凭据缺失，请在设置配置；未调用备用模型。" if code == "MISSING_CREDENTIAL" else "固定模型不支持本次SSE；需要另行确认非流式请求，未自动降级。" if code == "STREAM_UNSUPPORTED" else "本次模型流不可用、被中断或结构无效；临时文字未保存为成功回答，未自动重试。"
+        code = error.code if isinstance(error, (ToolError,ContextError,RetryError)) else "INVALID_GENERATION" if isinstance(error, JSONStreamError) else "MISSING_CREDENTIAL" if isinstance(error, ModelUnavailable) and str(error) == "MISSING_CREDENTIAL" else "STREAM_UNSUPPORTED" if isinstance(error, ModelUnavailable) and str(error) == "STREAM_UNSUPPORTED" else "MODEL_TIMEOUT" if isinstance(error, TimeoutError) else "MODEL_UNAVAILABLE"
+        message = error.message if isinstance(error, (ToolError,ContextError,RetryError)) else "固定Main返回的JSON不完整或结构非法；已生成部分未通过严格JSON校验，未保存成功回答、自动降级或重试。" if isinstance(error, JSONStreamError) else "固定Main凭据缺失，请在设置配置；未调用备用模型。" if code == "MISSING_CREDENTIAL" else "固定模型不支持本次SSE；需要另行确认非流式请求，未自动降级。" if code == "STREAM_UNSUPPORTED" else "本次模型流不可用、被中断或结构无效；临时文字未保存为成功回答，未自动重试。"
         row = await self.row(cid, rid)
         if isinstance(error, ModelUnavailable) and code != "MISSING_CREDENTIAL" and row and not row["fallback_used"]:
             active = self.chat._active.get(cid, {})
@@ -347,8 +373,7 @@ class NaturalCoordinator:
         if purpose not in {"routing", "answer"}:
             raise ToolError("INVALID_PARAMS", "此步骤不允许非流式降级")
         await self.consume_fallback(cid, rid)
-        await self._update(cid, rid, state="running", continuation_id=None, workflow_json=None)
-        await self.chat.repository.finish(cid, rid, "pending")
+        await self._resume(cid,rid,str(request.continuation_id),row['position'])
         active = {"request_id": rid, "model": None, "cancelled": False, "purpose": purpose, "confirmed_nonstream": True, "deadline": asyncio.get_running_loop().time() + 50}
         self.chat._active[cid] = active
         await self.chat.streams.emit(cid, rid, "tool_status", {"stage": "confirmed_nonstream", "label": "原生再次批准固定Main的一次非流式请求；等待完整响应"})
@@ -359,15 +384,15 @@ class NaturalCoordinator:
                 await self.progress.install(cid, rid, plan)
                 await self.drive(cid, rid, active)
             else:
-                await self.answer(cid, rid, workflow["input"]["instruction"], active, nonstream=True)
-                await self.progress.set(cid, rid, row['position'], 'completed')
+                result_id=await self.answer(cid, rid, workflow["input"]["instruction"], active, nonstream=True)
+                await self.progress.set(cid, rid, row['position'], 'completed',result_id=result_id)
                 await self._update(cid, rid, position=row['position'] + 1)
                 await self.drive(cid, rid, active)
         except asyncio.CancelledError:
             if not active["cancelled"]:
                 raise
             await self._terminal(cid, rid, "cancelled")
-        except (ModelUnavailable, TimeoutError, ToolError, JSONStreamError) as error:
+        except (ModelUnavailable, TimeoutError, ToolError, ContextError, RetryError, JSONStreamError) as error:
             await self.failed(cid, rid, error)
         finally:
             self.chat._active.pop(cid, None)
@@ -384,9 +409,7 @@ class NaturalCoordinator:
         if action == 'task_decision':
             if request.answer != 'accept_limit':
                 raise ToolError('EXPLICIT_ACCEPTANCE_REQUIRED', '请明确接受此项未完成/受限范围，或取消请求；普通继续不是接受')
-            states = json.loads(row['step_states'])
-            await self.progress.set(cid, rid, position, 'accepted', states[position]['detail'])
-            await self.chat.repository.append(cid, 'user', '接受此项目标未执行或仅有受限结果，继续检查剩余目标。', 'task_acceptance', {'request_id': rid, 'position': position})
+            await self.progress.accept(cid,rid,position,str(request.continuation_id))
             position += 1
         elif action == "directory":
             self.chat.gateway.authorized_root(cid)
@@ -445,6 +468,7 @@ class NaturalCoordinator:
                 expected = {(item["kind"], item["evidence_id"]) for item in workflow["input"]["sources"]}
                 args = {key: workflow["input"][key] for key in ("mode", "question", "sources")}
                 packet = await self.chat.synthesis_preview(SynthesisPreview(id=cid, **args))
+                workflow['input']['revision']=packet['revision']
                 available = {(item["kind"], item["evidence_id"]) for item in await self.materials(cid) if item["status"] == "ready"}
                 successes = [item for item in successes if {(entry["kind"], entry["evidence_id"]) for entry in item["data"]["coverage"]} == expected
                              and item["data"].get("revision") == packet["revision"] and expected <= available]
@@ -465,19 +489,42 @@ class NaturalCoordinator:
                 if action == "browser" and successes:
                     rule = workflow["input"]["success_rule"]
                     successes = successes if await self.browser_step_verified(cid, messages, successes, rule) else []
+                    valid_ids={item['operation_id'] for item in entries if item.get('kind')=='browser' and item.get('status') in {'verified','completed'} and item.get('audit',{}).get('origin')==rule['origin'] and item.get('created_at','')>=rule['created_after']}
+                    successes=[item for item in successes if item['data'].get('operation_id') in valid_ids]
                 if action == "desktop" and successes:
-                    successes = successes if await self.desktop_step_verified(cid, successes, workflow["input"]["success_rule"]) else []
+                    successes=[item for item in successes if await self.desktop_step_verified(cid,[item],workflow['input']['success_rule'])]
             if action == "files":
                 successes = [item for item in successes if item["data"].get("operation_id") == workflow["input"]["operation_id"] and item["data"].get("success") is True]
             if action == "cleanup":
                 successes = [item for item in successes if item["data"].get("plan_id") == workflow["input"]["plan_id"] and item["data"].get("status") in {"completed", "restored"}]
             if not successes:
                 raise ToolError("STEP_NOT_VERIFIED", "现有结果身份或核验状态不匹配原步骤；没有推进")
-            await self.progress.set(cid, rid, position, 'completed', result_id=successes[-1].get('id'))
+            if action in {'script','development'}:
+                detail=('仅核验隔离运行与退出状态；退出0不能证明脚本业务目标已实现。' if action=='script' else '代码草稿或逐文件应用结果未保存原需求准确绑定，不能证明整个开发目标已实现。')+'请明确接受该有限结果或未执行范围，或取消。'
+                await self.progress.set(cid,rid,position,'limited',detail)
+                await self.pause(cid,rid,'task_decision',detail)
+                return
+            if action in {'synthesis','stream_fallback'} and any(c.get('source_truncated') or c.get('missing_units') for c in successes[-1]['data']['coverage']):
+                detail='带引用回答已保存，但原始资料截断或缺页；不能视为完整目标已完成。请明确接受有限来源范围，或取消。'
+                await self.progress.set(cid,rid,position,'limited',detail)
+                await self.pause(cid,rid,'task_decision',detail)
+                return
+            if action=='cleanup':
+                # M17只对选中的子集返回completed；仍有pending项目时不是完整目标完成。
+                actual=await self.chat.cleanup.get(cid,workflow['input']['plan_id'])
+                if not actual['entries'] or any(entry['status']!='moved' for entry in actual['entries']):
+                    detail='仅部分隔离条目已执行，剩余项目未完成；请明确接受此项有限范围，或取消。'
+                    await self.progress.set(cid,rid,position,'limited',detail)
+                    await self.pause(cid,rid,'task_decision',detail)
+                    return
+            result_id=successes[-1].get('id') or 'operation:'+successes[-1]['data']['operation_id']
+            context={**workflow,'baseline':row['baseline']}
+            if action in {'desktop','browser'}:context['operation_ids']=[item['data']['operation_id'] for item in successes]
+            await self.progress.complete_continuation(cid,rid,position,str(request.continuation_id),result_id,context)
             position += 1
         # 在会话锁内消费唯一token；之后错误也不会让原批准或未知副作用被重复执行。
-        await self._update(cid, rid, state="running", position=position, continuation_id=None, workflow_json=None)
-        await self.chat.repository.finish(cid, rid, "pending")
+        if action in {'directory','materials','clarification'}:
+            await self._resume(cid,rid,str(request.continuation_id),position)
         active = {"request_id": rid, "model": None, "cancelled": False, "deadline": phase_deadline}
         self.chat._active[cid] = active
         try:
@@ -486,7 +533,7 @@ class NaturalCoordinator:
             if not active["cancelled"]:
                 raise
             await self._terminal(cid, rid, "cancelled")
-        except (ModelUnavailable, TimeoutError, ToolError, JSONStreamError) as error:
+        except (ModelUnavailable, TimeoutError, ToolError, ContextError, RetryError, JSONStreamError) as error:
             await self.failed(cid, rid, error)
         finally:
             self.chat._active.pop(cid, None)
@@ -496,15 +543,18 @@ class NaturalCoordinator:
         plan = Route.model_validate_json(row["plan_json"])
         position = row["position"]
         while position < len(plan.steps):
+            current=await self.row(cid,rid)
+            if not current or current['state']!='running' or current['position']!=position:return
             remaining(active, 50)
             if active["cancelled"]:
                 raise asyncio.CancelledError
             step = plan.steps[position]
+            result_id=None
             if step.kind not in {'unsupported', 'clarify', 'task_summary'} and sum(prior.kind not in {'unsupported', 'clarify', 'task_summary'} for prior in plan.steps[:position + 1]) > 4:
                 await self.progress.set(cid, rid, position, 'blocked', '本请求超过4个执行步骤预算；保留后续目标，不自动执行。')
                 await self.pause(cid, rid, 'task_decision', '已达到本请求4个执行步骤预算。请取消后拆分剩余目标，或明确接受此项不执行。')
                 return
-            await self.progress.set(cid, rid, position, 'running')
+            if not await self.progress.set(cid,rid,position,'running'):return
             await self.chat.streams.emit(cid, rid, "tool_status", {"stage": step.kind, "label": "正在处理已确定步骤"})
             if step.kind in {"list", "search", "space", "files", "development"} and not self.chat.gateway.status(cid)["allow_files"]:
                 await self.pause(cid, rid, "directory", "请通过＋选择并授权本次目录；原请求已保留，成功后接续。")
@@ -519,8 +569,9 @@ class NaturalCoordinator:
                                                                   operation=step.kind, emit=emit, cancelled=lambda: active["cancelled"]), remaining(active, 50))
                 summary = result["summary"]
                 tool = {"list": "list_directory", "search": "search_files", "space": "analyze_directory_space"}[step.kind]
-                await self.chat.repository.append(cid, "assistant", f"已发现{summary['discovered']}条，当前展示{len(result['entries'])}条；扫描范围为相对路径 {step.path}，深度{step.depth}层。分类仅依据扩展名和目录属性，未读取正文。完整已发现清单可分页回查。", "directory_result",
+                result_id=await self._append_step(cid,rid,position,step,f"已发现{summary['discovered']}条，当前展示{len(result['entries'])}条；扫描范围为相对路径 {step.path}，深度{step.depth}层。分类仅依据扩展名和目录属性，未读取正文。完整已发现清单可分页回查。", "directory_result",
                                                   {"scan_id": result["scan_id"], "tool": tool, "summary": summary, "entries": result["entries"]})
+                if active['cancelled']:raise asyncio.CancelledError
                 if not summary['complete'] and not active['cancelled']:
                     detail = '扫描仅保留已发现部分，存在未访问范围或访问失败；不能视为完整扫描。'
                     await self.progress.set(cid, rid, position, 'limited', detail)
@@ -540,7 +591,7 @@ class NaturalCoordinator:
                     active_ids = {(item["kind"], item["evidence_id"]) for item in await self.materials(cid)}
                     docs = [item for item in await self.chat.documents.search(cid, step.query[:200]) if ("document", item["evidence_id"]) in active_ids]
                     webs = [item for item in await self.chat.evidence.search(cid, step.query[:200]) if ("browser", item["evidence_id"]) in active_ids]
-                    await self.chat.repository.append(cid, "assistant", "以下是当前有效资料的原文引用；未做模型总结。" if docs or webs else "当前有效资料没有匹配原文；已移除资料不会参与本次检索。",
+                    result_id=await self._append_step(cid,rid,position,step,"以下是当前有效资料的原文引用；未做模型总结。" if docs or webs else "当前有效资料没有匹配原文；已移除资料不会参与本次检索。",
                                                       "document" if docs else "source", {"items": docs or webs, "operation": "ask", "error": None})
                 recent = await self.chat.repository.since(cid, await self.chat.repository.sequence(cid) - 2)
                 if recent and recent[-1]["kind"] == "error":
@@ -548,6 +599,17 @@ class NaturalCoordinator:
                 if recent and isinstance(recent[-1].get("data"), dict) and recent[-1]["data"].get("error"):
                     failure = recent[-1]["data"]["error"]
                     raise ToolError(failure["code"], failure["message"])
+                result_id=result_id or (recent[-1]['id'] if recent else None)
+                if step.kind=='read_url' and any(entry.get('truncated') for entry in (recent[-1].get('data',{}).get('items',[]) if recent else [])):
+                    detail='网页只返回截断原文，尚未覆盖完整读取目标；请明确接受该范围或取消。'
+                    await self.progress.set(cid,rid,position,'limited',detail)
+                    await self.pause(cid,rid,'task_decision',detail)
+                    return
+                if step.kind=='material_quote' and not (docs or webs):
+                    detail='当前有效资料没有匹配原文；没有证据完成所请求的引用目标。'
+                    await self.progress.set(cid,rid,position,'limited',detail)
+                    await self.pause(cid,rid,'task_decision',detail)
+                    return
             elif step.kind == "material_answer":
                 if any(prior.kind in {'unsupported', 'list', 'space', 'search'} for prior in plan.steps[:position]) and not re.search(r'附件|上传|网页|https?://|这份资料|这些资料', step.query):
                     detail = '前置目标仅有目录元数据或尚无支持能力，不能据此生成所请求的完整风险分析/引用回答。请另行提供适用资料。'
@@ -585,11 +647,11 @@ class NaturalCoordinator:
                 states = json.loads(current_row['step_states'])
                 dependencies = [index for index, prior in enumerate(plan.steps[:position]) if prior.kind == 'material_answer']
                 if dependencies:
-                    evidence_id = states[dependencies[-1]].get('result_id')
+                    evidence_id = states[dependencies[-1]].get('result_id') if states[dependencies[-1]]['status']=='completed' else None
                     source = await self.chat.repository.message(cid, evidence_id) if evidence_id else None
                 else:
                     source = next((item for item in reversed(messages) if item["kind"] == "synthesis"), None) if position == 0 else None
-                if not source:
+                if not source or source['kind']!='synthesis':
                     detail = '缺少本请求前置步骤已核验的带引用回答；不会使用无关历史回答生成文档。'
                     await self.progress.set(cid, rid, position, 'blocked', detail)
                     await self.pause(cid, rid, 'task_decision', detail + '可接受本项暂不生成后继续，或取消请求。')
@@ -646,14 +708,15 @@ class NaturalCoordinator:
                 await self.pause(cid, rid, 'task_decision', detail + '请明确接受本项不执行并继续，或取消请求。')
                 return
             elif step.kind == 'task_summary':
-                await self.chat.repository.append(cid, 'assistant', await self.progress.summary(cid, rid), 'task_summary', {'request_id': rid})
+                result_id=await self._append_step(cid,rid,position,step,await self.progress.summary(cid,rid),'task_summary',{})
             else:
                 if active.get("confirmed_nonstream") and active.get("purpose") == "routing":
-                    await self.chat.repository.append(cid, "assistant", step.query, "natural_answer", {"model": "deepseek-flash", "notice": "经确认的固定Main非流式意图解释，不是工具执行事实"})
+                    result_id=await self._append_step(cid,rid,position,step,step.query,"natural_answer",{"model":"deepseek-flash","notice":"经确认的固定Main非流式意图解释，不是工具执行事实"})
                 else:
-                    await self.answer(cid, rid, step.query or row["text"], active)
-            await self.progress.set(cid, rid, position, 'completed',
-                                    '仅授权范围内的有限深度目录元数据，未读取正文。' if step.kind in {'list', 'search', 'space'} else '')
+                    result_id=await self.answer(cid,rid,step.query or row['text'],active)
+            recorded=await self.progress.set(cid, rid, position, 'completed',
+                                    '仅授权范围内的有限深度目录元数据，未读取正文。' if step.kind in {'list', 'search', 'space'} else '',result_id=result_id)
+            if not recorded:return
             position += 1
             await self._update(cid, rid, position=position)
         if active["cancelled"]:
@@ -694,4 +757,5 @@ class NaturalCoordinator:
         data = {"model": profile.model, "usage": result.usage, "request_id": rid, "notice": "模型回答不等于工具事实核验"}
         if not nonstream:
             data["stream_prefix_chars"] = await self.chat.streams.prefix_size(cid, rid)
-        await self.chat.repository.append(cid, "assistant", value["answer"], "natural_answer", data)
+        row=await self.row(cid,rid);step=Route.model_validate_json(row['plan_json']).steps[row['position']]
+        return await self._append_step(cid,rid,row['position'],step,value['answer'],'natural_answer',data)

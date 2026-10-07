@@ -54,3 +54,12 @@ async def save_draft(trusted_data_dir: Path):
 ## V4-010 晚到索引
 
 `replace_context_document`最终BEGIN IMMEDIATE写事务检查chat_deletions；分词期间已永久删除的会话不能再插入正文/FTS。没有chat记录的原有独立目录Mission仍可用，数据库FK继续限制不存在的Mission。实际墓碑拒绝及独立Mission检索测试通过；不授予已移除资料有效来源权限。
+
+
+## V4-011 无正文尝试事实
+
+`retry_runs(cid,business_id)`与`retry_attempts(cid,business_id,sequence)`保留安全读参数sha、时间、固定错误码、等待和终态，不存URL/查询/正文/凭据或返回值。每业务最多3attempt；同业务再调用拒绝，不把旧响应缓存当新事实。history仅最近32业务/32KiB投影，身份回执一直保留到所属会话删除以阻旧ID重放，不承诺自动磁盘配额。并发最多32/会话，内存仅128无正文投影。迁移先于会话删除journal；重启running只标interrupted，不恢复执行。
+
+会话删除同时清两表及内存，运行中安全读仍阻删除；墓碑与终态CAS拒绝迟到记录。普通独立Mission仍兼容。闭环证据封印使用已有m20_workflows而不增加执行表；步骤成功与最终终态均读取SQLite原事实，通知/Redis不参与完成判定。
+
+发送后网络异常明确unknown/NETWORK_UNKNOWN而不重试；仅读取unknown/interrupted不阻永久删除，仍阻running。收尾等账本事务可能超过执行deadline，但不在deadline后开启/接受读取结果。

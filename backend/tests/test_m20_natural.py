@@ -210,7 +210,9 @@ def test_material_wait_native_stream_citations_single_continue_and_removal(tmp_p
         assert (await call(app, "chat.get", {"id": cid}))["result"]["materials"] == []
         assert (await call(app, "chat.document.source", {"id": cid, "evidence_id": source["evidence_id"]}))["ok"]
         quoted = (await call(app, "chat.natural", send(cid, "检索原文引用")))["result"]
-        assert quoted["workflow"] is None and quoted["messages"][-1]["data"]["items"] == []
+        assert quoted['workflow']['action']=='task_decision' and quoted['task_progress']['steps'][0]['status']=='limited'
+        assert next(item for item in reversed(quoted['messages']) if item['kind']=='source')['data']['items']==[]
+        assert quoted['status']!='completed'  # 撤回后无引用不能静默结束原文目标。
         await app.close()
     asyncio.run(run())
 

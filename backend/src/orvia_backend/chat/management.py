@@ -13,6 +13,9 @@ async def deletion_blockers(chat, cid):
     """检查全部账本而非最近20条；未知状态保守阻止，不能丢弃恢复/核验入口。"""
     if cid in chat._active:
         return True
+    retry = getattr(chat, 'retry', None)
+    if retry is not None and await retry.has_unresolved(cid):
+        return True
     research = getattr(chat, 'research', None)
     if research is not None and await research.has_unresolved(cid):
         return True
@@ -142,7 +145,7 @@ async def purge(chat, cid):
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {mcp_table} WHERE cid=?', (cid,))
             # 本地Skills计划/结果归属明确选择的会话，旧目录Mission不受此删除影响。
-            for shell_table in ('shell_attempts', 'shell_executions', 'process_attempts', 'process_executions', 'research_tasks', 'research_attempts', 'research_sources'):
+            for shell_table in ('shell_attempts', 'shell_executions', 'process_attempts', 'process_executions', 'research_tasks', 'research_attempts', 'research_sources', 'retry_runs', 'retry_attempts'):
                 async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (shell_table,)) as cursor:
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {shell_table} WHERE cid=?', (cid,))
@@ -162,6 +165,12 @@ async def purge(chat, cid):
         except BaseException:
             await db.rollback()
             raise
+
+
+    # 已完成删除事务后清无正文内存投影；墓碑已阻止任何迟到尝试重建记录。
+    retry = getattr(chat, 'retry', None)
+    if retry is not None:
+        await retry.forget(cid)
 
 
 async def delete(chat, cid):

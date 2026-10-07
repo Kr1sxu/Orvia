@@ -57,7 +57,12 @@ def origin(url: str) -> tuple[str, str, int]:
 
 
 class SafeHTTP:
-    """所有网页流量经过此出口；每次新建无 Cookie 客户端且禁用环境代理。"""
+    """所有网页流量经过此出口；每次新建无Cookie客户端且禁用环境代理。
+
+    此传输本身从不重试。只有Browser静态读取适配器可确认GET无Cookie/认证/脚本，
+    并在原页面预算内重放发送前连接错误或明确429/503；Tavily POST按次计费排除。
+    ReadTimeout/WriteError/RemoteProtocolError不能证明未发送，保持未知且不自动重放。
+    """
 
     def __init__(self, *, transport=None, resolver=resolve):
         self.transport, self.resolver = transport, resolver

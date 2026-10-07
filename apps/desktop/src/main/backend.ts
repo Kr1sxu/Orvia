@@ -23,6 +23,7 @@ type RetrievalResults={status:z.infer<typeof retrievalStatus>;model:z.infer<type
 type SkillsResults={cancel:z.infer<typeof skillExecution>;history:z.infer<typeof skillHistory>;list:z.infer<typeof skillList>;enable:z.infer<typeof skillSummary>;preview_import:z.infer<typeof skillReview>;register:z.infer<typeof skillSummary>;plan:z.infer<typeof skillPlan>;execute:z.infer<typeof skillExecution>;execution:z.infer<typeof skillExecution>};
 import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema, developmentContextSchema, developmentDraftSchema, cleanupPlanSchema } from './chat-contracts';
 import {researchTask,researchHistory,researchPacket,type ResearchMethod,type ResearchResults} from './research-contracts';
+import {retryHistory,type RetryHistory} from './retry-contracts';
 import { m20StreamEventSchema, m20ScanPageSchema, streamPullInput, streamAckInput, type M20StreamEvent, type StreamPull } from './m20-contracts';
 
 /** 仅传递后端固定错误码；正文可能含输入或供应商回显，禁止转发。 */
@@ -116,6 +117,10 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  /** 只读尝试账本；查询不会重放读取或改变任务终态。 */
+  async retryHistory(params:{id:string}):Promise<RetryHistory>{
+    await this.start();return retryHistory.parse(await this.request('retry.history',params));
+  }
   /** 调研每阶段有独立事实与批准；不提供renderer任意方法或自动重放。 */
   async research<M extends ResearchMethod>(method:M,params:object):Promise<ResearchResults[M]>{
     await this.start();const schemas={create:researchTask,collect:researchTask,status:researchTask,history:researchHistory,preview:researchPacket,generate:researchTask,cancel:researchTask};
@@ -333,7 +338,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: `research.${ResearchMethod}` | `process.${ProcessMethod}` | `shell.${ShellMethod}` | `mcp.${McpMethod}` | `rewrite.${RewriteMethod}` | `graph.${GraphMethod}` | `memory.${MemoryMethod}` | `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: 'retry.history' | `research.${ResearchMethod}` | `process.${ProcessMethod}` | `shell.${ShellMethod}` | `mcp.${McpMethod}` | `rewrite.${RewriteMethod}` | `graph.${GraphMethod}` | `memory.${MemoryMethod}` | `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));

@@ -127,3 +127,8 @@ V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/REA
 ## V4-010 有界调研
 
 `research/`提供SQLite十页/两轮工作流、准确原文检索范围、逐批固定Main和成品事件关联。Application仅开放七个严格调研方法；取消/状态/历史为控制旁路，写阶段仍串行。研究网页不扩M20三资料，删除journal同事务清任务/关联/尝试，Context写前墓碑拒晚到正文。真实HTTP/SQLite/原文/三格式与模型mock结果分别见PROGRESS。
+
+
+### V4-011 安全重试与闭环
+
+[Retry模块](src/orvia_backend/retry/README.md)仅允许程序固定匿名静态读与纯SQLite SELECT，最多三次同业务尝试、原deadline、有界退避、取消/终态与无正文事实账本。`retry.history({id})`为唯一新增只读私有入口。模型/MCP/Shell/进程/文件变更/动态外发/收费Tavily均排除。Chat逐目标封印真实结果与原文版本，整体结束逐项重查；接受限制保留真实accepted回执，不能标实际成功。SQLite继续为唯一事实，Redis可选，不新增依赖。实际验证/提交与风险见PROGRESS。

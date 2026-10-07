@@ -235,3 +235,10 @@ Skills选择Memory Context或Query Rewrite自动采用本机会话模式，必�
 ## V4-010 调研与报告
 
 设置中的ResearchPanel及固定八个preload入口提供明确网址/搜索/资料选择、完整采集核对、逐批准确system/input、取消/原文/覆盖/历史及复用PublicationComposer三格式新文件保存。Skill创建及历史planned需点击“重新核对已保存采集计划”，仍要新原生批准；已尝试任务不能重放。Main固定DeepSeek，采集不调用Main；原生取消零外发。18个调研unit及相关契约共38通过，真实Electron/TCP/SQLite/三格式流程通过；原生dialogs/DNS绑定/云模型为明确替身，详见PROGRESS。
+
+
+## V4-011 只读重试事实与逐目标核验
+
+设置→安全读取重试记录→明确所属会话→刷新，固定`orvia:retry-history`/`window.orvia.retryHistory({id})`经过双端strict契约查看SQLite尝试。最多32业务/32KiB、每个最多3attempt，显示准确序号、时间、固定原因和有界等待；切换会话丢弃旧response，不提供安全分类/自动批准/重试所有请求入口。读取成功提示不表示全任务完成。
+
+自然复合任务继续使用完整目标进度；每目标只有实际结果核验后才完成，取消/迟到/重复不复活终态。受限脚本/草稿/截断/空引用要求明确接受或取消，accepted保留未实际完成的说明。设置面板与IPC目标unit及真实TCP/Electron/SQLite重启证据见PROGRESS；无云模型默认调用、未重建安装包。

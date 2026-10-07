@@ -301,6 +301,16 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ V4-003五轮/当前请求事实、原生批准滚动摘要与来源记忆、冲突/纠正/忘记/撤回/删除、持久调用账本；L0～L3、中文文档与独立本地commit，标题 `feat(V4-003): add five-round context and approved source-backed memory`，hash见Git历史。
 - [x] √ V4-005人物/项目/文件实体、有原文及全文版本支持的固定关系、同名消歧/冲突保留/两跳/撤回/删除，L0～L3、中文文档及独立正常本地commit；标题 `feat(V4-005): add source-verified entities and bounded relationship queries`，实际hash见Git历史。
 - [x] √ V4-006来源批准的最多三候选、原查询/范围保留、回退与真实MemoryContext/QueryRewrite本地组合；L0～L3/文档/独立提交详见PROGRESS。
-- [ ] V4-011尚未完成；用户“继续目标”已解除004后暂停，逐模块实际交付后自动继续。
+- [x] √ V4-011固定安全只读重试与逐目标事实闭环已实现、验证、记录并独立本地提交；011后停止，未推送。
 
 V4-004本机开发版验收完成：102个不同后端用例、2个前端契约、关键词与实际Qwen共2个Electron流程；固定合成集三通道Recall@5/MRR@5/耗时、向量与SQLite大小、RSS树均有实际记录。满批资源与token超限独立验证，无云模型调用；不把mock/原生模拟当真实模型或人工验收。证据和限制见PROGRESS；未push、发布或重建安装包。
+
+
+## V4-011 安全读与最终闭环
+
+- [x] √ 程序固定静态SafeHTTP/纯FTS SELECT适配器，合计三attempt、原deadline、0.2/0.5秒等待、Retry-After/取消/未知安全边界；动态/收费POST/模型/MCP/Shell/进程/写操作不重试。
+- [x] √ SQLite无正文尝试账本、同业务/连续序号、终态/墓碑、关闭/启动中断、会话运行阻删除和永久清两表；只读固定IPC/设置，32run/32KiB真实预算。
+- [x] √ 步骤规范/准确result/真实账本/全文版本封印；接续批准绑定/token消费/推进同事务，最终逐项复核及终态CAS，拒迟到/重复/局部成功/exit0冒充全目标。
+- [x] √ 明确接受限制写用户回执且accepted未实际完成，保留完整目标顺序；partial扫描/截断/空引用/未绑定原需求草稿保持limited。
+- [x] √ 必要中文注释/模块README/架构与V4/PROGRESS、L0～L3及共享V3/M20目标回归/敏感审计、正常独立本地提交；227backend通过/4显式Chromiumskip、54桌面、1真实Electron最终流程，命令/限制见PROGRESS。
+- [ ] 全部本地提交待用户手动push；本轮未发布或重建安装包、未独立Windows/生产Internet/Tavily/真实云模型语义验收。

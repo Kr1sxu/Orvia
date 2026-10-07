@@ -30,3 +30,8 @@ Python 3.12、jieba 0.42、SQLite FTS5、aiosqlite。版本由 `backend/uv.lock`
 ## 权限边界与已知限制
 
 Mission ID 是隔离边界；查询拒绝 FTS 控制字符和超长输入，来源仅作为引用标签保存。索引是任务范围临时知识，不是全盘索引；清理只清理数据库索引。jieba 默认词典启动会产生本地缓存日志，缓存不进入仓库。摘要由调用方提供，M06 不自动调用模型生成摘要。
+
+
+## V4-011 本机只读检索重试
+
+Application将私有RetryService绑定Store，`ContextService.search`完成输入校验和分词后仅将`Store.search_context`纯FTS SELECT包入适配器。只对SQLite错误码BUSY/LOCKED最多三次，额外等待0.2/0.5秒与执行共享总3秒deadline。索引写入、清理、向量推理/失效写入、偏好/摘要更新不重试；外部数据库锁若连尝试账本也不能安全保存则拒绝执行，不能绕过SQLite事实链。没有结果不伪造原文；原文版本和有效关联由上层证据接口复核。独立模块没有RetryService时保留原纯检索接口。命令/真实SQLite与明确故障注入边界见PROGRESS。

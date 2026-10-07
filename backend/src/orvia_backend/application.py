@@ -1,6 +1,8 @@
 """M02 应用服务：可信主进程初始化数据目录和凭据，UI 只能创建/读取草稿。"""
 
 import json
+import hashlib
+from contextlib import nullcontext
 import asyncio
 import errno
 import sqlite3
@@ -38,6 +40,7 @@ from .mcp.protocol import McpError
 from .shell import ShellService, ShellError
 from .processes import ProcessService, ProcessError
 from .research import ResearchService, ResearchError
+from .retry import RetryService, RetryError
 from .research.contracts import Conversation as ResearchConversation, Create as ResearchCreate, Operation as ResearchOperation, Preview as ResearchPreview, Generate as ResearchGenerate
 
 
@@ -330,6 +333,7 @@ class Application:
         self.shell: ShellService | None = None
         self.processes: ProcessService | None = None
         self.research: ResearchService | None = None
+        self.retry: RetryService | None = None
         self.embedding: LocalEmbedder | None = None
         self.retrieval: RetrievalService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
@@ -345,6 +349,7 @@ class Application:
                    "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
+        methods |= {"retry.history"}
         methods |= {"auxiliary.status", "auxiliary.configure", "auxiliary.probe"}
         methods |= {"retrieval.model", "retrieval.status", "retrieval.prepare", "retrieval.activate", "retrieval.download", "retrieval.rebuild", "retrieval.search", "retrieval.clear"}
         methods |= {"memory.list", "memory.context", "memory.preview", "memory.generate", "memory.search", "memory.correct", "memory.forget"}
@@ -400,6 +405,10 @@ class Application:
                     await store.recover_operations()
                     await graph.__aenter__()
                     chat = ChatService(store, self.computer, graph, self.registry, self.browser)
+                    # 先迁移尝试账本，删除journal才能同事务清理；重启仅记录中断，绝不重放。
+                    retry = RetryService(store)
+                    await retry.open()
+                    store.retry = chat.retry = self.browser.retry = retry
                     # Shell私有正文清理须先于旧会话删除journal恢复；仅迁移账本，不启动解释器。
                     shell = ShellService(store, chat, self.computer)
                     await shell.open()
@@ -452,6 +461,7 @@ class Application:
                 self.shell = shell
                 self.processes = processes
                 self.research = research
+                self.retry = retry
                 self.embedding, self.retrieval = embedding, retrieval
                 result = {"initialized": True}
             elif self.store is None:
@@ -459,6 +469,10 @@ class Application:
             elif method == "retrieval.model":
                 Params.model_validate(params)
                 result = embedding_manifest()
+            elif method == "retry.history":
+                cid = ProcessConversation.model_validate(params).id
+                await self.chat.repository.get(cid)
+                result = await self.retry.history(cid)
             elif method in {"memory.list", "memory.preview"}:
                 cid = RetrievalConversation.model_validate(params).id
                 result = await getattr(self.chat.memory, method.split(".")[1])(cid)
@@ -598,7 +612,8 @@ class Application:
                 request = ResearchOperation.model_validate(params)
                 action = {"research.collect": self.research.collect, "research.status": self.research.status,
                           "research.cancel": self.research.cancel}[method]
-                result = await action(request.id, request.operation_id)
+                with self.retry.activate(request.id, hashlib.sha256(request_id.encode()).hexdigest()):
+                    result = await action(request.id, request.operation_id)
             elif method == "research.history":
                 result = await self.research.history(ResearchConversation.model_validate(params).id)
             elif method == "research.preview":
@@ -675,7 +690,11 @@ class Application:
                 config = AuxiliaryConfig.model_validate(params)
                 result = await self.auxiliary.configure(config.model_dump())
             elif method.startswith("chat."):
-                result = await self.chat.handle(method, params)
+                # scope仅提供可信业务身份；资格仍由固定适配器决定，参数不能授予权限。
+                cid = params.get("id")
+                scope = self.retry.activate(cid, hashlib.sha256(request_id.encode()).hexdigest()) if isinstance(cid, str) and len(cid) == 36 else nullcontext()
+                with scope:
+                    result = await self.chat.handle(method, params)
                 if self.mcp is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
                     # 成功撤回或删除后清本机调用准备正文；实际尝试账本仍由SQLite决定。
                     self.mcp.forget_previews(params["id"])
@@ -699,8 +718,9 @@ class Application:
                 request = ReadRequest.model_validate(params) if method == "browser.read" else SearchRequest.model_validate(params)
                 if await self.store.get_mission(request.mission_id) is None:
                     return error_response(request_id, "NOT_FOUND", "任务不存在")
-                result = (await self.browser.read(request.url, mode=request.mode) if method == "browser.read"
-                          else await self.browser.web_search(request.query, max_results=request.max_results))
+                with self.retry.activate(request.mission_id, hashlib.sha256(request_id.encode()).hexdigest()):
+                    result = (await self.browser.read(request.url, mode=request.mode) if method == "browser.read"
+                              else await self.browser.web_search(request.query, max_results=request.max_results))
             elif method == "computer.grant":
                 result = self.computer.grant(GrantRequest.model_validate(params))
             elif method == "computer.revoke":
@@ -770,7 +790,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError, ProcessError, ResearchError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError, ProcessError, ResearchError, RetryError) as error:
             return error_response(request_id, error.code, error.message)
         except ModelUnavailable as error:
             # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。
@@ -804,6 +824,10 @@ class Application:
             # 等待只读/模型取消收尾后才能关闭共享SQLite，绝不自动重发。
             await self.research.close()
             self.research = None
+        if self.retry is not None:
+            # 等待安全读取消事实收尾，避免关闭共享库后迟到写入。
+            await self.retry.close()
+            self.retry = None
         if self.processes is not None:
             # 只收尾已批准的有限等待；绝不因关闭Orvia自行结束用户目标应用。
             await self.processes.close()

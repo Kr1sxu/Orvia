@@ -106,3 +106,10 @@ Remove-Item Env:ORVIA_BROWSER_TEST
 ## V4-010 复用
 
 研究采集复用既有公开HTTP/Playwright校验和20秒单页预算，不开登录/下载/写入权限。缺Tavily仍明确不可用，查询最多两轮，每轮五个候选；站点限制仅在本机过滤结果/最终URL。十页失败也占额度；研究原文及关联在同一SQLite墓碑事务保存，已有不可变身份保持。真实HTTP测试使用自有合成站点及测试专用DNS路由，不冒充生产Internet搜索验收。
+
+
+## V4-011 静态安全读取重试
+
+`BrowserService(retry=RetryService)`仅对真实SafeHTTP匿名静态读取开放最多三次同业务尝试。程序确认无Cookie/认证/脚本；发送前ConnectError/ConnectTimeout、准确429/503可重试，读超时/发送后断连/认证/权限/格式/未知结果不重试。全部退避和读取沿用单页20秒deadline，重定向与重试合计最多4次网络请求、重定向仍最多3跳。Retry-After超剩余时间或0.5秒最大单次等待则直接停止，不提前忽略远端等待。
+
+Playwright动态文档/资源、有用户外发的专用Browser、收费Tavily POST均不符合此白名单，不因GET或只读声明获得资格；Tavily缺Key依旧准确unavailable。静态返回成功只表示取得读取值；正文解析/范围/截断/事实完成另由原业务验证。`read`可信私有kwargs cid/business_id/cancel_event用于准确归属和取消，renderer没有安全分类入口。`retry.history`只显示无正文SQLite尝试事实。真实TCP连接拒绝/429/503/断连/认证/取消/请求限额等验证见`test_v4_retry_browser.py`、`test_v4_retry_protocol.py`和PROGRESS。

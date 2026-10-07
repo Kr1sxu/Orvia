@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('orvia', Object.freeze({
   researchReviewCollect:(input:unknown)=>ipcRenderer.invoke('orvia:research-review-collect',input),
   researchStatus:(input:unknown)=>ipcRenderer.invoke('orvia:research-status',input),
   researchHistory:(input:unknown)=>ipcRenderer.invoke('orvia:research-history',input),
+  retryHistory:(input:unknown)=>ipcRenderer.invoke('orvia:retry-history',input),
   researchPreview:(input:unknown)=>ipcRenderer.invoke('orvia:research-preview',input),
   researchGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:research-generate',input),
   researchCancel:(input:unknown)=>ipcRenderer.invoke('orvia:research-cancel',input),
