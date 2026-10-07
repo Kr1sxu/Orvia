@@ -1,5 +1,13 @@
 # 序航 Orvia 架构
 
+### V4-009 普通用户进程架构（2026-10-08）
+
+ProcessPanel→六个固定IPC→process-ipc原生exe/cwd选择/完整风险确认→七个私有stdio方法→ProcessService→native ctypes/psutil。精确身份包含PID/名称/路径/create_time/creation_ticks字符串/全文SHA256，不读取真实cmdline/env/window正文或返回SID；完整preview同时绑定action/argv/cwd/wait_seconds/revision，不能用renderer approved或程序自述授权。Windows同用户普通Token、低于High完整性、非AppContainer/UIAccess、critical/protection可读、关键PID/祖先/Orvia程序拒绝；核验与动作沿用同一个HANDLE防复用。
+
+启动CreateProcess挂起、cleanenv无Key/proxy、实际handle复核后resume，未释放失败只收回该自有新进程；释放后wait1～15秒只观察，不因超时/关闭服务自动kill。close仅该PID顶层窗口WM_CLOSE，close_sent实际投递且未退可still_running；TerminateProcess只能另批单目标，不递归/广播/自动升级。exe64MiB身份预算，list扫描2000/2秒、50/48KiB，args16/每1000字合8KiB，完整包48KiB/内存20。
+
+SQLite process_attempts128不淘汰、process_executions32/历史10；先记running，终态只有实际退出/仍活/未知，业务不由exit判断。restart running→unknown无重放，运行/未知阻止会话删除，已知still_running不阻止删除事实也不kill程序。失效Job来源只由用户准备准确目标时从当前cid已保留launch/verified/still_running记录fresh同handle恢复登记，unknown/跨cid/淘汰/目标变化不恢复；一般外部Job保守拒，登记不是动作许可。最终alive与墓碑检查、purge两表同事务，先于chat删除journal初始化，不保留正文缓存。真实合成Windows程序/窗体、实际Electron关闭目标存活与重启新批准验证；普通权限有系统副作用且无法撤销，具体边界见README/PROGRESS，无提权/系统配置/模型调用。
+
 ### V4-008 Shell执行架构（2026-10-08）
 
 Electron ShellPanel→七个固定IPC→shell-ipc原生选择/完整审批→九个私有stdio方法→ShellService→runtime。预览绑定exe SHA/version、完整脚本、cwd/输入/核验和预算，review复核后才原生一次批准；真正启动前再次检查令牌/exe及输入。脚本16KiB、每输出流16KiB、运行1～60秒、审批/完整结果48KiB；输入3/30MiB，指定产物10/2MiB只是回查预算，不能保证任意磁盘写入配额。

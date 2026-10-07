@@ -1,5 +1,9 @@
 # Electron 桌面模块（M20 源码）
 
+## V4-009 普通用户进程管理
+
+设置页ProcessPanel经六个固定preload入口调用主进程process-ipc：list/launchPreview/actionPreview/execute/status/history。准确exe/cwd仅原生选择、完整JSON参数与目标creation_ticks/SHA绑定完整预览，review后逐次批准；每个wait/close/terminate独立，close未退仍运行、不自动升级。list/status/history旁路长等待且全字段校验；返回事实必须同cid/op/revision/action/目标PIDticks/SHA。最近已核验target可从历史明确选择，再现查身份，不能靠旧历史重放。真实Electron程序持续运行、应用关闭后仍活、重启准确登记/新批准、取消0操作与实际终止已验；dialogs是测试替换，人工原生/第三方未保存窗口未验。进程状态不表示整体任务完成，无新依赖/安装包。
+
 ## V4-008 Shell
 
 设置页ShellPanel通过七个固定preload入口检测、准备、执行、取消、状态、历史和单产物回传；路径只来自主进程原生目录/文件/保存选择器，完整脚本和环境原生逐次批准，许可消耗后不能重用。shell-contracts严格限制字段/字节，shell-ipc复核同一完整包；运行中状态轮询与取消不排在长执行后。进程退出/回收/明确核验分别展示，stdout/stderr仅文本，exit0不能标全部业务完成。真实Electron/SQLite/Python/PowerShell与Bash、取消子进程及回传已验证，原生dialogs仅测试替换，人工原生/普通WSL未覆盖。试用`npm start`→设置→Shell，预算/示例见后端shell README。没有新增依赖或重建安装包。

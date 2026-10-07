@@ -1762,3 +1762,61 @@ npx playwright test tests/e2e/v4-shell.spec.ts
 现有PowerShell7.6.5（MIT）、WindowsPowerShell5.1.26100.9444（系统已有）、GitBash5.2.26（GPLv3+）、Python3.12/psutil7.2.2/ctypes沿用，无新工具/依赖/模型安装。模块/root/backend/desktop/Computer README、架构/清单/V4/进度已更新。提交前git status/diff/cached及working/staged敏感/禁入审计，报告和commit-receipt在忽略目录；仅显式008文件，预存.zcodeignore/docs/INTERVIEW.md保留不读取/暂存，不收Key/数据库/用户文件/测试产物。独立正常本地commit标题`feat(V4-008): execute approved shell scripts with verified process and artifact evidence`，hash见Git/回执；不amend、不push、不发布/重建包。008提交后按继续目标进入009，完整Goal仍未完成。
 
 试用npm start→设置→Shell检测→选择准确解释器→输入模块README的合成脚本/核验文本及产物名→可选原生cwd/input→准备→核对完整script/version/预算后原生批准→查看退出/回收/具体核验→产物单独原生新位置批准；正在运行可取消，结果未知不重试。缺环境只能显示不可用，不自动切换。
+
+## V4-009：普通用户Windows进程管理（2026-10-08交付）
+
+008已独立正常commit **0ef9b0a**，119不同后端/37桌面/1真实Electron通过，working/staged30文件禁入与敏感检查0；只有预存两个未跟踪文件，保留不读/暂存。009当前唯一模块，不提前010。rewrite_core拥有processes/native.py及native测试/新合成fixtures；graph_core拥有processes/service.py/__init__/README及service测试；rewrite_desktop拥有process-contracts/process-ipc/ProcessPanel/桌面目标测试；主Agent现有接入、E2E、整合审查、文档/提交。所有权无并发编辑。
+
+常规设计：沿用现有Python3.12/psutil7.2.2/Windows ctypes，不新增依赖。有限查看只同用户普通目标PID/name/exe/creation身份，不读取现存cmdline/env/window正文，不记录真实账户SID；不可核验用户/提权/critical/protection拒绝。自己的PID/祖先/Orvia关键进程拒绝。原生准确.exe/完整args/cwd新启动每次确认，挂起创建后同handle核实身份/Token再释放；启动后等待超时不能自动结束用户程序。wait/温和WM_CLOSE/强制terminate均独立审批，close未退出只能still_running，绝不自动升级kill。已有目标动作绑定PID/creation/exeSHA，核验与动作使用同Windows handle，防PID复用误终止，不递归/batch/模糊名字终止、不提权/自动安装/重试。WSL任意内部进程不含此模块。
+
+预定预算：args最多16/合8KiB，完整packet/结果48KiB，wait1～15秒默认3，内存预览20；SQLite单会话128单次尝试不淘汰、正文32/历史10，restart running→unknown且不自动启动/重新发动作。最终预算与接口以实际核验修正。真实仅合成自有程序，native取消0/close不退/另批terminate/实际exit与mock权限边界分开记录，报告只忽略artifacts/test-results/V4-009/。
+
+- [x] √ 实际Windows身份/权限/程序启动、等待、温和关闭与独立终止及SQLite/桌面审批事实。
+- [x] √ L0～L3、中文文档清单、敏感审计及独立正常本地commit，回执/标题见下文和Git；随后才进入010。
+
+009整合阶段已跑9协议/28相关共37目标，36pass/1旧server.test假设hello/health严格FIFO失败；health早已控制旁路，修为真实运输ID匹配、两非法帧与有效响应完整性，最小复验通过（server-fifo.xml），未更改业务为满足顺序断言。基础Electron真实launch/wait/noGUIclose/另批terminate4次/重启历史通过18秒（e2e-basic-passed.json）。加测Orvia关闭后目标继续活实际通过，但重新打开后原目标Job来源内存失效，准备动作被保守拒，补测暂失败报告保留，不宣称当前最终L3完成。
+
+已确定窄技术修复：仅用户在当前会话明确选目标准备动作时，从SQLite当前仍保留的action=launch、verified=true、status=still_running准确target，读取PID/create_time/原始creation_ticks完全匹配的来源；native restore_launched同handle freshSHA/ticks/用户/普通Token/关键/保护核验后重建owned来源登记。此登记不是动作许可，仍完整新预览/原生批准/最终samehandle；generic外部Job、unknown/取消、跨会话来源及已淘汰正文不恢复，不自动启动/关闭/终止。来源或exe变化拒绝；32条正文被淘汰或会话删除后无法恢复Job来源是明确限制，不从无正文128尝试反推权限。runtime/service Agent独占实现与新测试，主复验完整重启L3，最终审查与提交仍未完成。
+
+最终009实现/恢复已完成：六个固定preload、七个process私有方法，executable/cwd原生单选、完整16参数/每1000字/合8KiB，wait1～15默认3，preview48KiB/20缓存。原生同SID普通Token、非High/AppContainer/UIAccess、critical/protection全部可读、精确ticks字符串/wholeexeSHA（64MiB）与同HANDLE最终核验；自身/祖先/Orvia/electron/未登记backendworker拒，普通进程列50/48KiB/2000扫描/2秒，不读cmdline/env/window正文或输出SID。未知保护/权限/进程身份failclosed。启动shell=False cleanenv，无Key/proxy/自由env，挂起新handle再核验才resume；未释放失败只回收确切自有新目标，回收未确认unknown。已释放程序不因wait/服务关闭/删除事实自动kill。close仅准确PID顶层WM_CLOSE，不广播/递归，close_sent准确记录，拒关闭或无窗口still_running，不自动Terminate；终止仅另批同句柄准确目标，exit259也可是真实退出。
+
+SQLite process_attempts128不淘汰singleuse、process_executions32正文/历史10/48KiB，先running、最终alive/删除墓碑、不迟到重建、running→unknown无重放。消费前再次核验review未被撤销，原生线程不可硬取消，重复通信取消仍等待实际收尾并持久unknown/后到target；close服务只收尾。unknown/running阻永久删除，已知still_running删除会话只清账本/caches不结束用户应用。初始化在chat.open前建立process账本供删除journal恢复，同事务purge两表。重启来源修复只在用户preview_action/review遇PROCESS_JOB/KEY后，从当前cid一条launch/still_running/JSON真布尔verified及准确PID/time/ticks源facts恢复；freshsamehandle全部身份和普通Token核对、登记内部owned（256最多）后再次inspect，不open/list批量恢复。外部Job/未知/跨cid/淘汰/source改变拒绝；新动作仍新原生批准。
+
+实际命令（项目根目录，合成数据；报告全部artifacts/test-results/V4-009/，模型0）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_process_native.py -q --basetemp=artifacts/test-results/V4-009/native-restoration-temp --junitxml=artifacts/test-results/V4-009/native-restoration.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_process_native.py -q -k 'restore or unregistered or appcontainer or uiaccess' --basetemp=artifacts/test-results/V4-009/native-restoration-extra-temp --junitxml=artifacts/test-results/V4-009/native-restoration-extra.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_processes.py -q --basetemp=artifacts/test-results/V4-009/service-data --junitxml=artifacts/test-results/V4-009/service.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_processes.py -k real_service -q --basetemp=artifacts/test-results/V4-009/service-real-data --junitxml=artifacts/test-results/V4-009/service-real.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_processes.py::test_revocation_during_review_to_consume_prevents_native_action backend/tests/test_v4_processes.py::test_sqlite_launch_freezes_exact_args_cwd_consumes_before_native_no_replay -q --basetemp=artifacts/test-results/V4-009/service-revocation-data --junitxml=artifacts/test-results/V4-009/service-revocation.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_processes.py -k 'restor' -q --basetemp=artifacts/test-results/V4-009/service-restore-final-data --junitxml=artifacts/test-results/V4-009/service-restore-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_process_protocol.py backend/tests/test_application.py backend/tests/test_v3_management.py backend/tests/test_server.py backend/tests/test_m20_transport.py -q --basetemp=artifacts/test-results/V4-009/related-data --junitxml=artifacts/test-results/V4-009/related.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_server.py::test_recovery_after_bad_frames_and_eof -q --basetemp=artifacts/test-results/V4-009/server-fifo-data --junitxml=artifacts/test-results/V4-009/server-fifo.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_process_protocol.py -k real_process -q --basetemp=artifacts/test-results/V4-009/protocol-recovery-data --junitxml=artifacts/test-results/V4-009/protocol-recovery.xml
+backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend/processes backend/src/orvia_backend/application.py backend/src/orvia_backend/chat/management.py backend/src/orvia_backend/server.py
+npx vitest run apps/desktop/tests/v4-processes.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/v3-management.test.ts apps/desktop/tests/m20-transport.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-009/desktop-related.json
+npm run check
+npm run build
+$env:ORVIA_TEST_MODULE='V4-009'
+npx playwright test tests/e2e/v4-processes.spec.ts
+```
+
+|级别|实际结果/证据|真实性与结论|
+|---|---|---|
+|L0|compileall/py_compile、check/build、diffcheck通过|67模块开发构建，无安装包|
+|L1/L2 native|42不同通过：native-restoration39＋extra新增3（8通过含5重复）|真实合成私有basePython+DLL/普通程序0/7/259退出、wait still活/noGUI close不杀、隐藏原生GUI接受WM_CLOSE实际退与拒绝后still活→独立Terminate、Unicode argv/cwd/env无secret/proxy；精确来源恢复无动作/权限变动/未释放回收/预算。SID/elevated/High/AppContainer/UIAccess/critical/protection/关键/未知Job拒及PID复用samehandle为mock。无真实敏感target破坏性操作|
+|L1/L2 service|38不同通过：34mock/SQLite＋4真实|初始24、revocation新增1、real3（8.49秒）、restore新增10含1真实（final集合11通过3.66秒/1重复），关窗拒绝后仍活/close_sent真/另operationTerminate/旧批准拒。restored仅真布尔来源、未知/假PID/ticks变化/跨cid/淘汰/程序变化0恢复；实际clearowned→inspect拒→源fresh登记→新Terminate|
+|L2协议/相关|9协议＋28相关通过|actualApplication/SQLite准确baseexe argv/cwd marker、close未退/另terminate、exit7、Orvia关闭/删除事实目标保持活、新会话新批准终止，重启unknown阻删/无replay/journal两表清理及3stdio事实旁路。related37最初36pass/1FIFO测试假设，按ID最小复验pass；最新原生改变后2real_process最小复验pass4.27秒|
+|L1桌面|desktop-related.json40通过：15目标＋25相关|只mock dialogs/backend，用例准确PID/ticks/SHA/动作/返回事实范围、cancel0、私有路径/参数预算/unknown无重放；实际业务另验|
+|L3|e2e.json1通过23.4秒测试/24.1秒总，electron-iTHPqu/acceptance.json|实际Electron/preload/main/Python/SQLite/Windows普通baseexe；native selectors/确认仅mock。cancel批准0、实际launch marker/targetalive、Orvia关闭后target仍活、新后端源恢复且新批准wait/close无GUI仍活、另nativeTerminate实际退、4facts/再次重启旧批准拒/无自动启动；云0|
+
+按当前pytest --collect-only的117个名字和最新JUnit匹配，**117个不同后端通过、未解决失败/skip0**（42native＋38service＋9协议＋28相关），缺失/多余0，verification-final.json保存归属/历史失败。旧server FIFO1失败已明确修fixture而非改控制调度；没有其他后端历史fail。L3基础18.0秒通过后，新加关闭/重启后再次管理暴露Job内存来源丢失、补测19.6秒失败，保留e2e-known-owned-first-failed.json；窄可信SQLite来源修复、新negative与真实恢复、完整23.4秒最终通过，不把之前失败或基础4步骤当最终。真实basePython属于已装环境，venv redirector不能当脚本最终进程；测试fixture副本/DLL仅忽略目录，不新增运行时安装。
+
+已实际查看process-terminated.png：准确进程退出、动作/事实不等业务完成、PID/精确FILETIME/路径/SHA/真实exit0xE009及四步历史可读，无横向溢出。L4评估：新增普通进程副作用边界，已用实际Windows同handle/窗体WM_CLOSE与另Terminate/释放后存活/Electron重启及相关删除/stdio27+1回归覆盖变化，复用未变模型/Skills/SQLite原有结论，不跑无关全量或打包。
+
+限制：仅Windows普通可核验目标；名称否决含Explorer/DWM/系统关键、Orvia/electron，非全部同用户普通程序都可操作，一般已有Job/隔离令牌/身份不可读拒绝。无提权/LPAC/path/network/CPU/disk隔离，普通程序本身或外部Job可能影响存活，已释放目标不主动回收/不承诺永远活。关闭未保存窗口须用户处理，Terminate无法通用撤销，不递归/结束后代或外部broker，不保证一般业务成功。来源32正文淘汰/删除会话后不能重建lostJob归属；256owned缓存可失效须仍有效来源再核验。内核/磁盘原生阻塞无法硬deadline，线程收尾可超15秒预算；exeSHA不覆盖所有隐式依赖/文件竞态。未真人工dialogs、用户程序/第三方未保存行为、真实其他用户/管理员/保护目标破坏性试验、独立Windows/模型/发布验收。
+
+沿用Python3.12.6/psutil7.2.2/ctypes/aiosqlite，无新工具/依赖/模型安装；原生常量参照Microsoft WinBase.h及TokenInformationClass（native README链接），不修改系统策略。模块/root/backend/desktop/Computer README、架构/清单/V4/进度已更新。提交前status/diff/cached/working与staged敏感和禁入检查，回执在忽略目录；仅显式009文件，预存两个文件保持不读/暂存，不收密钥/DB/测试产物/DLL/用户文件。独立正常本地commit标题`feat(V4-009): manage approved ordinary Windows processes with exact identity evidence`，hash见Git/commit-receipt；不amend、不push、不Release/重建包。009提交后自动进入010，Goal仍未完成。
+
+试用npm start→设置→普通用户进程→刷新/明确准确PID或原生选.exe、JSON完整参数、可选cwd→准备→原生逐项批准→看exited/still_running/unknown及close_sent；close未退需另选terminate并新批准，不能用旧按钮或聊天授权。历史可选已核验准确target再现查，不恢复旧执行资格；新启动程序要自行关闭或单独批准终止。

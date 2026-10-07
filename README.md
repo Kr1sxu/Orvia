@@ -154,3 +154,5 @@ V4-006开发版查询改写：设置→查询改写与本地检索→选择会�
 V4-007 MCP：设置→MCP外部只读工具→原生选择服务JSON并审查配置→批准准确连接→审查工具清单→选本机会话、准确工具名及JSON参数→准备预览→每次原生批准。支持冻结MCP2025-06-18的本地stdio与准确HTTPS JSON/SSE；只接受明确允许且通过程序规则的读取工具，URI仅展示。MCP专用令牌独立safeStorage加密，无明文回退。普通权限服务可能有副作用，允许清单不能提供系统隔离；收到有效响应只证明本次协议结果。真实合成服务、Windows子进程回收、SQLite与Electron证据见[模块README](backend/src/orvia_backend/mcp/README.md)和PROGRESS；不自动安装服务器或调用模型，不push、发布或重建安装包。
 
 V4-008 Shell：设置→Shell→检测已有环境→明确解释器、完整脚本、输入/工作目录和核验条件→准备→原生逐次批准。PowerShell 7、Windows PowerShell 5.1、Git Bash已用本机真实合成脚本验证；WSL仅允许普通非root发行版，本机仅Docker管理发行版，显示不可用，真实Linux验收未覆盖。普通权限Shell可以访问当前账户文件和网络，不是LPAC；Windows Job仅管理自有成员，无法保证经外部broker产生的进程。退出码、回收和具体核验分别展示，取消/未知不重试；产物另行原生批准保存为新文件。预算、接口及示例见[Shell README](backend/src/orvia_backend/shell/README.md)，真实验证与限制见PROGRESS。
+
+V4-009 进程：设置→普通用户进程管理→准确PID/创建身份/程序哈希，或原生选EXE、完整参数及cwd→准备→原生批准单步。仅同用户普通Windows目标，拒关键/保护/提权/AppContainer/UIAccess及未知身份；启动、等待、温和关闭和强制终止独立确认。温和关闭未退出不会自动终止，等待超时不会杀进程，Orvia关闭不自动杀已释放程序；不管理WSL内部进程。实际合成窗口/程序及Electron已验证，进程退出不等业务完成。重启仅凭当前会话保留的已核验启动事实重新核对来源登记，动作仍须新批准；来源已删/淘汰或未知则不恢复Job归属。示例、预算与限制见[进程README](backend/src/orvia_backend/processes/README.md)。

@@ -31,10 +31,12 @@ def test_recovery_after_bad_frames_and_eof() -> None:
     asyncio.run(serve(reader, writer))
     results = [json.loads(line) for line in writer.getvalue().splitlines()]
     assert len(results) == 4
-    assert results[0]["error"]["code"] == "INVALID_REQUEST"
-    assert results[1]["error"]["code"] == "INVALID_REQUEST"
-    assert results[2]["id"] == "h" and results[2]["ok"] is True
-    assert results[3]["result"]["status"] == "ok"
+    # health既有控制旁路允许先于ordinary hello响应；按运输ID核对，不能假设FIFO。
+    invalid = [item for item in results if not item['ok']]
+    assert len(invalid) == 2 and all(item['error']['code'] == 'INVALID_REQUEST' for item in invalid)
+    valid = {item['id']: item for item in results if item['ok']}
+    assert set(valid) == {'h', 'c'} and valid['h']['ok'] is True
+    assert valid['c']['result']['status'] == 'ok'
 
 
 def test_empty_input_exits_without_output() -> None:

@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
+  processList:(input:unknown)=>ipcRenderer.invoke('orvia:process-list',input),
+  processLaunchPreview:(input:unknown)=>ipcRenderer.invoke('orvia:process-launch-preview',input),
+  processActionPreview:(input:unknown)=>ipcRenderer.invoke('orvia:process-action-preview',input),
+  processExecute:(input:unknown)=>ipcRenderer.invoke('orvia:process-execute',input),
+  processStatus:(input:unknown)=>ipcRenderer.invoke('orvia:process-status',input),
+  processHistory:(input:unknown)=>ipcRenderer.invoke('orvia:process-history',input),
   shellDetect:()=>ipcRenderer.invoke('orvia:shell-detect'),
   shellPreview:(input:unknown)=>ipcRenderer.invoke('orvia:shell-preview',input),
   shellExecute:(input:unknown)=>ipcRenderer.invoke('orvia:shell-execute',input),

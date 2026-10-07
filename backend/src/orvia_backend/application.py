@@ -5,7 +5,7 @@ import asyncio
 import errno
 import sqlite3
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, SecretStr, field_validator
 
@@ -36,6 +36,7 @@ from .rewrite import RewriteService, RewriteError
 from .mcp import McpService
 from .mcp.protocol import McpError
 from .shell import ShellService, ShellError
+from .processes import ProcessService, ProcessError
 
 
 class Params(BaseModel):
@@ -139,6 +140,35 @@ class McpCredentialRequest(McpServerRequest):
 
 class MissionId(Params):
     id: Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class ProcessConversation(Params):
+    """进程入口仅同用户普通Windows目标；真实SID/命令行不进入协议。"""
+    id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class ProcessLaunchRequest(ProcessConversation):
+    executable: str = Field(min_length=1,max_length=1000,strict=True)
+    args: list[Annotated[str, Field(max_length=1000,strict=True)]] = Field(default_factory=list,max_length=16)
+    cwd: str | None = Field(default=None,max_length=1000,strict=True)
+    wait_seconds: int = Field(default=3,ge=1,le=15,strict=True)
+
+
+class ProcessActionRequest(ProcessConversation):
+    action: Literal['wait','close','terminate']
+    pid: int = Field(ge=1,le=4294967295,strict=True)
+    create_time: float = Field(gt=0,allow_inf_nan=False,strict=True)
+    # FILETIME的100ns精度不能经过JS number舍入；核验和动作使用同一Windows handle。
+    creation_ticks: str = Field(pattern=r"^[1-9][0-9]{0,19}$")
+    wait_seconds: int = Field(default=3,ge=1,le=15,strict=True)
+
+
+class ProcessOperationRequest(ProcessConversation):
+    operation_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class ProcessApprovalRequest(ProcessOperationRequest):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class ShellConversation(Params):
@@ -296,6 +326,7 @@ class Application:
         self.skills: SkillsService | None = None
         self.mcp: McpService | None = None
         self.shell: ShellService | None = None
+        self.processes: ProcessService | None = None
         self.embedding: LocalEmbedder | None = None
         self.retrieval: RetrievalService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
@@ -317,6 +348,7 @@ class Application:
         methods |= {"graph.list", "graph.preview", "graph.generate", "graph.query"}
         methods |= {"mcp.list","mcp.preview_config","mcp.configure","mcp.connect_preview","mcp.connect","mcp.approve_tools","mcp.call_preview","mcp.call","mcp.history","mcp.disconnect","mcp.remove","mcp.credential_replace"}
         methods |= {"shell.detect","shell.preview","shell.review","shell.execute","shell.cancel","shell.status","shell.history","shell.export_preview","shell.export"}
+        methods |= {"process.list","process.preview_launch","process.preview_action","process.review","process.execute","process.status","process.history"}
         methods |= {"rewrite.preview", "rewrite.generate", "rewrite.search", "rewrite.history"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
@@ -368,6 +400,10 @@ class Application:
                     shell = ShellService(store, chat, self.computer)
                     await shell.open()
                     chat.shell = shell
+                    # 先提供进程账本，旧删除journal恢复才能同事务清会话动作事实。
+                    processes = ProcessService(store,chat,self.computer)
+                    await processes.open()
+                    chat.processes = processes
                     if self.event_sink is not None:
                         chat.set_event_sink(self.event_sink)
                     await chat.open()
@@ -406,6 +442,7 @@ class Application:
                 self.skills = skills
                 self.mcp = mcp
                 self.shell = shell
+                self.processes = processes
                 self.embedding, self.retrieval = embedding, retrieval
                 result = {"initialized": True}
             elif self.store is None:
@@ -443,6 +480,25 @@ class Application:
             elif method == "mcp.list":
                 Params.model_validate(params)
                 result = await self.mcp.list()
+            elif method == "process.list":
+                result = await self.processes.list(ProcessConversation.model_validate(params).id)
+            elif method == "process.preview_launch":
+                request = ProcessLaunchRequest.model_validate(params)
+                result = await self.processes.preview_launch(request.id,request.executable,request.args,request.cwd,request.wait_seconds)
+            elif method == "process.preview_action":
+                request = ProcessActionRequest.model_validate(params)
+                result = await self.processes.preview_action(request.id,request.action,request.pid,request.create_time,request.creation_ticks,request.wait_seconds)
+            elif method == "process.review":
+                request = ProcessOperationRequest.model_validate(params)
+                result = await self.processes.review(request.id,request.operation_id)
+            elif method == "process.execute":
+                request = ProcessApprovalRequest.model_validate(params)
+                result = await self.processes.execute(request.id,request.operation_id,request.revision)
+            elif method == "process.status":
+                request = ProcessOperationRequest.model_validate(params)
+                result = await self.processes.status(request.id,request.operation_id)
+            elif method == "process.history":
+                result = await self.processes.history(ProcessConversation.model_validate(params).id)
             elif method == "shell.detect":
                 Params.model_validate(params)
                 result = await self.shell.detect()
@@ -580,6 +636,8 @@ class Application:
                     self.mcp.forget_previews(params["id"])
                 if self.shell is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
                     self.shell.forget_previews(params["id"])
+                if self.processes is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
+                    self.processes.forget_previews(params["id"])
                 if method in {"chat.send", "chat.natural", "chat.continue", "chat.fallback.confirm", "chat.document.attach", "chat.synthesis.generate", "chat.material.remove"}:
                     # 只建立本地候选；外发整理仍走独立准确预览及主进程原生批准。
                     await self.chat.memory.synchronize(params["id"])
@@ -665,7 +723,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError, ProcessError) as error:
             return error_response(request_id, error.code, error.message)
         except ModelUnavailable as error:
             # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。
@@ -695,6 +753,10 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.processes is not None:
+            # 只收尾已批准的有限等待；绝不因关闭Orvia自行结束用户目标应用。
+            await self.processes.close()
+            self.processes = None
         if self.shell is not None:
             await self.shell.close()
             self.shell = None

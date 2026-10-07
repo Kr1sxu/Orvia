@@ -175,6 +175,8 @@ async def serve(reader: BinaryIO, writer: BinaryIO) -> None:
             control = isinstance(request, dict) and request.get("method") in {
                 # 自有Shell长执行期间只读状态和取消必须旁路，否则真实Job无法及时被用户中止。
                 "shell.cancel", "shell.status", "shell.history",
+                # 普通用户进程等待不阻塞本会话事实查看，不旁路任何启动/关闭/终止动作。
+                "process.status", "process.history", "process.list",
                 "health", "chat.cancel", "chat.get", "chat.list", "chat.scan.page",
                 "chat.automation.cancel", "chat.automation.script.status",
                 "chat.automation.browser.pending", "chat.automation.browser.request", "chat.automation.browser.close"}

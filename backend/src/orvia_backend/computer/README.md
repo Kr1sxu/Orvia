@@ -1,5 +1,9 @@
 # Computer 只读工具（M03）
 
+## V4-009 普通进程工具
+
+`../processes`是独立普通Windows进程入口，原M03必要概况仍只读。只有完整新原生批准才启动/等待/温和关闭/终止，目标PID/FILETIME100ns/实际exe SHA与普通同用户Token、critical/protection/关键检查绑定同handle；native选择普通exe/cwd仍复用Computer路径策略。关闭未退不升级，未知不重试，删除会话和服务关闭不结束已释放应用。Job来源丢失只能从当前会话有效原生启动事实fresh复核分类，不能恢复审批；任意WSL内部进程不含。真实合成窗体/进程与Electron证据见processes README/PROGRESS。
+
 ## V4-008 独立Shell工具
 
 通用Shell位于`../shell`，不是原M03固定模板放宽。主进程逐次批准准确解释器/脚本/cwd/输入/预算，`selected_file`与PathPolicy只用于显式输入及新文件回传；Shell自身普通权限不受原目录grant或LPAC隔离。运行/未知阻止会话删除，自有Windows Job和WSL进程组分别回查；exit0只证明进程退出。真实三解释器、取消、输入和产物验证见shell README/PROGRESS，原M03只读接口和M18权限保持。

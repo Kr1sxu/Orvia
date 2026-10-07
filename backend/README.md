@@ -112,6 +112,10 @@ V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/REA
 
 `memory_context`、`query_rewrite`为固定本地Skill工具，只读取已核验事实；无文件grant仅允许展开后全部本地leaf，文件工具仍逐叶ComputerGateway检查。每叶data8KiB、受限停止后续、原10秒工作流预算保留。本地执行账本归属选中会话，purge及晚到写入有删除保护；声明不能自选cid或generate。无新增依赖，真实SQLite/FTS/LangGraph与Main mock分别记录在PROGRESS。
 
+## V4-009 普通用户进程
+
+`processes`模块经七个固定私有方法list/preview_launch/preview_action/review/execute/status/history进入ProcessService/native。SQLite process_attempts128不淘汰单次消费事实、process_executions正文32/历史10，先running/最终墓碑alive；重启running→unknown，不自动启动/发动作。100ns FILETIME以creation_ticks字符串保持完整精度，原生安全核验与动作使用同一Windows handle；同SID/普通Token/保护/critical/Orvia关键和完整exeSHA每步重核，拒模糊批量/递归/自动升级。只有准确已核验当前会话launch事实可重建失效Job来源登记，不能恢复批准。删除只清缓存/两表，不关闭目标，close服务只收尾有限线程。实际窗口WM_CLOSE拒绝/接受、独立Terminate、Unicode准确argv/cwd、普通env、Electron重启流程见[README](src/orvia_backend/processes/README.md)及PROGRESS；无新依赖/模型调用。
+
 ## V4-008 逐次批准Shell
 
 `shell`模块提供九个固定私有方法：detect/preview/review/execute/cancel/status/history/export_preview/export。完整审批绑定实际exe SHA256/version、脚本、cwd、输入全文及预算；普通令牌拒提权，Windows挂起创建先入Job再运行，WSL使用明确发行版和独立Linux进程组身份回查。SQLite shell_attempts先记running并保留128次单次消费事实，shell_executions最多32条正文/历史10条48KiB；重启running→unknown，旧批准不恢复。状态/取消/历史绕过普通执行锁且仍严格参数验证。删除恢复先清私有正文，运行/未知阻止删除，用户原件/工作目录/导出成品保持。三种已有Windows解释器真实验证，无模型调用、新依赖或安装包；普通WSL尚无真实环境。见[模块README](src/orvia_backend/shell/README.md)及PROGRESS。

@@ -17,6 +17,12 @@ export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  processList:(input:{id:string})=>Promise<Reply<import('../main/process-contracts').ProcessList>>;
+  processLaunchPreview:(input:z.infer<typeof import('../main/process-contracts').processLaunchInput>)=>Promise<Reply<{cancelled:boolean;result?:import('../main/process-contracts').ProcessPreview}>>;
+  processActionPreview:(input:z.infer<typeof import('../main/process-contracts').processActionInput>)=>Promise<Reply<import('../main/process-contracts').ProcessPreview>>;
+  processExecute:(input:{id:string;operation_id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/process-contracts').ProcessExecution}>>;
+  processStatus:(input:{id:string;operation_id:string})=>Promise<Reply<import('../main/process-contracts').ProcessExecution>>;
+  processHistory:(input:{id:string})=>Promise<Reply<import('../main/process-contracts').ProcessHistory>>;
   shellDetect:()=>Promise<Reply<import('../main/shell-contracts').ShellDetected>>;
   shellPreview:(input:z.infer<typeof import('../main/shell-contracts').shellPreviewInput>)=>Promise<Reply<{cancelled:boolean;result?:import('../main/shell-contracts').ShellPreview}>>;
   shellExecute:(input:{id:string;run_id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/shell-contracts').ShellRun}>>;
