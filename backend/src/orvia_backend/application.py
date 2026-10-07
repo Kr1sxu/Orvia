@@ -22,6 +22,7 @@ from .context import ContextError, ContextService
 from .computer.paths import ToolError
 from .computer.system import SystemToolError
 from .chat import ChatService
+from .auxiliary import AuxiliaryService, AuxiliaryConfig
 
 
 class Params(BaseModel):
@@ -101,6 +102,7 @@ class Application:
         self.computer = ComputerGateway()
         self.graph: MissionGraph | None = None
         self.chat: ChatService | None = None
+        self.auxiliary: AuxiliaryService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
         self.event_sink = event_sink
 
@@ -114,6 +116,7 @@ class Application:
                    "computer.plan", "computer.approve", "computer.execute_action", "computer.resume",
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
+        methods |= {"auxiliary.status", "auxiliary.configure", "auxiliary.probe"}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
         methods |= {"chat.natural", "chat.continue", "chat.fallback.confirm", "chat.material.remove", "chat.revoke", "chat.scan.page"}
@@ -154,6 +157,7 @@ class Application:
                     await store.close()
                     return error_response(request_id, "STORAGE_UNAVAILABLE", "无法打开当前版本的应用数据库")
                 graph = MissionGraph(store, directory / "checkpoints.sqlite")
+                auxiliary = AuxiliaryService(store)
                 try:
                     await store.recover_operations()
                     await graph.__aenter__()
@@ -161,23 +165,39 @@ class Application:
                     if self.event_sink is not None:
                         chat.set_event_sink(self.event_sink)
                     await chat.open()
+                    # 辅助连接故障内部降级；SQLite迁移失败仍按存储故障处理并完整释放。
+                    await auxiliary.open()
+                    await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
+                    await auxiliary.close()
                     await graph.__aexit__(None, None, None)
                     await store.close()
                     raise
                 self.store, self.graph, self.chat = store, graph, chat
                 self.registry.replace_credentials(initial.credentials)
                 self.browser.key = initial.credentials.tavily
+                # SQLite 初始化后建立只读事实通知；辅助连接失败不能改变业务就绪状态。
+                self.auxiliary = auxiliary
                 result = {"initialized": True}
             elif self.store is None:
                 return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
+            elif method == "auxiliary.status":
+                Params.model_validate(params)
+                result = await self.auxiliary.status()
+            elif method == "auxiliary.probe":
+                Params.model_validate(params)
+                result = await self.auxiliary.probe()
+            elif method == "auxiliary.configure":
+                config = AuxiliaryConfig.model_validate(params)
+                result = await self.auxiliary.configure(config.model_dump())
             elif method.startswith("chat."):
                 result = await self.chat.handle(method, params)
             elif method == "credentials.replace":
                 updated = ReplaceCredentials.model_validate(params)
                 self.registry.replace_credentials(updated.credentials)
                 self.browser.key = updated.credentials.tavily
+                await self.auxiliary.replace_password(updated.credentials.redis.get_secret_value() if updated.credentials.redis else None)
                 result = {"updated": True}
             elif method in {"browser.read", "browser.search"}:
                 # 仅可信主进程可提交显式 URL/查询；网页内容不能扩大访问范围或索引自身。
@@ -279,6 +299,10 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.auxiliary is not None:
+            # 后台观察器先停止，不能在共享库关闭后继续查询或写缓存。
+            await self.auxiliary.close()
+            self.auxiliary = None
         if self.chat is not None:
             # 先终止自有隔离/自动化工作进程并记账，再关闭共享数据库。
             await self.chat.automation.close()

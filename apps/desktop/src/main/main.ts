@@ -13,6 +13,7 @@ import { credentialInputSchema, missionCreateSchema, credentialRoleSchema, compu
 import {registerM18} from './m18-ipc';
 import {windowPresentation,attachWindowPresentation,taskbarAppId} from './window-presentation';
 import {naturalInput,continuationInput,materialRemoveInput,revokeInput,scanPageInput,streamPullInput,streamAckInput,attachmentInput,fallbackConfirmInput} from './m20-contracts';
+import {auxiliaryConfig} from './auxiliary-contracts';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -388,6 +389,10 @@ app.whenReady().then(async () => {
   }));
   handle('orvia:settings', 0, async () => ({ ...await backend.configuration(), mode: development ? 'development' : 'secure_storage',
     encryption_available: safeStorage.isEncryptionAvailable(), credential_error: credentialError, credentials: vault.getStatus() }));
+  // 配置仅改变辅助连接；没有服务安装、启动、停止或任意 Redis 命令入口。
+  handle('orvia:auxiliary-status',0,()=>backend.auxiliaryStatus());
+  handle('orvia:auxiliary-probe',0,()=>backend.auxiliaryProbe());
+  handle('orvia:auxiliary-configure',1,input=>backend.auxiliaryConfigure(auxiliaryConfig.parse(input)));
   handle('orvia:missions', 0, () => backend.missions());
   handle('orvia:create-mission', 1, input => backend.createMission(missionCreateSchema.parse(input)));
   handle('orvia:save-credential', 1, async input => {

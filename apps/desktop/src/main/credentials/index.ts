@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-export const roles = ['main', 'computer', 'browser', 'tavily'] as const;
+export const roles = ['main', 'computer', 'browser', 'tavily', 'redis'] as const;
 export type CredentialRole = typeof roles[number];
 type Secrets = Partial<Record<CredentialRole, string>>;
 export interface SafeStorageAdapter {
@@ -16,7 +16,7 @@ interface Options {
   userData: string;
   safeStorage: SafeStorageAdapter;
 }
-const variables = { main: 'DEEPSEEK_API_KEY', computer: 'ZHIPU_API_KEY', browser: 'MIMO_API_KEY', tavily: 'TAVILY_API_KEY' };
+const variables = { main: 'DEEPSEEK_API_KEY', computer: 'ZHIPU_API_KEY', browser: 'MIMO_API_KEY', tavily: 'TAVILY_API_KEY', redis: 'REDIS_PASSWORD' };
 const invalid = () => new Error('CREDENTIAL_INVALID: 密钥必须为非空单行文本且不超过 4096 字符');
 function validKey(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= 4096 && !/[\r\n]/.test(value);

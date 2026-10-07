@@ -1,6 +1,6 @@
 # 序航 Orvia
 
-V4（2026-10-07）已形成[能力扩展与工程优化方案](docs/V4_OPTIMIZATION.md)：规划 Redis、Skills、五轮上下文与跨会话记忆、本地 Qwen 向量混合检索、知识图谱、查询改写、MCP、通用 Shell、普通用户进程管理、有界调研及安全重试。十一项均已规划、未实现；本轮只交付文档，不代表已开放能力或获得开发授权。代码及安装包维持既有状态，实际文档检查与提交见[进度](docs/PROGRESS.md)。
+V4（2026-10-07）已完成 **V4-001 可选本地 Redis 辅助服务**：设置启停与健康状态、TTL 元数据缓存、可重建通知及 SQLite 核对的只读状态投影。默认关闭，断连降级保留原有业务；不使用缓存判定执行完成。试用 `npm start` → 设置 → Redis 辅助服务，填用户已部署的回环地址、端口和库号后启用。见[模块说明](backend/src/orvia_backend/auxiliary/README.md)、[方案](docs/V4_OPTIMIZATION.md)和[验收进度](docs/PROGRESS.md)。V4-002～011 仍未实施；未 push、未重建安装包，旧候选不包含本轮功能。
 
 2026-10-04 源码修复 V3-001：普通寒暄不显示高级能力入口且不调用模型；明确需求或当前会话历史任务只显示对应工作区。已完成目标验证，安装包未重建，M20旧候选不含本修复。试用 `npm run build`、`npm start`，新对话输入“你好”，再在独立对话提出“生成 React 页面”或“运行 Python 脚本”。见 [V3记录](docs/V3_OPTIMIZATION.md)和[进度](docs/PROGRESS.md)。
 

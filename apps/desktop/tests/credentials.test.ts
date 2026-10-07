@@ -30,7 +30,8 @@ describe('凭据存储（模拟 safeStorage，真实临时文件，无模型）'
     await fs.writeFile(path.join(root, '.env.local'), content);
     const store = vault(true); await store.load();
     expect(store.getSecrets()).toEqual({ main: 'main-synthetic', computer: 'computer-synthetic', browser: 'browser-synthetic', tavily: 'tavily-synthetic' });
-    expect(store.getStatus().every(item => item.source === 'development_env')).toBe(true);
+    expect(store.getStatus().filter(item=>item.role!=='redis').every(item => item.source === 'development_env')).toBe(true);
+    expect(store.getStatus().find(item=>item.role==='redis')).toMatchObject({configured:false,source:'missing'});
     await expect(store.save('main', 'replacement')).rejects.toThrow('DEVELOPMENT_READ_ONLY');
     await expect(store.remove('main')).rejects.toThrow('DEVELOPMENT_READ_ONLY');
     expect(await fs.readFile(path.join(root, '.env.local'), 'utf8')).toBe(content);
@@ -78,4 +79,13 @@ describe('凭据存储（模拟 safeStorage，真实临时文件，无模型）'
     await expect(store.save('main', value)).rejects.toThrow('CREDENTIAL_INVALID');
     expect(store.getSecrets()).toEqual({});
   });
+});
+
+it('Redis 独立开发引用与加密保存/撤回不改变模型密钥',async()=>{
+  await fs.writeFile(path.join(root,'.env.local'),'REDIS_PASSWORD=synthetic-redis\nDEEPSEEK_API_KEY=synthetic-main');
+  const dev=vault(true);await dev.load();expect(dev.getSecrets()).toEqual({redis:'synthetic-redis',main:'synthetic-main'});
+  expect(JSON.stringify(dev.getStatus())).not.toContain('synthetic-redis');
+  const prod=vault();await prod.load();await prod.save('main','synthetic-main');await prod.save('redis','synthetic-redis');
+  const restored=vault();await restored.load();expect(restored.getSecrets()).toEqual({redis:'synthetic-redis',main:'synthetic-main'});
+  await restored.remove('redis');expect(restored.getSecrets()).toEqual({main:'synthetic-main'});
 });

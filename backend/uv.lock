@@ -626,6 +626,7 @@ dependencies = [
     { name = "python-docx" },
     { name = "python-pptx" },
     { name = "rapidocr-onnxruntime" },
+    { name = "redis" },
     { name = "reportlab" },
     { name = "trafilatura" },
 ]
@@ -654,6 +655,7 @@ requires-dist = [
     { name = "python-docx", specifier = ">=1.2,<2" },
     { name = "python-pptx", specifier = ">=1.0,<2" },
     { name = "rapidocr-onnxruntime", specifier = "==1.4.4" },
+    { name = "redis", specifier = "==7.0.0" },
     { name = "reportlab", specifier = ">=4.4,<5" },
     { name = "trafilatura", specifier = ">=2,<3" },
 ]
@@ -1007,6 +1009,15 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/12/1e5497183bdbe782dbb91bad1d0d2297dba4d2831b2652657f7517bfc6df/rapidocr_onnxruntime-1.4.4-py3-none-any.whl", hash = "sha256:971d7d5f223a7a808662229df1ef69893809d8457d834e6373d3854bc1782cbf", size = 14915192, upload-time = "2025-01-17T01:48:25.104Z" },
+]
+
+[[package]]
+name = "redis"
+version = "7.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/0e/80de0c7d9b04360331906b6b713a967e6523d155a92090983eba2e99302e/redis-7.0.0.tar.gz", hash = "sha256:6546ada54354248a53a47342d36abe6172bb156f23d24f018fda2e3c06b9c97a", size = 4754895, upload-time = "2025-10-22T15:38:36.128Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/aa/de/68c1add9d9a49588e6f75a149e079e44bab973e748a35e0582ccada09002/redis-7.0.0-py3-none-any.whl", hash = "sha256:1e66c8355b3443af78367c4937484cd875fdf9f5f14e1fed14aa95869e64f6d1", size = 339526, upload-time = "2025-10-22T15:38:34.901Z" },
 ]
 
 [[package]]

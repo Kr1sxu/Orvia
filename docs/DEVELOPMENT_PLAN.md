@@ -252,3 +252,12 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ L0/L1/L2/L3验证与中文模块文档，证据见PROGRESS。
 - [x] √ 敏感审计与正常本地提交，标题 `fix(V3-005): simplify document answers and source details`。
 - [ ] 用户手动push；本轮未重建安装包、未真实模型/独立Windows验收。完成后停止。
+
+## V4-001（2026-10-07）
+- [x] √ 默认关闭、本地严格端点、设置启停/检测及可见降级。
+- [x] √ 独立开发/安全存储凭据、非敏感配置持久化、状态元数据TTL缓存。
+- [x] √ SQLite原子版本与删除关联、可重建通知、只读projection及本地降级；通知不能执行任务。
+- [x] √ L0～L3、真实Redis/实际TTL/断服恢复、零真实模型、原有未启用扫描回归；证据见PROGRESS。
+- [x] √ 中文模块README、事实状态、敏感审计及正常本地提交；交付标题 feat(V4-001): add optional local Redis auxiliary service。
+- [ ] 用户手动push；未发布、未重建安装包、未做独立Windows验收。
+- [ ] V4-002及后续模块仍待逐轮授权；本轮结束停止。

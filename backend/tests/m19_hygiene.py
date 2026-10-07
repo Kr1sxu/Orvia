@@ -31,10 +31,11 @@ def main(working=False):
     values = credentials()
     env_file = ROOT / '.env.local'
     values['TAVILY_API_KEY'] = ''
+    values['REDIS_PASSWORD'] = ''
     if env_file.is_file():
         for line in env_file.read_text(encoding='utf-8-sig').splitlines():
             name, sep, value = line.partition('=')
-            if sep and name.strip() == 'TAVILY_API_KEY':
+            if sep and name.strip() in ('TAVILY_API_KEY', 'REDIS_PASSWORD'):
                 values[name.strip()] = value.strip().strip('"').strip("'")
     secrets = [value.encode() for value in values.values() if value]
     names = git_names('diff', '--cached', '--name-only')

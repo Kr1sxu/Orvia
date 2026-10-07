@@ -1,4 +1,5 @@
 import type { Configuration, Mission, MissionCreate, GrantStatus, ScanEnvelope } from '../main/contracts';
+import type {AuxiliaryConfig,AuxiliaryStatus} from '../main/auxiliary-contracts';
 import type { Conversation, ConversationSummary, ReadCall, ChatApproval, BrowserEvidence, DocumentEvidence, DocumentPreview, SynthesisPreview, SynthesisSource, PublicationPreview, DevelopmentContext, DevelopmentDraft, CleanupPlan } from '../main/chat-contracts';
 import type {z} from 'zod';
 import type {ScanPage,StreamPull} from '../main/m20-contracts';
@@ -11,7 +12,7 @@ export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
 export type Reply<T> = { ok: true; result: T } | { ok: false; message: string };
 export type HealthReply = Reply<HealthResult>;
 export type ConnectionStatus = { state: 'ready' | 'starting' | 'disconnected'; busy: boolean; cancellable: boolean; activeSend?: {id: string; request_id: string};materialProcessing?:{id:string;items:{title:string;status:'pending'|'parsing'|'ready'|'failed'|'cancelled'}[]} };
-export type Role = 'main' | 'computer' | 'browser' | 'tavily';
+export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
@@ -83,6 +84,9 @@ declare global { interface Window { orvia: {
   chatUndo: (input: ChatApproval) => Promise<Reply<Conversation>>;
   health: () => Promise<HealthReply>;
   settings: () => Promise<Reply<Settings>>;
+  auxiliaryStatus: () => Promise<Reply<AuxiliaryStatus>>;
+  auxiliaryConfigure: (input:AuxiliaryConfig) => Promise<Reply<AuxiliaryStatus>>;
+  auxiliaryProbe: () => Promise<Reply<AuxiliaryStatus>>;
   missions: () => Promise<Reply<{ missions: Mission[] }>>;
   createMission: (input: MissionCreate) => Promise<Reply<Mission>>;
   saveCredential: (input: { role: Role; key: string }) => Promise<Reply<{ updated: true }>>;

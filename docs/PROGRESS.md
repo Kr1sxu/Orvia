@@ -1221,3 +1221,70 @@ backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert
 本轮结果目录为 `artifacts/test-results/V4-DOC/`（Git 忽略）。阅读入口为根 README 或本文链接，无新增功能试用步骤。限制：文档确定路线和权限取舍，依赖版本、具体契约与资源预算须在对应模块实施设计中锁定；不能将目标能力写成简历已完成事实。
 
 本地交付提交标题为 `docs(V4): plan capability expansion without implementation`，本节随该正常本地提交保存，实际 hash 见 Git 历史；沿用既有作者的单次 `git -c` 身份，不修改持久配置。提交后停止，不开始 V4-001，用户手动 push 单独保持未完成。
+
+## V4-001 可选本地 Redis 辅助服务（2026-10-07）
+
+用户本轮明确授权仅001、必要依赖、subagent和正常本地commit；取代上文V4-DOC对001的“未获实施授权”历史状态，其余模块仍未实施。预检目录Orvia/main/HEAD `4f1b74a`，origin Kr1sxu/Orvia；`git symbolic-ref refs/remotes/origin/HEAD` 为origin/main；`git ls-remote --symref origin HEAD`验证远端main/`5d6d0e9`，不fetch/push或调整网络。预存未跟踪 `.zcodeignore`、`docs/INTERVIEW.md`原样保留且不暂存；现工作区无LICENSE删除。复用V3/M20的事实存储、固定模型、审批和恢复结论，未把旧安装包当新代码验收。
+
+- [x] √ 默认关闭、精确回环地址/端口/库号、固定设置与私有协议；配置/健康、显式启停和恢复、可见降级。按钮只改变Orvia连接，不管理Redis进程。
+- [x] √ 独立REDIS_PASSWORD/redis引用，仅Electron主进程读取开发凭据，经Initialize/credentials.replace注入后端内存；发布safeStorage加密无明文回退，撤回立即断旧连接，公开状态无密码。
+- [x] √ SQLite请求插入/状态修订/删除触发器维护随机UUID和版本，旧数据按100项批次重建；审批、正文、证据和完成事实仍在原SQLite链。
+- [x] √ Redis缓存仅task_id/version/status，30秒TTL；通知仅随机UUID/version，256条/60秒；消费者核对SQL，最多20项最近只读投影。关闭/降级/队列丢失用本地通知更新投影，单独计数；旧缓存/重复/延迟通知不执行或覆盖新事实。
+- [x] √ 删除标记即时清理本地关联，status复核剔除已删/旧版本，晚到通知不能复活会话；Redis不可用时无正文随机元数据可能保留到原TTL，不能作为证据使用。
+- [x] √ 有意义中文注释/模块README、根README/AGENTS、架构/开发清单/V4状态、相关验证与敏感审计。
+
+主Agent整合/桌面/真实服务/文档/提交；subagent只修改新auxiliary目录和test_v4_auxiliary.py，另一subagent只读审查，不传递真实Key或用户资料。不提前开发002；审查补齐实际投影与本地消费者、配置保存失败原连接保留、SQLite异常不杀观察器、服务端裁剪超长回复。初始化失败完整释放观察器/数据库，允许合法重试。
+
+### 具体契约与资源
+
+`auxiliary.status/configure/probe`固定私有方法；renderer只有对应三IPC，没有通用Redis、URL、SQL或命令。最终配置必须为本地地址127.0.0.1/::1、端口1～65535、db0～15、布尔enabled。status包含连接state、固定reason、独立凭据存在性、Redis/本地计数和最多20个{task_id,version,status}，不回显错误正文或原始会话标识。派生表不保存请求正文/用户路径/审批token。
+
+2秒后台轮询；每轮发布最多100修订、Redis与本地消费合计100；工作总预算1.5秒，另最多0.25秒关闭；单操作连接/读写0.25秒、探测0.5秒、单连接、retry=0。Lua仅返回不超过128字节的通知/256字节缓存，恶意值丢弃。Redis故障熔断，设置轮询3秒仅读已知状态，不自动重新连接；用户配置/检测/凭据更新或重启重新注入才探测，不重放业务。SQLite存储故障明确原因；模型调用、文件执行等重试政策未扩展。
+
+### 安装与真实服务
+
+预检Python3.12.6、uv0.12.5已存在，Redis客户端未装；已有Docker Desktop/WSL，初始引擎不可用，用户启动后引擎29.7.2正常。只执行 `C:/Users/18532/.local/bin/uv.exe add --directory backend --python .venv/Scripts/python.exe 'redis==7.0.0'`，项目venv安装客户端及重新安装同版editable项目，uv.lock只新增redis，不升级其它依赖。客户端MIT、PyPI官方版本/Python3.12兼容性已检查；[来源](https://pypi.org/project/redis/7.0.0/)、wheel339526字节，SHA256 `1e66c8355b3443af78367c4937484cd875fdf9f5f14e1fed14aa95869e64f6d1`。uv跨盘hardlink回退复制属安装提示，已安装成功；没有全局依赖或模型下载。
+
+真实兼容性验收夹具使用官方Redis7.2.4-alpine/BSD-3-Clause，镜像约18,841,207字节，固定digest `sha256:c8bb255c3559b3e458766db810aa7b3c7af1235b204cfdb304e79ff388fe1a5a`；[官方镜像](https://hub.docker.com/_/redis)、[许可](https://redis.io/legal/licenses/)。该旧版仅用于本轮隔离夹具，不代表生产部署建议。实际命令：
+
+```powershell
+docker pull redis:7.2.4-alpine
+docker run --detach --name orvia-v4-001-test --publish 127.0.0.1:16379:6379 --memory 96m --cpus 0.5 redis@sha256:c8bb255c3559b3e458766db810aa7b3c7af1235b204cfdb304e79ff388fe1a5a redis-server --save '' --appendonly no --maxmemory 32mb --maxmemory-policy allkeys-lru
+```
+
+实际inspect核验回环端口、96MiB/0.5CPU及镜像digest，INFO确认为7.2.4；无持久数据卷，缓存上限32MiB。测试用合成请求、认证密码及独立profile；不访问用户资料。验收后停止专用测试容器，Docker Desktop与镜像保留；不操作用户其它容器。Orvia产品不自动部署服务或写这些Docker参数。
+
+### 实际验证
+
+结果统一在 `artifacts/test-results/V4-001/`，Git忽略。真实模型调用0；默认测试无需Redis，live脚本只有显式ORVIA_REDIS_TEST_PORT才运行，断容器仅允许准确专用名。L3真实Electron–Python/SQLite/Redis；已有启动器只模拟模型/网页以及原生目录选择，不把模拟选择称人工验收。无需L4：独立可选辅助模块，原业务相关L1～L3已覆盖，未改执行/模型/打包链。
+
+|级别|实际命令/结果|证据与边界|
+|---|---|---|
+|L0|`npm run check`、`npm run build`通过（最后构建包含类型检查）；`C:/Users/18532/.local/bin/uv.exe lock --directory backend --check`通过|只开发构建，无安装包；92个锁定包，新增Redis，无其它版本更新|
+|L1/L2|`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_application.py backend/tests/test_configuration.py backend/tests/test_v3_management.py -q --basetemp=artifacts/test-results/V4-001/regression-data --junitxml=artifacts/test-results/V4-001/regression.xml`，44通过|真实临时SQLite，模型网络mock；配置、不可变角色、删除/恢复及原有边界|
+|L1/L2|同pytest运行 `backend/tests/test_v4_auxiliary.py backend/tests/test_v4_auxiliary_protocol.py backend/tests/test_application.py backend/tests/test_chat.py::test_chat_persistence_idempotency_and_restart_grant`，`--basetemp=artifacts/test-results/V4-001/final-data --junitxml=artifacts/test-results/V4-001/backend-final.xml`，14通过|7模块边界+2协议/失败初始化+4应用+1目录/重启；Redis失败/污染fake，无真实模型。含新投影、本地降级、SQL故障、时间预算；与44项部分重叠|
+|L1|`$env:ORVIA_TEST_RESULTS='artifacts/test-results/V4-001'; npx vitest run apps/desktop/tests/v4-auxiliary.test.ts apps/desktop/tests/credentials.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-001/unit.json`|初次16通过/1失败：旧断言假设全部凭据均已配置，新Redis默认缺失；修正断言并补独立引用测试，只重跑credentials为16通过（credentials-final.json）|
+|L1|同vitest运行 `apps/desktop/tests/v4-auxiliary.test.ts apps/desktop/tests/credential-sync.test.ts`，`--outputFile=artifacts/test-results/V4-001/contracts-final.json`，4通过|最终projection/错误reason契约、拒绝远端/命令/正文字段、同步故障停止旧后端；safeStorage单测为mock适配器|
+|L2真实服务|设置 `ORVIA_REDIS_TEST_PORT=16379`、`ORVIA_REDIS_TEST_CONTAINER=orvia-v4-001-test`，同pytest运行 `backend/tests/test_v4_auxiliary_live.py`，`--basetemp=artifacts/test-results/V4-001/live-data --junitxml=artifacts/test-results/V4-001/live.xml`，3通过|真正Redis读写、cache污染/重复/过期版本、删除后晚到通知、docker stop/start实际断服、requirepass与撤回、完整等待31秒验证30秒TTL|
+|L2真实服务|同live命令加 `-k 'not ttl'`，`--basetemp=artifacts/test-results/V4-001/live-final-data --junitxml=artifacts/test-results/V4-001/live-final.xml`，2通过/1未选中|移除redis7弃用参数并完成初始化清理后最小相关复验；已通过TTL不重复等待|
+|L3|设置 `ORVIA_TEST_MODULE=V4-001`、`ORVIA_REDIS_TEST_PORT=16379`，`npx playwright test tests/e2e/v4-auxiliary.spec.ts`，1通过；增加本地projection断言后同命令1通过|真实服务设置/错误端口TCP失败/恢复/重启/关闭、寒暄零模型；截图connected/disabled/local-projection已查看；v4-e2e-console.log保存最终命令输出，共享e2e.json被下一流程覆盖|
+|L3|设置MODULE与 `ORVIA_TEST_RESULTS=artifacts/test-results/V4-001`，`npx playwright test tests/e2e/m20.spec.ts --grep '无技术模式、先需求后目录授权'`，1通过|Redis默认关闭，真实批次/205条合成文件/完整分页/深度/撤权，原生选择模拟；scan-e2e.json|
+
+共57个不同后端用例（含3真实Redis用例）、20个不同前端用例、2个Electron流程通过。subagent先跑模块测试：6项通过；补SQL故障测试时fake上下文封装失败，修正测试后只重跑该项通过，主Agent最终7项均纳入backend-final.xml通过。初次live产生redis retry_on_timeout弃用提示，移除参数后live-final仅剩原有LangGraph弃用提示；未因此升级旧LangGraph。主Agent最终验收的临时目录、profile、报告和截图均在本模块忽略目录。subagent早期命令未带basetemp/junitxml，临时合成SQLite曾位于pytest默认Temp，这是目录约定偏差；未伪称当时已有项目内报告。实际早期命令为 `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_v4_auxiliary.py -q`（4/4/6通过，最后6通过1失败）及同命令仅SQL失败用例（1通过）。检查后仅对可确认属于新模块的pytest-308/309/310内12个测试目录逐项核验路径/无重解析点并用Move-Item归档到 `artifacts/test-results/V4-001/early-pytest/`，清单early-artifacts-archive.json；未操作其它临时目录。最终backend-final.xml包含完整7项通过。
+
+### 限制、试用和交付
+
+仅请求状态元数据缓存/只读通知，没有正文缓存、后台业务执行、分布式锁或完整历史列表；大量旧数据按批次重建，不保证立即全量呈现。命中仍核对SQLite，未做性能收益基准。仅验收本机Redis7.2.4单实例；未验证其它版本、Cluster、TLS、ACL组合、恶意本地服务的全部资源行为；EVAL不可用会降级。用户负责部署账户/升级和全服务资源限制，应用不随安装器部署Redis。生产safeStorage在本轮使用mock存储适配器回归，未做新发布版/独立Windows验收。旧安装包不包含V3及V4新代码；不访问真实模型或供应商。
+
+试用 `npm start` → 设置 → Redis辅助服务，填用户已部署的回环服务端口/库号并启用。可关闭辅助连接后选择合成目录扫描，或在服务停止时观察降级；服务恢复后点击检测。开发密码写被忽略.env.local的REDIS_PASSWORD后重启；需要认证但未提供时明确降级，不填假值、不借用模型Key。完整模块公共接口/示例见backend/src/orvia_backend/auxiliary/README.md。
+
+- [x] √ 正常本地提交，标题 `feat(V4-001): add optional local Redis auxiliary service`；实际hash见Git历史和交付消息，沿用既有单次git -c作者，不改持久配置。
+- [ ] 用户手动push；Agent不推送、不发布、不重建安装包。V4-001提交后停止，V4-002未开始。
+
+收尾L0：本轮内联Python文档/忽略/锁定检查29项通过，l0-doc-audit.json由XML交叉统计57个不同后端用例。`git status --short`、`git diff`、`git diff --cached`及两套diff --check已核对；显式暂存本模块35文件，预存两文件未暂存。敏感审计复用扩展REDIS_PASSWORD检查的backend/tests/m19_hygiene.py，实际index的禁入路径、真实密钥匹配、私钥块、模块产物真实密钥匹配和资源manifest差异均0，hygiene-staged.json；仅报告凭据存在性，不输出值。实际审计命令：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('backend/tests').resolve())); import m19_hygiene as audit; audit.RESULT=pathlib.Path('artifacts/test-results/V4-001').resolve(); raise SystemExit(audit.main())"
+```
+
+`docker stop orvia-v4-001-test`已执行，保留已停止的专用容器/镜像便于用户自行试用；未关闭Docker Desktop或更改其它容器。本轮没有push或安装包命令。

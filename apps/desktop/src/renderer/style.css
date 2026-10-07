@@ -23,3 +23,5 @@
 
 /* 完整目标清单独立滚动，长请求不挤占输入和待确认操作。 */
 .task-progress ol{max-height:260px;overflow:auto;padding-left:26px}.task-progress li{margin:8px 0;overflow-wrap:anywhere}.task-progress li details{font-size:12px;color:var(--muted)}.task-progress li p{margin:5px 0}
+
+.auxiliary-panel{border-top:1px solid var(--border);margin-top:18px;padding-top:12px;font-size:13px;line-height:1.7}.auxiliary-panel label{display:grid;gap:4px;min-width:0}.auxiliary-panel input{width:110px}.auxiliary-panel .row{flex-wrap:wrap}.auxiliary-panel details{margin:12px 0}.auxiliary-panel p{overflow-wrap:anywhere}

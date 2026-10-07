@@ -195,3 +195,7 @@ sandbox/contextIsolation 开启，Node/webview 禁用，拒绝联网、导航、
 DocumentCard 从既有 DocumentEvidence 的完整性元数据得到已准备回答/部分内容无法读取/无法回答，处理中沿用附件任务状态；preview_truncated 仅表示短摘录，不能误报读取缺失。DocumentDetail 完整保留技术字段且从折叠详情或引用点击进入。历史 document/synthesis 消息仍原样保存在数据库，默认展示结构化卡片，不重复输出旧技术说明。PDF/DOCX/PPTX/图片共用组件。
 SynthesisResult 的引用标签使用 coverage.title 与 locator，点击仍使用原 kind/evidence_id；SynthesisPreviewCard 保留准确正文、部分内容范围、DeepSeek接收方和费用。所有外部文字按React文本转义，不新增HTML或链接权限。依赖/公共IPC/数据结构不变。
 运行 `npm start`；组件测试 `npx vitest run apps/desktop/tests/v3-document-presentation.test.tsx apps/desktop/tests/m15-contracts.test.ts`；Electron流程见 tests/e2e/v3-document.spec.ts，产物在 artifacts/test-results/V3-005。模型自然语言布局需真实模型后续体验验证，mock通过不代表生成质量保证。
+
+## V4-001 Redis 设置
+`npm start` → 设置 → Redis辅助服务，连接用户已部署的本地端点。只允许127.0.0.1/::1；保存并启用、关闭辅助连接、显式检测恢复只影响Orvia连接。设置页3秒读取后端已知状态，不因轮询自动重连。详情显示分别统计的Redis/本地通知及最多20个经SQLite核验的状态，不表示业务完成。无原始会话标识/正文/密码显示。主进程校验来源及固定Zod契约，renderer无任意Redis方法。
+开发REDIS_PASSWORD只从根.env.local读取；发布凭据类型选择Redis独立密码，沿用safeStorage，无明文回退。该引用不是模型角色。后端断连不影响原有目录/聊天能力。测试为v4-auxiliary.test.ts和tests/e2e/v4-auxiliary.spec.ts（后者需显式ORVIA_REDIS_TEST_PORT），报告在artifacts/test-results/V4-001。未更新安装包。

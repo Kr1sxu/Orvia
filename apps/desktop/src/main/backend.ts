@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { backendLaunch, type PackagedRuntime } from './runtime';
 import { JsonLines, VERSION, MAX_LINE_BYTES, responseSchema, helloSchema, healthSchema } from './protocol';
 import { z } from 'zod';
+import {auxiliaryStatus, type AuxiliaryConfig} from './auxiliary-contracts';
 import { documentEvidenceSchema, documentPreviewSchema, browserEvidenceSchema, chatSnapshotSchema, chatListSchema, synthesisPreviewSchema, publicationPreviewSchema, developmentContextSchema, developmentDraftSchema, cleanupPlanSchema } from './chat-contracts';
 import { m20StreamEventSchema, m20ScanPageSchema, streamPullInput, streamAckInput, type M20StreamEvent, type StreamPull } from './m20-contracts';
 
@@ -15,7 +16,7 @@ export class BackendConnectionError extends Error {
 }
 import { configurationSchema, missionSchema, missionCreateSchema, grantStatusSchema, scanEnvelopeSchema, type MissionCreate, type GrantStatus, type ScanEnvelope } from './contracts';
 
-type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily', string>>;
+type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily' | 'redis', string>>;
 type Initialization = { dataDirectory: string; credentials: () => Secrets };
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout; business?: {id:string;request_id:string} };
@@ -96,6 +97,9 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  async auxiliaryStatus() { await this.start(); return auxiliaryStatus.parse(await this.request('auxiliary.status')); }
+  async auxiliaryProbe() { await this.start(); return auxiliaryStatus.parse(await this.request('auxiliary.probe')); }
+  async auxiliaryConfigure(config:AuxiliaryConfig) { await this.start(); return auxiliaryStatus.parse(await this.request('auxiliary.configure',config)); }
   async chatDeleteCheck(params:{id:string}) {await this.start();return z.object({id:z.string().uuid(),title:z.string(),blocked:z.boolean()}).strict().parse(await this.request('chat.delete_check',params));}
   async chatDelete(params:{id:string}) {
     await this.start();const result=z.object({id:z.string().uuid(),deleted:z.literal(true)}).strict().parse(await this.request('chat.delete',params));
@@ -263,7 +267,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Settings, Role } from '../shared/api';
+import {AuxiliaryPanel} from './AuxiliaryPanel';
 
 /** 凭据只停留在输入框本轮内存，提交立即清空，不加入会话或通知。 */
 export function SettingsPanel({settings, reload, close}: {settings?: Settings; reload: () => Promise<void>; close: () => void}) {
@@ -37,12 +38,13 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
     {settings?.credential_error && <p className="error">{settings.credential_error}</p>}
     <div className="profiles">{settings?.profiles.map(profile => <article key={profile.role}><strong>{profile.role}</strong><span>{profile.configured ? '已配置' : '缺少凭据'}</span><p>{profile.model}</p><small>{profile.base_url}</small></article>)}</div>
     {settings?.mode === 'development' ? <p>开发凭据来自根目录 .env.local，修改后重启应用。界面不显示密钥。</p> : <div className="credential-form">
-      <label>凭据类型<select value={role} onChange={e => setRole(e.target.value as Role)}><option value="main">Main</option><option value="computer">Computer</option><option value="browser">Browser</option><option value="tavily">Tavily 搜索</option></select></label>
+      <label>凭据类型<select value={role} onChange={e => setRole(e.target.value as Role)}><option value="main">Main</option><option value="computer">Computer</option><option value="browser">Browser</option><option value="tavily">Tavily 搜索</option><option value="redis">Redis 独立密码</option></select></label>
       <label>API Key<input type="password" autoComplete="off" maxLength={4096} value={key} onChange={e => setKey(e.target.value)}/></label>
       <div className="row"><button disabled={busy || !key || !settings?.encryption_available} onClick={() => void change(false)}>加密保存</button><button disabled={busy || !settings?.encryption_available} onClick={() => void change(true)}>移除凭据</button></div>
       {!settings?.encryption_available && <p className="error">系统安全存储不可用，不能保存凭据。</p>}
     </div>}
     <p>{settings?.search_available ? 'Tavily 已配置；在对话输入框选择搜索网页。' : '未配置 Tavily，搜索不可用；仍可读取已知公开网页。'}</p>
+    <AuxiliaryPanel/>
     <p role="status">{notice}</p>
     <button disabled={busy} onClick={() => void reload().catch(() => setNotice('连接检查失败，请重新启动应用。'))}>重新检查连接</button>
   </section></div>;

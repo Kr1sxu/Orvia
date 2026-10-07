@@ -18,8 +18,10 @@ class Credentials(BaseModel):
     computer: SecretStr | None = None
     browser: SecretStr | None = None
     tavily: SecretStr | None = None
+    # Redis 独立凭据只供辅助连接使用，不参与三个角色的模型配置。
+    redis: SecretStr | None = None
 
-    @field_validator("main", "computer", "browser", "tavily")
+    @field_validator("main", "computer", "browser", "tavily", "redis")
     @classmethod
     def bounded_key(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None:
