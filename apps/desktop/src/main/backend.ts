@@ -7,6 +7,8 @@ import {auxiliaryStatus, type AuxiliaryConfig} from './auxiliary-contracts';
 import {skillList,skillHistory,skillSummary,skillReview,skillPlan,skillExecution,type SkillsMethod} from './skills-contracts';
 import {retrievalStatus,retrievalModel,retrievalResult,retrievalRebuild,retrievalClear,type RetrievalMethod} from './retrieval-contracts';
 import {memoryList,memoryContext,memoryPreview,memorySearch,type MemoryMethod} from './memory-contracts';
+import {graphList,graphPreview,graphQuery,type GraphMethod} from './graph-contracts';
+type GraphResults={list:z.infer<typeof graphList>;preview:z.infer<typeof graphPreview>;generate:z.infer<typeof graphList>;query:z.infer<typeof graphQuery>};
 type MemoryResults={list:z.infer<typeof memoryList>;context:z.infer<typeof memoryContext>;preview:z.infer<typeof memoryPreview>;generate:z.infer<typeof memoryList>;search:z.infer<typeof memorySearch>;correct:z.infer<typeof memoryList>;forget:z.infer<typeof memoryList>};
 type RetrievalResults={status:z.infer<typeof retrievalStatus>;model:z.infer<typeof retrievalModel>;prepare:z.infer<typeof retrievalStatus>;activate:z.infer<typeof retrievalStatus>;download:z.infer<typeof retrievalStatus>;search:z.infer<typeof retrievalResult>;rebuild:z.infer<typeof retrievalRebuild>;clear:z.infer<typeof retrievalClear>};
 type SkillsResults={cancel:z.infer<typeof skillExecution>;history:z.infer<typeof skillHistory>;list:z.infer<typeof skillList>;enable:z.infer<typeof skillSummary>;preview_import:z.infer<typeof skillReview>;register:z.infer<typeof skillSummary>;plan:z.infer<typeof skillPlan>;execute:z.infer<typeof skillExecution>;execution:z.infer<typeof skillExecution>};
@@ -103,6 +105,12 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  /** 图谱只读查询与批准抽取是固定方法族，关系输出不具有命令执行能力。 */
+  async graph<M extends GraphMethod>(method:M,params:object):Promise<GraphResults[M]>{
+    await this.start();
+    const schemas={list:graphList,preview:graphPreview,generate:graphList,query:graphQuery};
+    return schemas[method].parse(await this.request(`graph.${method}`,params)) as GraphResults[M];
+  }
   /** 固定记忆方法族和响应预算；不暴露通用方法、来源或批准透传。 */
   async memory<M extends MemoryMethod>(method:M,params:object):Promise<MemoryResults[M]>{
     await this.start();
@@ -289,7 +297,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: `memory.${MemoryMethod}` | `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: `graph.${GraphMethod}` | `memory.${MemoryMethod}` | `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
@@ -301,7 +309,7 @@ export class BackendClient {
       // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
       // 完整M15–M20冷启动加载锁定解析/隔离依赖，给握手和初始化独立20秒。
       // 健康检查保留短期限；这只等待自有进程，不延长模型预算或自动重启。
-      const timeout=method==='retrieval.download'?1100000:method.startsWith('retrieval.')?190000:method.startsWith('memory.')?45000:method.startsWith('skills.')?15000:method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
+      const timeout=method==='retrieval.download'?1100000:method.startsWith('retrieval.')?190000:(method.startsWith('memory.')||method.startsWith('graph.'))?45000:method.startsWith('skills.')?15000:method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
       const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')),timeout);
       const business=params as {id?:unknown;request_id?:unknown};
       this.pending.set(id, { resolve, reject, timer,...(typeof business.id==='string'&&typeof business.request_id==='string'?{business:{id:business.id,request_id:business.request_id}}:{}) });

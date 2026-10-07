@@ -10,6 +10,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .configuration import Credentials, ModelRegistry
+from .configuration.client import ModelUnavailable
 from .browser import BrowserService
 from .browser.service import ReadRequest, SearchRequest
 from .domain import MissionCreate
@@ -30,6 +31,7 @@ from .retrieval.runtime import LocalEmbedder
 from .retrieval.model import manifest as embedding_manifest
 from .retrieval.integration import ScopedRetrieval
 from .memory import MemoryService, MemoryError
+from .graph import GraphService, GraphError
 
 
 class Params(BaseModel):
@@ -75,6 +77,13 @@ class MemoryRecord(RetrievalConversation):
 
 class MemoryCorrect(MemoryRecord):
     value: str = Field(min_length=1, max_length=300)
+
+
+class EvidenceGraphQuery(Params):
+    """图谱只接受本地查询和已保存身份，不能传入SQL、来源或执行权限。"""
+    query: str = Field(min_length=1, max_length=200, strict=True)
+    entity_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    hops: int = Field(default=2, ge=1, le=2, strict=True)
 
 
 class MissionId(Params):
@@ -198,6 +207,7 @@ class Application:
         methods |= {"auxiliary.status", "auxiliary.configure", "auxiliary.probe"}
         methods |= {"retrieval.model", "retrieval.status", "retrieval.prepare", "retrieval.activate", "retrieval.download", "retrieval.rebuild", "retrieval.search", "retrieval.clear"}
         methods |= {"memory.list", "memory.context", "memory.preview", "memory.generate", "memory.search", "memory.correct", "memory.forget"}
+        methods |= {"graph.list", "graph.preview", "graph.generate", "graph.query"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
@@ -257,6 +267,8 @@ class Application:
                     chat.retrieval = ScopedRetrieval(chat, retrieval)
                     chat.memory = MemoryService(chat)
                     await chat.memory.open()
+                    chat.evidence_graph = GraphService(chat)
+                    await chat.evidence_graph.open()
                     await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
@@ -295,6 +307,15 @@ class Application:
             elif method == "memory.forget":
                 request = MemoryRecord.model_validate(params)
                 result = await self.chat.memory.forget(request.id, request.memory_id)
+            elif method in {"graph.list", "graph.preview"}:
+                cid = RetrievalConversation.model_validate(params).id
+                result = await getattr(self.chat.evidence_graph, method.split(".")[1])(cid)
+            elif method == "graph.generate":
+                request = MemoryGenerate.model_validate(params)
+                result = await self.chat.evidence_graph.generate(request.id, request.revision)
+            elif method == "graph.query":
+                request = EvidenceGraphQuery.model_validate(params)
+                result = await self.chat.evidence_graph.query(request.query, request.entity_id, request.hops)
             elif method == "retrieval.status":
                 Params.model_validate(params)
                 result = self.embedding.status()
@@ -444,8 +465,14 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError) as error:
             return error_response(request_id, error.code, error.message)
+        except ModelUnavailable as error:
+            # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。
+            code = "MISSING_CREDENTIAL" if str(error) == "MISSING_CREDENTIAL" else "MODEL_UNAVAILABLE"
+            return error_response(request_id, code, "固定模型凭据缺失，未发出请求" if code == "MISSING_CREDENTIAL" else "固定模型请求未完成，请核对现有记录；不会自动重试")
+        except TimeoutError:
+            return error_response(request_id, "MODEL_TIMEOUT", "模型请求超时，结果可能未知；请核对现有记录，不会自动重试")
         except ContextError as error:
             return error_response(request_id, error.code, error.message)
         except ValueError:

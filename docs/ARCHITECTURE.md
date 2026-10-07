@@ -221,3 +221,12 @@ V4-002新增Skills框架，完整接口见backend/src/orvia_backend/skills/READM
 MemoryService从chat_requests/精确request_id消息和当前有效资料生成本地五轮/当前状态；同会话批准摘要接入路由、普通回答及旧规划器，跨会话命中仅本地展示。memory_candidates/records/summaries/revocations保存引用及失效支持，FTS5/jieba只检索verified值，冲突不冒充确认事实。memory_batches保存最多20份准确预览，独立memory_attempts无正文持久账本在网络前事务写入，最多128次/会话，失败/未知/缓存淘汰/遗忘不授权重发；已有聊天purge在同一事实事务清掉七表。
 
 主进程固定IPC严格校验身份、字节预算和完整预览，原生展示实际instructions/input、固定Main、用途和费用；取消零调用，批准仅准确未变化的revision，模型结果还须严格逐字来源核验。纠正/忘记仅源会话；资料撤回清除其支持，仍有其它有效支持则保留。无新依赖；27核心＋3协议＋65相关回归、8前端契约及1真实Electron流程通过，Main mock/原生模拟与真实SQLite分开记录。有限中文/敏感模板、摘要12KiB/12条、原始上下文24KiB及长期来源128有界，不声称全语义覆盖或客观事实真伪证明。详见memory README/PROGRESS。
+
+
+### V4-005 已实现架构（2026-10-07）
+
+GraphService与MissionGraph分离：前者仅构造批准资料证据关系，后者仍负责既有LangGraph任务状态。graph_entities/relations保存cid、来源scope、整文版本绑定身份及原文支持，graph_batches是20份有界准确预览缓存，graph_attempts与graph_processed分别保存无正文调用及成功批次来源版本事实（各128/会话），graph_revocations保留无正文撤回身份；已有聊天purge在同一事实事务清六表。模型陈述、缓存和关系路径不能作为执行完成或权限依据。
+
+固定Main一次30秒/1536输出token；批次最多16来源、发送24KiB、预览32KiB，成功来源版本允许接续后批，缓存删除不能重发未知revision。只发送明确用户原文和当前ready资料，全文hash检测裁剪之外的变化；最终事务再核对版本、来源关联和独立完整关系句。实体person/project/file、关系responsible_for/member_of/documents/depends_on，否定、条件、可能、计划或名字前后缀不能形成正向模板。矛盾负责人保留conflict且不用于路径，遗漏矛盾拒绝结果。
+
+本地候选最多512实体，跨origin/cid/version同名不合并；选择准确身份后最多512条同scope关系、前向两跳、20路径及32KiB，排除循环/失效/冲突并明确截断。资料范围证据不是全局真相；有限中文模板和首2KiB摘录不保证完整自然语言抽取或全文覆盖，原始资料保留。真实SQLite/固定协议/Electron和Main mock验收见模块README/PROGRESS，不部署Neo4j、不新增依赖、不发布或重建安装包。

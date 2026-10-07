@@ -18,6 +18,10 @@ export type Settings = Configuration & { mode: 'development' | 'secure_storage';
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
   memoryList:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryList>>;
+  graphList:(input:{id:string})=>Promise<Reply<import('../main/graph-contracts').GraphList>>;
+  graphPreview:(input:{id:string})=>Promise<Reply<import('../main/graph-contracts').GraphPreview>>;
+  graphGenerate:(input:{id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/graph-contracts').GraphList}>>;
+  graphQuery:(input:{query:string;entity_id?:string;hops?:1|2})=>Promise<Reply<import('../main/graph-contracts').GraphQuery>>;
   memoryContext:(input:{id:string;query?:string})=>Promise<Reply<import('../main/memory-contracts').MemoryContext>>;
   memoryPreview:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryPreview>>;
   memoryGenerate:(input:{id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/memory-contracts').MemoryGenerated}>>;

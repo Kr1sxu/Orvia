@@ -106,6 +106,11 @@ async def purge(chat, cid):
                 async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (memory_table,)) as cursor:
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {memory_table} WHERE cid=?', (cid,))
+            # 来源图谱及无正文调用事实同属被删除会话，不能通过重启或缓存恢复。
+            for graph_table in ('graph_entities', 'graph_relations', 'graph_batches', 'graph_attempts', 'graph_processed', 'graph_revocations'):
+                async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (graph_table,)) as cursor:
+                    if await cursor.fetchone():
+                        await db.execute(f'DELETE FROM {graph_table} WHERE cid=?', (cid,))
             await db.execute('DELETE FROM m20_scan_entries WHERE scan_id IN (SELECT id FROM m20_scans WHERE conversation_id=?)', (cid,))
             for table in ('context_fts','context_documents','context_preferences','context_summaries','browser_evidence','document_evidence','operation_tasks'):
                 await db.execute(f'DELETE FROM {table} WHERE mission_id=?', (cid,))

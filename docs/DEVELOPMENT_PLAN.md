@@ -271,6 +271,7 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [ ] 用户手动push；Agent不发布、不重建安装包。
 - [x] √ V4-004固定本地Qwen、受限SQLite向量/FTS5/余弦/RRF与原文引用，实际下载核验、语义/资源/删除/隔离/重启、L0～L3、中文文档与独立正常本地commit；交付标题 `feat(V4-004): add verified local embeddings and scoped hybrid retrieval`，实际hash见Git历史。
 - [x] √ V4-003五轮/当前请求事实、原生批准滚动摘要与来源记忆、冲突/纠正/忘记/撤回/删除、持久调用账本；L0～L3、中文文档与独立本地commit，标题 `feat(V4-003): add five-round context and approved source-backed memory`，hash见Git历史。
-- [ ] V4-005→006→007→008→009→010→011尚未完成；用户“继续目标”已解除004后暂停，逐模块实际交付后自动继续。
+- [x] √ V4-005人物/项目/文件实体、有原文及全文版本支持的固定关系、同名消歧/冲突保留/两跳/撤回/删除，L0～L3、中文文档及独立正常本地commit；标题 `feat(V4-005): add source-verified entities and bounded relationship queries`，实际hash见Git历史。
+- [ ] V4-006→007→008→009→010→011尚未完成；用户“继续目标”已解除004后暂停，逐模块实际交付后自动继续。
 
 V4-004本机开发版验收完成：102个不同后端用例、2个前端契约、关键词与实际Qwen共2个Electron流程；固定合成集三通道Recall@5/MRR@5/耗时、向量与SQLite大小、RSS树均有实际记录。满批资源与token超限独立验证，无云模型调用；不把mock/原生模拟当真实模型或人工验收。证据和限制见PROGRESS；未push、发布或重建安装包。

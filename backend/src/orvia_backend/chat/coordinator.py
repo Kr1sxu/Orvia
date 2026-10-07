@@ -212,6 +212,8 @@ class NaturalCoordinator:
         if getattr(self.chat, "memory", None) is not None:
             # 附件解除有效关联同时撤回记忆支持，不因历史证据仍存而复活派生正文。
             await self.chat.memory.revoke_source(cid, f"{request.kind}:{request.evidence_id}")
+        if getattr(self.chat, "evidence_graph", None) is not None:
+            await self.chat.evidence_graph.revoke_source(cid, f"{request.kind}:{request.evidence_id}")
 
     async def _update(self, cid, rid, **values):
         allowed = {"plan_json", "position", "state", "continuation_id", "workflow_json", "baseline"}

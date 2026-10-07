@@ -17,6 +17,7 @@ import {auxiliaryConfig} from './auxiliary-contracts';
 import {registerSkills} from './skills-ipc';
 import {registerRetrieval} from './retrieval-ipc';
 import {registerMemory} from './memory-ipc';
+import {registerGraph} from './graph-ipc';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -59,6 +60,7 @@ app.whenReady().then(async () => {
   let materialProcessing:{id:string;items:{title:string;status:'pending'|'parsing'|'ready'|'failed'|'cancelled'}[]}|undefined;
   let m18Authorization: {clear:()=>void} | undefined;
   let memoryAuthorization: {clear:()=>void} | undefined;
+  let graphAuthorization: {clear:()=>void} | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
   const pageUrl = pathToFileURL(page).href;
   // 模型请求仅后端显式发起；渲染端仍拒绝权限申请及所有联网请求。
@@ -111,6 +113,7 @@ app.whenReady().then(async () => {
       developmentDraftAuthorization=undefined;
       cleanupAuthorization=undefined;
       memoryAuthorization?.clear();
+      graphAuthorization?.clear();
       m18Authorization?.clear();
       materialProcessing=undefined;
       backend = createBackend();
@@ -133,6 +136,7 @@ app.whenReady().then(async () => {
   registerSkills({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   registerRetrieval({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   memoryAuthorization=registerMemory({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
+  graphAuthorization=registerGraph({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   handle('orvia:chat-rename',1,input=>chatAction(()=>backend.chat('chat.rename',chatRenameSchema.parse(input))));
   handle('orvia:chat-pin',1,input=>chatAction(()=>backend.chat('chat.pin',chatPinSchema.parse(input))));
   handle('orvia:chat-delete',1,input=>chatAction(async()=>{
@@ -166,7 +170,7 @@ app.whenReady().then(async () => {
   handle('orvia:chat-stream-pull',1,async input=>backend.streamPull(streamPullInput.parse(input)));
   handle('orvia:chat-stream-ack',1,async input=>backend.streamAck(streamAckInput.parse(input)));
   handle('orvia:chat-scan-page',1,input=>backend.scanPage(scanPageInput.parse(input)));
-  function invalidatePreviews(){memoryAuthorization?.clear();documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
+  function invalidatePreviews(){graphAuthorization?.clear();memoryAuthorization?.clear();documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
   handle('orvia:chat-material-remove',1,input=>chatAction(async()=>{invalidatePreviews();return backend.chat('chat.material.remove',materialRemoveInput.parse(input));}));
   handle('orvia:chat-revoke',1,input=>chatAction(async()=>{invalidatePreviews();m18Authorization?.clear();return backend.chat('chat.revoke',revokeInput.parse(input));}));
   handle('orvia:chat-add-files',1,input=>chatAction(async()=>{

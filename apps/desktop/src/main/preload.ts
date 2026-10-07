@@ -3,6 +3,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
   memoryList:(input:unknown)=>ipcRenderer.invoke('orvia:memory-list',input),
+  graphList:(input:unknown)=>ipcRenderer.invoke('orvia:graph-list',input),
+  graphPreview:(input:unknown)=>ipcRenderer.invoke('orvia:graph-preview',input),
+  graphGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:graph-generate',input),
+  graphQuery:(input:unknown)=>ipcRenderer.invoke('orvia:graph-query',input),
   memoryContext:(input:unknown)=>ipcRenderer.invoke('orvia:memory-context',input),
   memoryPreview:(input:unknown)=>ipcRenderer.invoke('orvia:memory-preview',input),
   memoryGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:memory-generate',input),

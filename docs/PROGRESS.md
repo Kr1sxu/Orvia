@@ -1539,3 +1539,51 @@ L4评估：此次改变聊天上下文/删除派生数据，已执行65项相关
 提交前检查git status/git diff/git diff --cached及敏感扫描；实际回执hygiene-working.json/hygiene-staged.json和commit-receipt.json保存在忽略目录，统计不读取预存.zcodeignore/docs/INTERVIEW.md。显式选择003文件，排除真实凭据、数据库、日志、测试产物/权重/用户文件，不amend前模块。独立正常本地提交标题 `feat(V4-003): add five-round context and approved source-backed memory`，实际hash见Git历史/回执（避免自引用改变提交）；仍待用户手动push，无Release或安装包重建。
 
 试用：npm start→合成会话“我的偏好是简洁回答”→设置→记忆与上下文→选会话/准备预览→核对instructions和实际input→原生批准；本地查询命中后查看来源会话可纠正/忘记。完成003独立提交后按继续目标自动进入005，不恢复历史暂停。
+
+
+## V4-005：实体关系与知识图谱（2026-10-07）
+
+V4-003已实际交付独立本地commit **9bd8864**；003最终95个不同后端/8桌面/1Electron通过，无真实云调用，工作树仅预存两个文件。按“继续目标”自动继续005，未开始006。主Agent接入Application/删除/现有IPC、审查/E2E/文档/提交；graph_core独占graph目录及test_v4_graph.py，graph_desktop独占4个新增graph桌面文件，禁止并发修改或传递凭据。
+
+设计：SQLite保存来源/全文版本绑定的人物、项目和文件实体、固定方向类型的关系与支持；来源身份不同或同名不自动合并。本地查询歧义须显式选择entity_id，向前至多两跳、固定预算，不生成SQL、不将关系路径当现实执行事实。Main抽取逐批准确原文/供应商/用途/费用原生确认；关系须程序核验中文明确模板和方向，只有名字在原文不够证明关系。矛盾保留conflict，撤回/删除撤销支持。沿用项目依赖，无新安装/模型下载。模型mock、真实SQLite和实际Electron分开记录，产物仅artifacts/test-results/V4-005/。
+
+- [x] √ 实际实体/关系/证据持久化、准确批准/校验、歧义/冲突/至多两跳/来源撤回和会话purge。
+- [x] √ L0契约/类型/语法，L1核心来源/方向/预算/未知不重发，L2固定接口/聊天删除/相关回归，L3实际Electron批准取消/提取/本地查询/重启；L4评估。
+- [x] √ README/架构/开发清单/V4/进度、独立正常本地commit标题与敏感回执见下文/Git历史；提交前不进入006。
+
+实际实现：GraphService独立于既有MissionGraph，仅用SQLite已存明确用户原文和当前ready资料。实体person/project/file和四种固定方向关系绑定cid+origin+完整原文版本+kind+name；同来源不同unit可共享身份，不同来源或会话同名不合并。Graph Source保存准确quote、定位和全文hash，资料全部unit正文参与版本；显式敏感内容全文过滤。候选、列表、预览、query不发云；Main准确原生批次批准后30秒/1536token一次调用，额外字段、陌生来源、错误方向、不支持类型或非完整独立模板句拒绝。最终事务再核对会话未删除/ready关联/全文版本与关系句，截断之外否定后缀也不能绕过校验。
+
+审查修复与决策：子串关系校验收紧为独立完整句，仅有限固定“解释，”前缀；否定/条件/可能/计划/姓名后缀/短项目名拒绝，包括模型将“如果/不是”伪装作人物名字。对已批准来源中互斥负责人检查覆盖，遗漏另一位或空arrays拒绝整批并不消费source；完整双方保留conflict并阻止路径，不用模型省略掩盖冲突。graph_processed无正文(cid,source_id,version)128项成功来源处理事实使后批接续，实际20来源按16+4批次、缓存清理/重新初始化通过；不是保证全文完整抽取。graph_attempts128次独立调用事实网络前running，成功同事务completed、失败failed，启动interrupted；20份预览淘汰不准重发。来源撤回清其processed和正文缓存，撤回标识保留；chatpurge六表同事务删除，删除journal先禁止支持，即使原文还在也query0。
+
+预算：来源发现最多3资料/每文档前50unit/最近128明确用户消息；片段2048UTF8字节、每批16、实际发送24KiB/预览32KiB，任何截断可见。实体512/全库、关系1024/全库、8来源/条、128有效支持来源/会话；list每类20/32KiB。query本地精确/有界名字包含，歧义最多20候选不生成路径；选准确identity后只读同cid+origin+version最多512边，前向两跳、20路径/32KiB，visited排除环/撤回/冲突。其它会话512条边不挤掉当前scope路径有目标实测，数量和字节上限先到者有效。固定失败协议MISSING_CREDENTIAL/MODEL_TIMEOUT，不泄漏供应商响应、不给未知结果鼓励重试；本地query仍可用。
+
+实际主Agent验证命令（根目录；产物前缀artifacts/test-results/V4-005/，Main mock或缺凭据0真实调用）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_graph_protocol.py backend/tests/test_application.py backend/tests/test_v3_management.py backend/tests/test_v4_memory_protocol.py backend/tests/test_v4_retrieval_protocol.py backend/tests/test_m20_natural.py::test_three_materials_limit_and_removed_source_never_sent -q --basetemp=artifacts/test-results/V4-005/integration-data --junitxml=artifacts/test-results/V4-005/integration.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_graph_protocol.py -q --basetemp=artifacts/test-results/V4-005/integration-recheck-data --junitxml=artifacts/test-results/V4-005/integration-recheck.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_graph_protocol.py -k model_failure -q --basetemp=artifacts/test-results/V4-005/error-contract-data --junitxml=artifacts/test-results/V4-005/error-contract.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_graph.py backend/tests/test_v4_graph_protocol.py -q --basetemp=artifacts/test-results/V4-005/final-core-data --junitxml=artifacts/test-results/V4-005/final-core.xml
+backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend/graph backend/src/orvia_backend/application.py backend/src/orvia_backend/chat/coordinator.py backend/src/orvia_backend/chat/management.py
+npx vitest run apps/desktop/tests/v4-graph.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-005/desktop-graph-unit.json
+npm run check
+npm run build
+$env:ORVIA_TEST_MODULE='V4-005'
+npx playwright test tests/e2e/v4-graph.spec.ts
+```
+
+|级别|结果/证据|性质/闭合|
+|---|---|---|
+|L0|npm run check/build、compileall、git diff --check通过|无新依赖/安装/模型下载；build非安装包|
+|L1核心|最后43核心通过；此前37完整＋coverage/scope3＋prefix14含2新增＋empty_conflict1去重43，精确子Agent命令见模块README|真实SQLite合成原文，Main mock；预算fixture曾错误要求恰好20路径，实际32KiB先截断约10，改为有效1～20/字节/truncated并最小复验，不把数量上限当必达数|
+|L2|integration.xml27通过含3图谱协议＋24相关回归，新增processed后协议3复验通过，error-contract.xml新增2通过；final-core.xml核心43＋协议5共48通过|真实Application/SQLite、准确预览/固定Main mock、来源移除/原文保留、六表purge、私有字段/SQL/三跳/bool拒绝、缺Key/超时后零第二调用；复用仍有效的相关回归，不重复无关项|
+|L1桌面|desktop-graph-unit.json9通过|Unicode/实际字节、身份/版本/方向、歧义无路径、额外字段拒绝、原生取消0、旧完整正文失效、unknown一次性许可、clear失效；dialog模拟|
+|L3|首次1通过/12.2秒，边界/processed后1通过/12.2秒，最终scope/冲突修复后1通过/12.5秒，均同一个流程|真实Electron–Python/SQLite；Main HTTP替身与原生确认模拟。合成解释→取消0增量→批准1固定Main mock→4实体/3边→人到项目到依赖项目2路径→重启→另一会话同名2identity/0path→明确选择1identity/2path→删除原会话后仅剩1identity/2path。查询/选择/删除不增模型调用|
+
+最终JUnit按(classname,name)去重 **72个不同后端用例通过，未解决失败/跳过0**（43核心＋5协议＋24相关回归），verification-final.json列归属；9桌面契约＋1不同Electron流程。首次e2e-before-boundary-fix.json保留，不将重复执行计新流程。two-hop.png/after-delete.png（electron-IlHCMr）已实际查看，中文实体、1/2跳、有向箭头、来源详情和结果均可读，无横向溢出。最终截图目录可从e2e.json/证据目录核对。未真实调用Main、未人工原生/独立Windows/安装包验证；没有新工具、依赖或模型。
+
+L4评估：图谱是新派生服务，无新文件执行、网络服务或发布变更；已跑24项相关Application/资料移除/会话删除/003/004接口回归，加核心实际SQLite和真实Electron，复用003/004仍有效证据，不扩展无关全量或重建包。有限模板及名字匹配不能提供通用自然语言抽取/语义推理，人物前缀过滤可能保守误拒特殊姓名；只处理前2KiB片段/指定发现范围，truncated或空结果不说明全文完整理解。跨来源身份不自动归并，冲突撤一方后仍保守conflict，须新来源版本批准；图谱为资料内证据关系，不保证现实真伪。敏感规则有限，准确正文必须用户审查。保留LangGraph原弃用提示。
+
+所有权已由两个子Agent交回；另一个只读审查发现模型遗漏矛盾负责人问题，主Agent整合修复与复验，不曾并发改同文件。根/backend/desktop README、graph README、架构、开发清单/V4/本进度已更新。提交前git status/diff/cached、敏感/禁入审计真实回执hygiene-working.json/hygiene-staged.json及commit-receipt.json在忽略目录；显式选择005文件，排除预存两个文件、密钥、DB、日志/测试产物/模型和用户文件。独立正常本地commit标题 `feat(V4-005): add source-verified entities and bounded relationship queries`，实际hash见Git历史/回执；不amend、不push、不Release或重建安装包。
+
+试用npm start→发送合成明确关系原文→设置→实体关系与知识图谱→选会话→准备准确预览→原生批准；查询姓名/项目，歧义时选身份，最多两跳查看原文。当前模块实际交付后自动进入006，后续未完成不将完整Goal标完成。
