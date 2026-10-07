@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, SecretStr, field_validator
 
 from .configuration import Credentials, ModelRegistry
 from .configuration.client import ModelUnavailable
@@ -33,6 +33,8 @@ from .retrieval.integration import ScopedRetrieval
 from .memory import MemoryService, MemoryError
 from .graph import GraphService, GraphError
 from .rewrite import RewriteService, RewriteError
+from .mcp import McpService
+from .mcp.protocol import McpError
 
 
 class Params(BaseModel):
@@ -40,8 +42,19 @@ class Params(BaseModel):
 
 
 class Initialize(Params):
+    mcp_credentials: dict[Annotated[str, Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")], SecretStr] = Field(default_factory=dict, max_length=5)
     data_directory: str
     credentials: Credentials
+
+    @field_validator("mcp_credentials")
+    @classmethod
+    def bounded_mcp_credentials(cls, values):
+        """私有初始化同样约束专用Bearer；无效值不会进入后端内存或错误正文。"""
+        for secret in values.values():
+            value = secret.get_secret_value()
+            if not 1 <= len(value) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in value):
+                raise ValueError("MCP 专用凭据须为最多4096字节的单行ASCII")
+        return values
 
 
 class ReplaceCredentials(Params):
@@ -94,6 +107,33 @@ class RewritePreviewRequest(RetrievalConversation):
 
 class RewriteSearchRequest(RewritePreviewRequest):
     revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class McpServerRequest(Params):
+    server_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class McpRevisionRequest(McpServerRequest):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class McpConfigureRequest(Params):
+    review_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class McpCallPreviewRequest(McpServerRequest):
+    id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    tool: str = Field(min_length=1, max_length=100, strict=True)
+    arguments: dict
+
+
+class McpCallRequest(McpRevisionRequest):
+    id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class McpCredentialRequest(McpServerRequest):
+    credential: SecretStr | None = Field(default=None, max_length=4096)
 
 
 class MissionId(Params):
@@ -221,6 +261,7 @@ class Application:
         self.chat: ChatService | None = None
         self.auxiliary: AuxiliaryService | None = None
         self.skills: SkillsService | None = None
+        self.mcp: McpService | None = None
         self.embedding: LocalEmbedder | None = None
         self.retrieval: RetrievalService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
@@ -240,6 +281,7 @@ class Application:
         methods |= {"retrieval.model", "retrieval.status", "retrieval.prepare", "retrieval.activate", "retrieval.download", "retrieval.rebuild", "retrieval.search", "retrieval.clear"}
         methods |= {"memory.list", "memory.context", "memory.preview", "memory.generate", "memory.search", "memory.correct", "memory.forget"}
         methods |= {"graph.list", "graph.preview", "graph.generate", "graph.query"}
+        methods |= {"mcp.list","mcp.preview_config","mcp.configure","mcp.connect_preview","mcp.connect","mcp.approve_tools","mcp.call_preview","mcp.call","mcp.history","mcp.disconnect","mcp.remove","mcp.credential_replace"}
         methods |= {"rewrite.preview", "rewrite.generate", "rewrite.search", "rewrite.history"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
@@ -304,6 +346,12 @@ class Application:
                     await chat.evidence_graph.open()
                     chat.rewrite = RewriteService(chat)
                     await chat.rewrite.open()
+                    mcp = McpService(store, chat)
+                    await mcp.open()
+                    # 独立MCP凭据仅私有初始化内存，不复用角色Key、不从配置或环境继承。
+                    for server in (await mcp.list())["servers"]:
+                        if server["id"] in initial.mcp_credentials:
+                            await mcp.replace_credential(server["id"], initial.mcp_credentials[server["id"]].get_secret_value())
                     await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
@@ -317,6 +365,7 @@ class Application:
                 # SQLite 初始化后建立只读事实通知；辅助连接失败不能改变业务就绪状态。
                 self.auxiliary = auxiliary
                 self.skills = skills
+                self.mcp = mcp
                 self.embedding, self.retrieval = embedding, retrieval
                 result = {"initialized": True}
             elif self.store is None:
@@ -351,6 +400,35 @@ class Application:
             elif method == "graph.query":
                 request = EvidenceGraphQuery.model_validate(params)
                 result = await self.chat.evidence_graph.query(request.query, request.entity_id, request.hops)
+            elif method == "mcp.list":
+                Params.model_validate(params)
+                result = await self.mcp.list()
+            elif method == "mcp.preview_config":
+                result = await self.mcp.preview_config(SkillImport.model_validate(params).path)
+            elif method == "mcp.configure":
+                request = McpConfigureRequest.model_validate(params)
+                result = await self.mcp.configure(request.review_id, request.revision)
+            elif method == "mcp.connect_preview":
+                result = await self.mcp.connect_preview(McpServerRequest.model_validate(params).server_id)
+            elif method in {"mcp.connect", "mcp.approve_tools"}:
+                request = McpRevisionRequest.model_validate(params)
+                action = self.mcp.connect if method == "mcp.connect" else self.mcp.approve_tools
+                result = await action(request.server_id, request.revision)
+            elif method == "mcp.call_preview":
+                request = McpCallPreviewRequest.model_validate(params)
+                result = await self.mcp.call_preview(request.id, request.server_id, request.tool, request.arguments)
+            elif method == "mcp.call":
+                request = McpCallRequest.model_validate(params)
+                result = await self.mcp.call(request.id, request.server_id, request.revision)
+            elif method == "mcp.history":
+                result = await self.mcp.history(RetrievalConversation.model_validate(params).id)
+            elif method in {"mcp.disconnect", "mcp.remove"}:
+                request = McpServerRequest.model_validate(params)
+                action = self.mcp.disconnect if method == "mcp.disconnect" else self.mcp.remove
+                result = await action(request.server_id)
+            elif method == "mcp.credential_replace":
+                request = McpCredentialRequest.model_validate(params)
+                result = await self.mcp.replace_credential(request.server_id, request.credential.get_secret_value() if request.credential else None)
             elif method == "rewrite.preview":
                 request = RewritePreviewRequest.model_validate(params)
                 result = await self.chat.rewrite.preview(request.id, request.query, request.memory_ids)
@@ -433,6 +511,9 @@ class Application:
                 result = await self.auxiliary.configure(config.model_dump())
             elif method.startswith("chat."):
                 result = await self.chat.handle(method, params)
+                if self.mcp is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
+                    # 成功撤回或删除后清本机调用准备正文；实际尝试账本仍由SQLite决定。
+                    self.mcp.forget_previews(params["id"])
                 if method in {"chat.send", "chat.natural", "chat.continue", "chat.fallback.confirm", "chat.document.attach", "chat.synthesis.generate", "chat.material.remove"}:
                     # 只建立本地候选；外发整理仍走独立准确预览及主进程原生批准。
                     await self.chat.memory.synchronize(params["id"])
@@ -518,7 +599,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError) as error:
             return error_response(request_id, error.code, error.message)
         except ModelUnavailable as error:
             # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。
@@ -548,6 +629,9 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.mcp is not None:
+            await self.mcp.close()
+            self.mcp = None
         if self.embedding is not None:
             await self.embedding.close()
             self.embedding = None

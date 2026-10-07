@@ -1642,3 +1642,65 @@ L4评估：新增只读派生服务/本地Skills会话归属，无新文件执�
 已更新模块/Skills/root/backend/desktop README、架构、开发清单/V4/进度；提交前git status、diff、cached及敏感/禁入检查，回执hygiene-working.json/hygiene-staged.json/commit-receipt.json在忽略目录。显式选择006文件，不读取或暂存预存.zcodeignore/docs/INTERVIEW.md，不收Key、数据库、日志/产物/模型/用户文件；独立正常本地commit标题`feat(V4-006): approve bounded query rewrites and run local context skills`，hash见Git历史/回执，不amend、不push、不Release/重建包。006提交完成后按最新继续目标自动进入007。
 
 试用npm start→添加合成资料→记忆入口保存“我的项目是合成航线”有效记忆→查询改写选会话/原问题“它的费用”/勾当前项目→预览全部正文→原生批准→本地原问题＋候选；或直接原问题。Skills选Query Rewrite→本机会话→inputs包含query和revision空串→原生计划确认；没有暗中生成模型请求。
+
+
+## V4-007：MCP只读工具扩展（2026-10-08交付）
+
+006已实际交付独立commit **c9e3074**：106不同后端通过/1Windows符号链接权限skip、31桌面、1Electron，working/staged36文件敏感审计0，仍保留预存两个文件。按继续目标进入007，不开始008。rewrite_core独占新mcp transport/protocol/schema及transport目标测试/合成服务fixtures；graph_core独占mcp service/__init__/README及服务目标测试；rewrite_desktop独占新mcp桌面contracts/ipc/credentials/Panel/test；主Agent负责现有接入/生命周期/删除/集成与E2E/审查/文档提交，不共享文件编辑。
+
+锁定方案引用的MCP2025-06-18有限只读子集，现有httpx0.28.1/psutil7.2.2/ctypes/SQLite足够，暂不装SDK或第三方服务器。原生选择准确配置json→准确程序/参数/HTTPSendpoint连接确认→固定initialize+工具分页→工具schema/用户逐项允许清单原生审查→每调用准确参数/body版本原生确认。允许清单/名称读取前缀与危险名称规则是客户端限制，服务器readOnlyHint不证明无副作用；本地普通账户程序非LPAC。程序及已有fileargs身份hash变化拒旧许可，不能保证所有隐式依赖。stdio挂起先入Windows Job再resume，真实子进程回收验证；HTTPS TLS验证、无env代理/redirect/OAuth/URI跟随，POST JSON/SSE和session/version处理，不断线重试或恢复旧许可。
+
+独立MCP凭据只主进程safeStorage加密与当前后端内存，系统加密不可用则拒保存，无开发明文回退，不复用角色Key或在配置/env声明。匿名服务无需凭据。最多5服务/16允许工具/32发现工具/8页；配置16KiB、args8KiB、wire64KiB/result32KiB、connect30秒/call20秒、每cid128尝试/32记录展示16，具体最终接口预算以实现和验证修正。服务器主动sampling/roots/elicitation/执行请求拒绝，输出不成为授权或完成依据。
+
+官方核对：https://modelcontextprotocol.io/specification/2025-06-18/basic/transports 、basic/lifecycle及server/tools；明确支持冻结版本，不声称2026新版任意服务兼容。真实stdio/TLS合成服务（既有OpenSSL合成测试证书，TestCA只构造注入）与HTTPmock/defaultzero云分别记录。仅artifacts/test-results/V4-007/，Git忽略。
+
+- [x] √ 实际两种传输、配置/工具审查、固定参数/结果校验、调用事实、取消/断线/身份变化/关闭回收与凭据隔离。
+- [x] √ L0～L3实际证据/中文README和清单/PROGRESS、敏感审计及独立正常本地commit标题/回执见下文与Git，不提前008。
+
+007实现：固定MCP2025-06-18，原生单选JSON/准确配置登记、准确程序或endpoint连接、完整工具清单和每次JSON参数四种确认相互独立。生产httpx TLS=True、trust_env=False、无redirect/OAuth；准确canonical ASCII HTTPS无userinfo/query/#，session/version绑定POST JSON/SSE，DELETE有限3秒，405明确closed=false而本地client实际关闭。stdio普通账户CreateProcess挂起先入kill-on-close Job后resume，继承pipe句柄白名单、干净env不继承角色Key/token/个人变量；普通CreateProcess后代和breakaway flag用例均实际随Job回收。服务器sampling/roots/elicitation等主动请求拒绝，URI/指令/代码只显示文本，不安装或执行。
+
+配置5/允许工具16/发现32工具8页/预览20份；配置16KiB、参数8KiB、wire64KiB/depth24/每对象数组128、结果完整事实32KiB。schema depth6/字段32/数组64/字符串8000、有限安全数字/enum/default/范围，未知约束/$ref/regex/组合拒绝并显示被阻止，不忽略后调用。每次发现重核全部元数据（含schema/hint）与session，名单不能证明无副作用。程序/已有fileargs单256MiB/合512MiB SHA/目录10秒，隐式依赖未覆盖。连接30秒、单请求20秒、完整call60秒包括前后发现；无重连/重试/GET流恢复。不可取消的原生CreateProcess清理须等同步调用返回并回收后到Job，极端迟滞可超协议预算，不能假称已回收。
+
+SQLite四表：全局mcp_servers/mcp_tool_reviews（最多20/服务）保存配置和审查事实；会话mcp_attempts128次不淘汰无正文尝试、mcp_executions最近32完整结果/历史16或32KiB。网络前running，收到有效响应与isError/failed/limited/unknown区别；超时/取消/断线未知清连接许可且不重发。每次最终事务检查cid存在及删除墓碑，purge同事务清会话两表，全局配置保留，迟到不重建。启动工具批准expired、running→unknown但不自动连接。主进程一次性许可缓存清理不能恢复调用资格。
+
+专用HTTPS Bearer只独立safeStorage加密文件及私有Initialize.mcp_credentials/credential_replace后端内存；没有开发明文fallback，不读.env或复用模型Key。加密不可用拒保存，损坏文件锁定保留；无凭据匿名可用。更新先断连并撤销旧epoch、连接进行中也不能发布旧凭据会话。程序metadata/原始str/key递归检测当前令牌回显（引号/反斜杠转义不能绕过），异常不保留远端正文/凭据。初始化同样限制5UUID及单行ASCII4096字节，不把无效私有输入回显。
+
+实际命令（根目录，报告均artifacts/test-results/V4-007/；默认零模型，全部合成）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_transport.py -q --basetemp=artifacts/test-results/V4-007/transport-accept-data --junitxml=artifacts/test-results/V4-007/transport-accept.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_transport.py::test_stdio_job_breakaway_is_denied backend/tests/test_v4_mcp_transport.py::test_stdio_stderr_budget_closes_and_reaps backend/tests/test_v4_mcp_transport.py::test_endpoint_exact_identity_no_normalization backend/tests/test_v4_mcp_transport.py::test_stdio_real_initialization_pages_call_and_clean_environment backend/tests/test_v4_mcp_transport.py::test_real_tls_json_sse_version_headers_pages_and_delete -q --basetemp=artifacts/test-results/V4-007/transport-extra-data --junitxml=artifacts/test-results/V4-007/transport-extra.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_transport.py -k 'schema or json or endpoint or open_object' -q --basetemp=artifacts/test-results/V4-007/transport-schema-data --junitxml=artifacts/test-results/V4-007/transport-schema.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_transport.py::test_tls_verification_cannot_be_disabled backend/tests/test_v4_mcp_transport.py::test_stdio_isolated_python_mode_state_and_utf8 -q --basetemp=artifacts/test-results/V4-007/transport-final-fixture-data --junitxml=artifacts/test-results/V4-007/transport-final-fixture.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_transport.py::test_cancelled_native_spawn_retains_and_reaps_real_late_job backend/tests/test_v4_mcp_transport.py::test_stdio_real_initialization_pages_call_and_clean_environment backend/tests/test_v4_mcp_transport.py::test_stdio_malicious_or_disconnected_closes_tree -q --basetemp=artifacts/test-results/V4-007/spawn-final-data --junitxml=artifacts/test-results/V4-007/spawn-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp.py -q --basetemp=artifacts/test-results/V4-007/service-accept-data --junitxml=artifacts/test-results/V4-007/service-accept.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp.py::test_remote_echo_of_private_credential_never_saved_or_returned -q --basetemp=artifacts/test-results/V4-007/service-echo-data --junitxml=artifacts/test-results/V4-007/service-echo.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp.py::test_discovery_budget_rejects_cursor_cycles_and_incomplete_catalogues backend/tests/test_v4_mcp.py::test_invalid_mcp_content_metadata_does_not_become_completed_evidence backend/tests/test_v4_mcp.py::test_actual_sqlite_single_approved_call_and_no_implicit_calls_on_open backend/tests/test_v4_mcp.py::test_real_service_stdio_pages_schema_call_and_child_reaping backend/tests/test_v4_mcp.py::test_real_service_tls_discovery_approval_call_and_private_bearer -q --basetemp=artifacts/test-results/V4-007/service-content-data --junitxml=artifacts/test-results/V4-007/service-content.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_protocol.py -q --basetemp=artifacts/test-results/V4-007/protocol-data --junitxml=artifacts/test-results/V4-007/protocol.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_application.py backend/tests/test_v4_mcp_protocol.py backend/tests/test_v3_management.py backend/tests/test_v4_memory_protocol.py backend/tests/test_v4_skills_protocol.py -q --basetemp=artifacts/test-results/V4-007/related-data --junitxml=artifacts/test-results/V4-007/related.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_protocol.py -k invalid_mcp_secret -q --basetemp=artifacts/test-results/V4-007/private-init-ids-data --junitxml=artifacts/test-results/V4-007/private-init-ids.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_mcp_transport.py -k refuses_delete -q --basetemp=artifacts/test-results/V4-007/close-refused-data --junitxml=artifacts/test-results/V4-007/close-refused.xml
+backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend/mcp backend/src/orvia_backend/application.py backend/src/orvia_backend/chat/management.py
+npx vitest run apps/desktop/tests/v4-mcp.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/credentials.test.ts apps/desktop/tests/v3-management.test.ts apps/desktop/tests/m20-transport.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-007/desktop-related.json
+npm run check
+npm run build
+$env:ORVIA_TEST_MODULE='V4-007'
+npx playwright test tests/e2e/v4-mcp.spec.ts
+```
+
+|级别|实际结果/证据|真实性与闭合|
+|---|---|---|
+|L0|compileall、check/build、diffcheck通过|构建非安装包，无新工具/依赖/模型|
+|L1/L2传输|62不同用例通过：transport-accept47、extra新增6、schema新增4、final-fixture新增2、spawn-final新增2、close-refused新增1；重复不累加|真实Windows Job/stdio、实际本机TLS JSON/SSE、TestCA仅测试SSLContext注入；verifyFalse被拒、生产True拒自签、server主动请求/超预算/Unicode/状态与PID实际检查。早期OpenSSL配置缺失16setupErrors/1超长pytestID失误，修fixture后32pass5fail；SSE event与超时EOF覆盖修复47通过。breakaway子进程可创建但仍在内层Job，改错误期望并实际关闭通过。spawn取消first4pass1因短暂terminated PID仍存在，等待真实exit后8相关通过；失败报告全保留|
+|L1/L2服务|57不同通过：service-accept46、echo新增6、content新增5|实际SQLite+合成Session；另真实stdio两页/一次call/父子回收、真实TLS+私有合成Bearer/DELETE。服务初轮31pass1因fixture复用closedSession，最小修正复验通过。60秒budget缩时测试unknown保存/关闭、credentialepoch竞态、转义回显、schema/预算/只读和未知不可重发实际验证|
+|L2协议与相关|8MCP协议＋21相关通过，related.xml25及private-init-ids4|真实Application/SQLite/stdio；固定接口拒私有权限/SQL/模型注入，删除两表及迟到保护、私有Initialize重启零连接。复用前模块仍有效结果|
+|L1桌面|desktop-related.json59通过：18MCP＋41相关|原生dialogs/加密adapter模拟；准确批准、取消零工具、字段/有限JSON、离线撤回/令牌、safeStorage不可用/损坏保留、unknown一次性许可|
+|L3|e2e.json1通过/6.2秒测试/总7秒，electron-VTBwE3/acceptance.json|真实Electron/Python/SQLite/stdio/Job、合成配置/工具/结果。原生单选与确认模拟；取消连接无进程、取消调用0、批准1真实toolcall、写阻止、父子PID消失、重启历史且旧call拒绝。云0|
+
+最终按当前收集名称匹配JUnit并去重 **148不同后端通过、未解决失败/skip0**（62传输＋57服务＋8协议＋21相关），verification-final.json列归属；旧参数ID更名的历史失败单列，不当新用例计数。L3 first失败为chatCreate缺client_request_id测试fixture，second失败为Playwright主进程eval不支持动态import测试fixture，均修测试并最终完整通过；历史失败报告不覆盖。mcp-local-completed.png已实际查看：中文状态、JSON结果、只读/URI限制和会话历史可读，无横向溢出。桌面first1路径转义断言fixture已最小修复，18目标全有通过证据。
+
+L4评估：外部普通用户进程与网络是新增边界，已跑真实双传输/TLS/Job和审批E2E，覆盖身份/超时/取消/凭据/删除，21后端＋41桌面相关回归；复用此前Skills/存储/安全链仍有效结论，不重复无关全量/打包。known限制：stdio非LPAC，children_reaped只证明ownedJob成员，不保证WMI/外部broker派生进程入Job；普通权限恶意程序可副作用，允许清单及hash无法担保隐式依赖。HTTPS关闭是协议接受或不确定，无法验证远端所有资源；不支持任意新版MCP/OAuth/外部schema/压缩/SSE恢复/多媒体。未知不重试，同revision读请求也需新审批上下文。凭据回显保护只检测当前本服务令牌，不保证任意其他秘密检测。未用户真实第三方服务/人工原生/真实模型/独立Windows/安装包验收。
+
+现有httpx0.28.1/psutil7.2.2和OpenSSL3.0.13（仅生成合成本机TLS证书）沿用，无安装依赖/模型。合成测试CA/key.pem在忽略目录不是用户私钥，不入Git。所有权已完整交回，模块/root/backend/desktop README、ARCHITECTURE、DEVELOPMENT_PLAN、V4与PROGRESS更新。提交前git status/diff/cached与真实敏感/禁入审计，working/staged/commit-receipt均在忽略目录；显式选择当前模块，不读取/暂存预存.zcodeignore、docs/INTERVIEW.md，不收DB、Key、日志/测试产物/模型/用户文件。独立正常本地commit标题`feat(V4-007): add approved bounded MCP clients and isolated credentials`，hash见Git/回执，不amend、不push、不Release/重建包。
+
+试用npm start→设置→MCP→原生选择符合模块README的服务JSON→准确配置/连接/工具清单确认→选会话与准确tool/JSON→预览/每次原生批准；关闭或另行确认撤回服务。007独立提交后自动进入008，完整Goal仍未完成。

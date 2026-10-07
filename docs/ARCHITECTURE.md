@@ -1,5 +1,11 @@
 # 序航 Orvia 架构
 
+### V4-007 MCP客户端架构（2026-10-08）
+
+McpService将配置、连接、发现工具审查与逐次调用分开；SQLite全局mcp_servers/mcp_tool_reviews不恢复权限，会话mcp_attempts/mcp_executions保存实际尝试/校验响应并纳入同事务purge和最终alive核验。每次工具清单分页重核，metadata/schema或session变化即失效。后端只暴露固定方法，renderer不能直接提供程序、URL、凭据、SQL或批准标志。独立MCP令牌只Electron safeStorage与后端内存，角色模型配置不变；不调用模型。
+
+冻结MCP2025-06-18有限JSON/schema子集，stdio由挂起进程先入kill-on-close Windows Job再恢复，干净env及继承handle白名单；HTTPS准确canonical endpoint、TLS校验、无env代理/redirect，POST JSON/SSE绑定版本/session，有限DELETE关闭。协议请求20秒、连接30秒、完整调用60秒含前后发现，不重试。无法取消的原生CreateProcess清理须等待同步调用返回，极端迟滞可超过协议预算；不提前报告回收。children_reaped只证明ownedJob成员，不保证普通权限服务经WMI/外部broker的进程也入Job；服务并非LPAC沙箱。输出和服务器声明不能授予权限或证明业务完成。预算/实际验证见mcp README/PROGRESS，无SDK或第三方服务安装。
+
 ## 设计依据与当前实现
 
 2026-10-03状态校正：M15–M19已实现、验证并提交，M19 `6f87fe0`已由用户手动push且本轮10月2日实时确认main同步。M20统一自然语言／真实事件及完整安装包对照已授权；四项产品方案A均已确认，当前实现及接口见下节，实际验收状态见PROGRESS。下文各模块旧状态保留为历史基线，不替代当前记录。固定三角色、原生授权、审批、后端复核和M18隔离不变。

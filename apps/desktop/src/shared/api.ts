@@ -18,6 +18,18 @@ export type Settings = Configuration & { mode: 'development' | 'secure_storage';
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
   memoryList:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryList>>;
+  mcpList:()=>Promise<Reply<import('../main/mcp-contracts').McpList>>;
+  mcpImport:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/mcp-contracts').McpServer}>>;
+  mcpConnect:(input:{server_id:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/mcp-contracts').McpToolReview}>>;
+  mcpApproveTools:(input:{server_id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/mcp-contracts').McpServer}>>;
+  mcpDisconnect:(input:{server_id:string})=>Promise<Reply<import('../main/mcp-contracts').McpDisconnected>>;
+  mcpRemove:(input:{server_id:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/mcp-contracts').McpRemoved}>>;
+  mcpCallPreview:(input:{id:string;server_id:string;tool:string;arguments:Record<string,unknown>})=>Promise<Reply<import('../main/mcp-contracts').McpCallPreview>>;
+  mcpCall:(input:{id:string;server_id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/mcp-contracts').McpExecution}>>;
+  mcpHistory:(input:{id:string})=>Promise<Reply<import('../main/mcp-contracts').McpHistory>>;
+  mcpCredentialStatus:()=>Promise<Reply<{encryption_available:boolean;configured:string[];loaded:boolean}>>;
+  mcpCredentialSave:(input:{server_id:string;key:string})=>Promise<Reply<{cancelled:boolean;result?:{encryption_available:boolean;configured:string[];loaded:boolean}}>>;
+  mcpCredentialRemove:(input:{server_id:string})=>Promise<Reply<{cancelled:boolean;result?:{encryption_available:boolean;configured:string[];loaded:boolean}}>>;
   rewritePreview:(input:{id:string;query:string;memory_ids?:string[]})=>Promise<Reply<import('../main/rewrite-contracts').RewritePreview>>;
   rewriteGenerate:(input:{id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/rewrite-contracts').RewriteResult}>>;
   rewriteSearch:(input:{id:string;query:string;memory_ids?:string[];revision?:string})=>Promise<Reply<import('../main/rewrite-contracts').RewriteSearch>>;

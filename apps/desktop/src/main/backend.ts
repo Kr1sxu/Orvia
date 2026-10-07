@@ -7,6 +7,8 @@ import {auxiliaryStatus, type AuxiliaryConfig} from './auxiliary-contracts';
 import {skillList,skillHistory,skillSummary,skillReview,skillPlan,skillExecution,type SkillsMethod} from './skills-contracts';
 import {retrievalStatus,retrievalModel,retrievalResult,retrievalRebuild,retrievalClear,type RetrievalMethod} from './retrieval-contracts';
 import {memoryList,memoryContext,memoryPreview,memorySearch,type MemoryMethod} from './memory-contracts';
+import {mcpList,mcpServer,mcpConfigPreview,mcpConnectPreview,mcpToolReview,mcpCallPreview,mcpExecution,mcpHistory,mcpDisconnected,mcpRemoved,type McpMethod} from './mcp-contracts';
+type McpResults={list:z.infer<typeof mcpList>;preview_config:z.infer<typeof mcpConfigPreview>;configure:z.infer<typeof mcpServer>;connect_preview:z.infer<typeof mcpConnectPreview>;connect:z.infer<typeof mcpToolReview>;approve_tools:z.infer<typeof mcpServer>;call_preview:z.infer<typeof mcpCallPreview>;call:z.infer<typeof mcpExecution>;history:z.infer<typeof mcpHistory>;disconnect:z.infer<typeof mcpDisconnected>;remove:z.infer<typeof mcpRemoved>;credential_replace:z.infer<typeof mcpServer>};
 import {rewritePreview,rewriteResult,rewriteSearch,rewriteHistory,type RewriteMethod} from './rewrite-contracts';
 type RewriteResults={preview:z.infer<typeof rewritePreview>;generate:z.infer<typeof rewriteResult>;search:z.infer<typeof rewriteSearch>;history:z.infer<typeof rewriteHistory>};
 import {graphList,graphPreview,graphQuery,type GraphMethod} from './graph-contracts';
@@ -27,7 +29,7 @@ export class BackendConnectionError extends Error {
 import { configurationSchema, missionSchema, missionCreateSchema, grantStatusSchema, scanEnvelopeSchema, type MissionCreate, type GrantStatus, type ScanEnvelope } from './contracts';
 
 type Secrets = Partial<Record<'main' | 'computer' | 'browser' | 'tavily' | 'redis', string>>;
-type Initialization = { dataDirectory: string; credentials: () => Secrets };
+type Initialization = { dataDirectory: string; credentials: () => Secrets; mcpCredentials?: () => Record<string,string> };
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout; business?: {id:string;request_id:string} };
 type BufferedStream = { events:M20StreamEvent[]; reorder:Map<number,M20StreamEvent>; recent:Map<number,string>; streamId:string; lastSeq:number; acked:number; delivered:number; terminal:boolean; finished:boolean; gapTimer?:NodeJS.Timeout };
@@ -89,6 +91,7 @@ export class BackendClient {
         // 敏感配置只经私有 stdio 发送，不放进命令行、环境变量或通用日志。
         z.object({ initialized: z.literal(true) }).strict().parse(await this.request('initialize', {
           data_directory: this.initialization.dataDirectory, credentials: this.initialization.credentials(),
+          mcp_credentials: this.initialization.mcpCredentials?.()??{},
         }));
       }
       this.connected = true;
@@ -107,6 +110,11 @@ export class BackendClient {
   }
 
   async configuration() { await this.start(); return configurationSchema.parse(await this.request('configuration.status')); }
+  /** MCP仅使用固定窄接口，服务地址/程序和凭据来自主进程原生审查与私有仓库。 */
+  async mcp<M extends McpMethod>(method:M,params:object):Promise<McpResults[M]>{
+    await this.start();const schemas={list:mcpList,preview_config:mcpConfigPreview,configure:mcpServer,connect_preview:mcpConnectPreview,connect:mcpToolReview,approve_tools:mcpServer,call_preview:mcpCallPreview,call:mcpExecution,history:mcpHistory,disconnect:mcpDisconnected,remove:mcpRemoved,credential_replace:mcpServer};
+    return schemas[method].parse(await this.request(`mcp.${method}`,params)) as McpResults[M];
+  }
   /** 改写生成需原生批准；检索仅消费校验事实，固定方法不开放通用后端调用。 */
   async rewrite<M extends RewriteMethod>(method:M,params:object):Promise<RewriteResults[M]>{
     await this.start();const schemas={preview:rewritePreview,generate:rewriteResult,search:rewriteSearch,history:rewriteHistory};
@@ -304,7 +312,7 @@ export class BackendClient {
   /** 凭据变更不改变已保存 Mission 的模型快照。 */
   async replaceCredentials(credentials: Secrets) { await this.start(); return z.object({ updated: z.literal(true) }).strict().parse(await this.request('credentials.replace', { credentials })); }
 
-  private request(method: `rewrite.${RewriteMethod}` | `graph.${GraphMethod}` | `memory.${MemoryMethod}` | `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
+  private request(method: `mcp.${McpMethod}` | `rewrite.${RewriteMethod}` | `graph.${GraphMethod}` | `memory.${MemoryMethod}` | `retrieval.${RetrievalMethod}` | 'computer.revoke' | `skills.${SkillsMethod}` | 'auxiliary.status' | 'auxiliary.configure' | 'auxiliary.probe' | 'chat.rename' | 'chat.pin' | 'chat.delete' | 'chat.delete_check' | 'hello' | 'health' | 'initialize' | 'configuration.status' | 'missions.list' | 'missions.create' | 'missions.get' | 'credentials.replace' | 'computer.grant' | 'computer.status' | 'computer.execute' | 'chat.list' | 'chat.create' | 'chat.get' | 'chat.send' | 'chat.natural' | 'chat.continue' | 'chat.fallback.confirm' | 'chat.material.remove' | 'chat.revoke' | 'chat.scan.page' | 'chat.grant' | 'chat.inspect' | 'chat.browser.search' | 'chat.browser.read' | 'chat.browser.ask' | 'chat.document.attach' | 'chat.document.ask' | 'chat.document.export' | 'chat.synthesis.preview' | 'chat.synthesis.generate' | 'chat.publication.preview' | 'chat.publication.save' | 'chat.development.context' | 'chat.development.generate' | 'chat.development.draft' | 'chat.development.apply' | 'chat.cleanup.scan' | 'chat.cleanup.plan' | 'chat.cleanup.execute' | 'chat.cleanup.restore' | 'chat.browser.source' | 'chat.document.source' | 'chat.document.preview' | 'chat.approve' | 'chat.resume' | 'chat.undo' | 'chat.cancel' | `chat.automation.${string}`, params: object = {}): Promise<unknown> {
     if (this.failed) return Promise.reject(this.failed);
     if (this.closing || !this.child) return Promise.reject(new Error('后端不可用'));
     if (this.pending.size >= 16) return Promise.reject(new Error('健康检查请求过于频繁'));
@@ -316,7 +324,7 @@ export class BackendClient {
       // Main 单轮有50秒总预算；会话请求额外留出持久化与协议返回时间。
       // 完整M15–M20冷启动加载锁定解析/隔离依赖，给握手和初始化独立20秒。
       // 健康检查保留短期限；这只等待自有进程，不延长模型预算或自动重启。
-      const timeout=method==='retrieval.download'?1100000:method.startsWith('retrieval.')?190000:(method.startsWith('memory.')||method.startsWith('graph.'))?45000:method==='rewrite.search'?190000:method.startsWith('rewrite.')?45000:method.startsWith('skills.')?190000:method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
+      const timeout=method.startsWith('mcp.')?75000:method==='retrieval.download'?1100000:method.startsWith('retrieval.')?190000:(method.startsWith('memory.')||method.startsWith('graph.'))?45000:method==='rewrite.search'?190000:method.startsWith('rewrite.')?45000:method.startsWith('skills.')?190000:method.startsWith('chat.')?65000:['hello','initialize'].includes(method)?Math.max(this.timeoutMs,20000):this.timeoutMs;
       const timer = setTimeout(() => this.fail(new BackendConnectionError('BACKEND_TIMEOUT', '本地后端响应超时')),timeout);
       const business=params as {id?:unknown;request_id?:unknown};
       this.pending.set(id, { resolve, reject, timer,...(typeof business.id==='string'&&typeof business.request_id==='string'?{business:{id:business.id,request_id:business.request_id}}:{}) });

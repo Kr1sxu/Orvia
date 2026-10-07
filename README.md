@@ -150,3 +150,5 @@ V4-003 已实现最近五轮、保留当前状态、逐批原生批准的滚动�
 V4-005开发版图谱：`npm start`→合成原文“合成人甲负责项目合成航线。项目合成航线依赖项目合成导航。”→设置→实体关系与知识图谱→预览准确正文→原生批准→本地查询“合成人甲”。人物、项目、文件及固定有向关系绑定原文版本，同名需选身份，路径最多两跳；冲突/撤回不进入路径。默认测试Main mock，SQLite/Electron实际运行，详情与限制见[图谱模块](backend/src/orvia_backend/graph/README.md)及PROGRESS；不自动上云、执行文件或发布。
 
 V4-006开发版查询改写：设置→查询改写与本地检索→选择会话、原问题和最多三条来源有效记忆→完整正文预览→原生批准。原问题始终参与当前资料范围检索，最多三个白名单候选；取消、失败或支持撤回明确使用原问题。Skills的Memory Context和Query Rewrite现为实际本地声明式组合，选择“只读本机会话与资料”并确认计划；空revision只检索原问题，不隐式调用模型。有限词典/明确代词，不保证召回提升；[模块说明](backend/src/orvia_backend/rewrite/README.md)及PROGRESS记录实际验证，不push或重建安装包。
+
+V4-007 MCP：设置→MCP外部只读工具→原生选择服务JSON并审查配置→批准准确连接→审查工具清单→选本机会话、准确工具名及JSON参数→准备预览→每次原生批准。支持冻结MCP2025-06-18的本地stdio与准确HTTPS JSON/SSE；只接受明确允许且通过程序规则的读取工具，URI仅展示。MCP专用令牌独立safeStorage加密，无明文回退。普通权限服务可能有副作用，允许清单不能提供系统隔离；收到有效响应只证明本次协议结果。真实合成服务、Windows子进程回收、SQLite与Electron证据见[模块README](backend/src/orvia_backend/mcp/README.md)和PROGRESS；不自动安装服务器或调用模型，不push、发布或重建安装包。

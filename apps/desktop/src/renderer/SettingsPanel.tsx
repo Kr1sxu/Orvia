@@ -6,6 +6,7 @@ import {RetrievalPanel} from './RetrievalPanel';
 import {MemoryPanel} from './MemoryPanel';
 import {GraphPanel} from './GraphPanel';
 import {RewritePanel} from './RewritePanel';
+import {McpPanel} from './McpPanel';
 
 /** 凭据只停留在输入框本轮内存，提交立即清空，不加入会话或通知。 */
 export function SettingsPanel({settings, reload, close}: {settings?: Settings; reload: () => Promise<void>; close: () => void}) {
@@ -55,6 +56,7 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
     <MemoryPanel/>
     <GraphPanel/>
     <RewritePanel/>
+    <McpPanel/>
     <p role="status">{notice}</p>
     <button disabled={busy} onClick={() => void reload().catch(() => setNotice('连接检查失败，请重新启动应用。'))}>重新检查连接</button>
   </section></div>;

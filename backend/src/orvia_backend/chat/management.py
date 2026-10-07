@@ -115,6 +115,11 @@ async def purge(chat, cid):
                 async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (rewrite_table,)) as cursor:
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {rewrite_table} WHERE cid=?', (cid,))
+            # MCP调用事实属于会话，全局服务配置不授予会话权限，也不随会话删除外部数据。
+            for mcp_table in ('mcp_attempts', 'mcp_executions'):
+                async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (mcp_table,)) as cursor:
+                    if await cursor.fetchone():
+                        await db.execute(f'DELETE FROM {mcp_table} WHERE cid=?', (cid,))
             # 本地Skills计划/结果归属明确选择的会话，旧目录Mission不受此删除影响。
             async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='skills_executions'") as cursor:
                 if await cursor.fetchone():

@@ -111,3 +111,7 @@ V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/REA
 `RewriteService`新增preview/generate/search/history固定接口与SQLite三表，准确正文及scope版本原生批准后固定Main一次30秒/1024token；最多三候选须匹配程序限定同义/唯一主题规则，原查询始终保留。来源撤回/删除先核墓碑，预览保存/网络前/最终提交及检索回查，缓存不恢复重发许可。128尝试/20预览/32记录、独立检索180秒，数据与运输预算详见[rewrite README](src/orvia_backend/rewrite/README.md)。
 
 `memory_context`、`query_rewrite`为固定本地Skill工具，只读取已核验事实；无文件grant仅允许展开后全部本地leaf，文件工具仍逐叶ComputerGateway检查。每叶data8KiB、受限停止后续、原10秒工作流预算保留。本地执行账本归属选中会话，purge及晚到写入有删除保护；声明不能自选cid或generate。无新增依赖，真实SQLite/FTS/LangGraph与Main mock分别记录在PROGRESS。
+
+## V4-007 MCP只读客户端
+
+固定mcp方法族分离配置、连接、工具清单、调用和历史；可信主进程准确原生确认后才触发外部请求。冻结2025-06-18，有限schema校验、真实stdio Windows Job及HTTPS JSON/SSE。SQLite保存全局配置/审查与会话尝试/结果，删除会话清后两表且晚到不得重建；启动不恢复连接或许可。独立Bearer仅私有Initialize.mcp_credentials/credential_replace进入内存，不接受配置env或角色Key，不落库。每工具请求20秒、完整调用60秒（包括前后发现），未知不重试。无新增依赖，现有httpx/psutil用于受控传输及实际验收；[模块README](src/orvia_backend/mcp/README.md)记录支持子集、预算和限制。

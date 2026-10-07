@@ -19,6 +19,8 @@ import {registerRetrieval} from './retrieval-ipc';
 import {registerMemory} from './memory-ipc';
 import {registerGraph} from './graph-ipc';
 import {registerRewrite} from './rewrite-ipc';
+import {registerMcp} from './mcp-ipc';
+import {McpCredentialVault} from './mcp-credentials';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -45,7 +47,10 @@ app.whenReady().then(async () => {
   const vault = new CredentialVault({ development, root, userData: dataDirectory, safeStorage });
   let credentialError: string | null = null;
   try { await vault.load(); } catch (error) { credentialError = error instanceof Error ? error.message : '凭据不可用'; }
-  const createBackend = () => new BackendClient(root, development ? 5000 : 20000, { dataDirectory, credentials: () => vault.getSecrets() },
+  const mcpVault = new McpCredentialVault({userData:dataDirectory,safeStorage});
+  // 默认匿名仍可用；损坏凭据保持锁定，不明文回退或自动发送角色Key。
+  await mcpVault.load().catch(()=>undefined);
+  const createBackend = () => new BackendClient(root, development ? 5000 : 20000, { dataDirectory, credentials: () => vault.getSecrets(), mcpCredentials:()=>mcpVault.getSecrets() },
     development ? undefined : { resourcesPath: process.resourcesPath });
   backend = createBackend();
   let chatBusy = false;
@@ -61,6 +66,7 @@ app.whenReady().then(async () => {
   let materialProcessing:{id:string;items:{title:string;status:'pending'|'parsing'|'ready'|'failed'|'cancelled'}[]}|undefined;
   let m18Authorization: {clear:()=>void} | undefined;
   let memoryAuthorization: {clear:()=>void} | undefined;
+  let mcpAuthorization: {clear:()=>void} | undefined;
   let rewriteAuthorization: {clear:()=>void} | undefined;
   let graphAuthorization: {clear:()=>void} | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
@@ -90,7 +96,7 @@ app.whenReady().then(async () => {
       if (quitting || (reconnecting && channel !== 'orvia:connection-status')) return { ok: false, message: '本地服务正在重连或退出，请稍候。' };
       // 防止短超时设置请求排在模型规划后，使正常规划被误判为后端失联。
       // 设置页并发加载仅本地事实投影；允许这些有界读取，审批/外发/执行仍串行。
-      const control = ['orvia:memory-list','orvia:memory-context','orvia:graph-list','orvia:rewrite-history','orvia:connection-status', 'orvia:chat-cancel','orvia:chat-get','orvia:chat-list','orvia:chat-scan-page','orvia:chat-stream-pull','orvia:chat-stream-ack','orvia:m18-cancel','orvia:m18-script-status','orvia:m18-browser-pending','orvia:m18-browser-close','orvia:m18-history'].includes(channel);
+      const control = ['orvia:mcp-list','orvia:mcp-history','orvia:mcp-credential-status','orvia:memory-list','orvia:memory-context','orvia:graph-list','orvia:rewrite-history','orvia:connection-status', 'orvia:chat-cancel','orvia:chat-get','orvia:chat-list','orvia:chat-scan-page','orvia:chat-stream-pull','orvia:chat-stream-ack','orvia:m18-cancel','orvia:m18-script-status','orvia:m18-browser-pending','orvia:m18-browser-close','orvia:m18-history'].includes(channel);
       if (chatBusy && !control) return { ok: false, message: '任务正在处理，请等待完成或取消本次规划。' };
       if (channel === 'orvia:reconnect' && ordinaryRequests) return {ok: false, message: '还有请求正在收尾，请稍候再重新连接。'};
       if (!control) ordinaryRequests++;
@@ -118,6 +124,7 @@ app.whenReady().then(async () => {
       memoryAuthorization?.clear();
       graphAuthorization?.clear();
       rewriteAuthorization?.clear();
+      mcpAuthorization?.clear();
       m18Authorization?.clear();
       materialProcessing=undefined;
       backend = createBackend();
@@ -140,6 +147,7 @@ app.whenReady().then(async () => {
   registerSkills({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   registerRetrieval({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   memoryAuthorization=registerMemory({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
+  mcpAuthorization=registerMcp({handle,serial:chatAction,window:()=>window!,backend:()=>backend,vault:()=>mcpVault});
   rewriteAuthorization=registerRewrite({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   graphAuthorization=registerGraph({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   handle('orvia:chat-rename',1,input=>chatAction(()=>backend.chat('chat.rename',chatRenameSchema.parse(input))));
@@ -175,7 +183,7 @@ app.whenReady().then(async () => {
   handle('orvia:chat-stream-pull',1,async input=>backend.streamPull(streamPullInput.parse(input)));
   handle('orvia:chat-stream-ack',1,async input=>backend.streamAck(streamAckInput.parse(input)));
   handle('orvia:chat-scan-page',1,input=>backend.scanPage(scanPageInput.parse(input)));
-  function invalidatePreviews(){rewriteAuthorization?.clear();graphAuthorization?.clear();memoryAuthorization?.clear();documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
+  function invalidatePreviews(){mcpAuthorization?.clear();rewriteAuthorization?.clear();graphAuthorization?.clear();memoryAuthorization?.clear();documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
   handle('orvia:chat-material-remove',1,input=>chatAction(async()=>{invalidatePreviews();return backend.chat('chat.material.remove',materialRemoveInput.parse(input));}));
   handle('orvia:chat-revoke',1,input=>chatAction(async()=>{invalidatePreviews();m18Authorization?.clear();return backend.chat('chat.revoke',revokeInput.parse(input));}));
   handle('orvia:chat-add-files',1,input=>chatAction(async()=>{
