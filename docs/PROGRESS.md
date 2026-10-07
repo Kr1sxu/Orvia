@@ -1493,3 +1493,49 @@ SQLite建立向量前122880字节，最终196608字节包括事实与FTS表；�
 交付独立正常本地commit标题 `feat(V4-004): add verified local embeddings and scoped hybrid retrieval`；完整hash可用 `git log -1`核对，提交回执另外保存于忽略的证据目录，未amend既有002/001。所有本地提交仍待用户手动push，无Release或安装包重建。试用`npm start`→添加明确选择的资料→设置→本地混合检索→加载此前模型（或原生选择该固定目录）→选择会话→建立当前资料索引→检索关联资料；清除会话向量保留原文/FTS/原文件，缺模型明确关键词降级。
 
 **停止点**：完成V4-004验证/记录/独立提交后依用户最新指令暂停Goal，待用户指令继续V4-003。未开始后续模块；原完整Goal不标完成。
+
+## V4-003：五轮上下文与自动长期记忆（2026-10-07）
+
+用户“继续目标”解除004后暂停，从003恢复原连续Goal順序，完成当前模块实际验证、文档、审计、独立本地commit后自动继续005；不push、发布或重建安装包。预检目录正确，main/remote HEAD origin/main，历史004=757fefc、002=c1ca871、001=a6c9d30；工作区仅预存.zcodeignore与docs/INTERVIEW.md未跟踪，保留、不读取或暂存，004不重复实施/下载。主Agent拥有聊天/Application/删除接入、文档和验证；memory_core独占新memory目录与test_v4_memory.py；memory_desktop独占4个新desktop文件和目标unit测试，禁止并发修改、提前开发后续或传递凭据。
+
+当前目标：精确request_id轮次绑定、最近5个已结束请求轮与当前待结束状态；工具/澄清不占新轮，失败/取消/中断不压缩为成功。SQLite保存版本化候选、批准批次、摘要、长期记忆与来源/撤回；本地发现偏好/人物/项目候选不调用模型，Main整理前准确批次/固定模型/用途/费用原生确认。跨会话检索仅本地，不自动授予正文外发或文件权限。预算raw24KiB/轮4KiB/消息2KiB，较早摘要每批10轮，候选64/会话、记忆512全库，模型30秒/1024输出token/零重试；实际字段随源码与验证更新。现有依赖足够，不为未来模块安装工具。
+
+- [x] √ 实际实现与代码审查。
+- [x] √ L0类型/语法、L1轮次/预算/来源/模型结果，L2接口/删除/固定Main/原权限相关回归，L3真实Electron本地候选/原生取消/批准mock/重启/纠正忘记；真实模型与mock分开记录，默认不调用真实模型。
+- [x] √ 模块与项目文档、V4/开发清单/PROGRESS；独立正常本地commit标题及敏感审计回执见下文与Git历史。
+
+所有报告放artifacts/test-results/V4-003/并保持Git忽略。实现由主Agent整合；子Agent交接后仅只读审查，没有并发编辑。最终新增memory七表（含FTS5及无正文memory_attempts），请求精确归属、五个完整终态轮及当前未结束/失败事实接入普通回答、路由与旧规划器；跨会话记忆不自动进入云请求。本地明确中文候选、准确冻结预览、固定Main 30秒/1024token一次整理、逐字来源与候选身份校验、冲突、纠正、忘记、资料撤回和既有会话purge均实现。忘记保留原始消息、抑制该派生身份且清摘要/预览正文；纠正保存明确用户来源，不计新模型轮。来源确认不证明客观真假。
+
+审查修复：长期支持按精确来源点查，不因1000消息窗口截断被撤销；窗口外请求最多补一对用户/助手，同文旧请求不猜测。独立调用账本网络前事务写running；正文缓存最多20份，账本最多128次/会话，淘汰/纠正/忘记不删除调用事实，启动未知转interrupted，同revision不重发，满额拒绝新调用。选批同时按实际发送24KiB及完整预览32KiB计算，旧摘要重复支持仍计预算，容不下返回MEMORY_BUDGET而非空内容。摘要12条/12KiB、候选64/会话、记忆512全库、长期来源128/会话、单记忆8支持、列表各20/32KiB及搜索10/16KiB有界。Memory Context声明式组合仍明确未就绪，待006接入；不以002框架注册占位冒充组合业务完成。
+
+实际命令（均在项目根；Main mock，无真实云调用）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_memory.py -q --basetemp=artifacts/test-results/V4-003/core-accept-data --junitxml=artifacts/test-results/V4-003/core-accept.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_chat.py backend/tests/test_m20_natural.py backend/tests/test_v3_management.py backend/tests/test_m15_synthesis.py backend/tests/test_v4_retrieval_protocol.py backend/tests/test_application.py -q --basetemp=artifacts/test-results/V4-003/regression-data --junitxml=artifacts/test-results/V4-003/regression.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_m20_natural.py::test_three_materials_limit_and_removed_source_never_sent backend/tests/test_v4_memory_protocol.py -q --basetemp=artifacts/test-results/V4-003/regression-recheck-data --junitxml=artifacts/test-results/V4-003/regression-recheck.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_memory.py backend/tests/test_v4_memory_protocol.py -q --basetemp=artifacts/test-results/V4-003/ledger-data --junitxml=artifacts/test-results/V4-003/ledger.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_memory.py -k cross_chat_conflict -q --basetemp=artifacts/test-results/V4-003/forget-ledger-data --junitxml=artifacts/test-results/V4-003/forget-ledger.xml
+backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend/memory backend/src/orvia_backend/chat backend/src/orvia_backend/application.py
+npx vitest run apps/desktop/tests/v4-memory.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-003/desktop-memory-unit.json
+npm run check
+npm run build
+$env:ORVIA_TEST_MODULE='V4-003'
+npx playwright test tests/e2e/v4-memory.spec.ts
+```
+
+|级别|实际结果/证据|性质与闭合|
+|---|---|---|
+|L0|compileall、npm run check、npm run build、git diff --check通过|TypeScript首次Zod泛型返回丢失导致implicit any，保留诊断，修正显式ZodEffects<T>后通过；build含类型检查，不打安装包|
+|L1核心|core-accept.xml22通过，审查新增5项后ledger.xml核心27＋协议3共30通过，forget-ledger.xml最小1通过|真实SQLite/FTS、合成来源，固定Main mock；早期15通过2失败已最小修复复验，后续21/支持3/窗口3通过均保留历史|
+|L2协议/回归|regression.xml64通过1失败；regression-recheck.xml4通过（失败项1＋协议3）；ledger.xml协议3通过|撤回来源已安全拒绝，但新检索返回SOURCE_UNAVAILABLE与旧STALE_APPROVAL契约不同，统一审批失效后最小通过；协议首次2失败含路由authored结构及测试错误error.code层级，已修正|
+|L1桌面|desktop-memory-unit.json8通过|严格输入、Unicode码点/字节、取消零调用、旧完整预览变更、失败不重发、忘记取消/修正失效；原生dialog模拟|
+|L3|e2e.json1通过/11.9秒，账本修复后重复同一相关流程1通过/11.9秒|真实Electron–Python/SQLite；6寒暄0调用→合成候选路由/回答2mock→取消0增量→批准整理1mock→重启/跨会话/纠正/忘记无额外云调用。初次fixture错误message_count字段失败保存e2e-first-fixture-failed.json，改为真实messages投影后通过|
+
+JUnit按(classname,name)最终结果去重：**95个不同后端用例通过，未解决失败/跳过0**（27核心＋3协议＋65相关回归），verification-final.json记录归属，8桌面契约＋1不同Electron流程。截图electron-1Fu2VF/approved.png、forgotten.png及最终electron-Dp6xRL/approved.png已实际查看：中文状态、摘要/记忆来源、纠正/忘记与本地搜索可读，纵向滚动，无横向溢出。曾误读不存在旧fixture截图路径仅工具查找失败，不改变测试结果。没有真实Main整理、人工原生/独立Windows、安装包验收；没有新工具、依赖或模型下载。复用004固定模型/依赖，不重装。
+
+L4评估：此次改变聊天上下文/删除派生数据，已执行65项相关权限/聊天/资料/删除/协议回归及真实Electron流程；没有发布或新的文件执行副作用，因此不重复无关全量/打包。有限中文候选和敏感规则不能保证识别任意表达/凭据；准确发送仍须用户审查。严格逐字摘录较抽象摘要更保守，摘要或来源预算用尽必须新建会话，不能静默丢旧事实。跨会话为FTS5/jieba，无记忆全量向量化；混合资料检索仍属于004。保留LangGraph原有弃用提示。
+
+提交前检查git status/git diff/git diff --cached及敏感扫描；实际回执hygiene-working.json/hygiene-staged.json和commit-receipt.json保存在忽略目录，统计不读取预存.zcodeignore/docs/INTERVIEW.md。显式选择003文件，排除真实凭据、数据库、日志、测试产物/权重/用户文件，不amend前模块。独立正常本地提交标题 `feat(V4-003): add five-round context and approved source-backed memory`，实际hash见Git历史/回执（避免自引用改变提交）；仍待用户手动push，无Release或安装包重建。
+
+试用：npm start→合成会话“我的偏好是简洁回答”→设置→记忆与上下文→选会话/准备预览→核对instructions和实际input→原生批准；本地查询命中后查看来源会话可纠正/忘记。完成003独立提交后按继续目标自动进入005，不恢复历史暂停。

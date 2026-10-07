@@ -205,4 +205,6 @@ SynthesisResult 的引用标签使用 coverage.title 与 locator，点击仍使�
 
 V4-002入口为设置→Skills工作流：原生选择SKILL.md/workflow.json二文件包，预览准确声明并确认登记；启停使旧计划失效。选工作流及结构化输入后，原生选择本次只读目录、复核计划再执行。正文读取没有默认权限，文件变更继续走既有审批，不由Skill声明授权。固定IPC/类型见skills-contracts.ts，组件见SkillsPanel.tsx，后端契约/结构/示例/限制见backend/src/orvia_backend/skills/README.md。运行npm run build、npm start；目标测试见v4-skills.test.ts和tests/e2e/v4-skills.spec.ts，证据在artifacts/test-results/V4-002/；无安装包重建。
 
-V4-004已完成开发版验收：设置→本地混合检索，模型下载经原生固定清单确认、已有目录原生选择；renderer无路径/URL/批准入口。关键词降级/取消下载/原文检索/重启与实际Qwen加载/索引/混合召回/重启复用均通过真实Electron–Python流程，只有原生对话框由测试模拟；未调用云模型。已批准权重保存在项目私有.orvia/models；加载此前模型后选择资料会话、建立当前资料索引并查询，清除只删除该会话派生向量。资源与精确命令见PROGRESS，不代表人工或独立Windows验收，不重建安装包；本模块提交后暂停。
+V4-004已完成开发版验收：设置→本地混合检索，模型下载经原生固定清单确认、已有目录原生选择；renderer无路径/URL/批准入口。关键词降级/取消下载/原文检索/重启与实际Qwen加载/索引/混合召回/重启复用均通过真实Electron–Python流程，只有原生对话框由测试模拟；未调用云模型。已批准权重保存在项目私有.orvia/models；加载此前模型后选择资料会话、建立当前资料索引并查询，清除只删除该会话派生向量。资源与精确命令见PROGRESS，不代表人工或独立Windows验收，不重建安装包；暂停已解除。
+
+V4-003设置→记忆与上下文提供五轮/当前状态、候选、批准摘要、准确发送正文及本地跨会话查询；原生生成和忘记确认在memory-ipc，renderer无批准/路径/供应商字段，主进程冻结完整预览并再核对。查看来源会话后可纠正/忘记；普通寒暄与本地查询不隐式调用模型。8契约用例和1真实Electron流程通过（Main mock、原生对话框模拟），截图已实际查看。接口、权限及预算见[记忆模块](../../backend/src/orvia_backend/memory/README.md)。

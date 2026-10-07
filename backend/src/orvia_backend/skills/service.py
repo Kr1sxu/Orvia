@@ -293,7 +293,7 @@ def _builtin():
                     {"id": "space", "tool": "analyze_directory_space", "arguments": {"path": {"from_input": "path"}, "top_n": 5}, "output_schema": OPEN_OBJECT}],
                 "output": {"inventory": {"from_step": "inventory"}, "space": {"from_step": "space"}}}
     yield manifest, None
-    for sid, name, reason in (("memory-context", "Memory Context", "等待 V4-003 记忆与上下文实现"),
+    for sid, name, reason in (("memory-context", "Memory Context", "V4-003本地记忆已实现；声明式组合入口待V4-006接入"),
                               ("query-rewrite", "Query Rewrite", "等待 V4-006 查询改写实现"),
                               ("web-research", "Web Research", "等待 V4-010 多来源调研实现"),
                               ("report-build", "Report Build", "等待 V4-010 简报组合实现")):

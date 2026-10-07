@@ -2,6 +2,13 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
+  memoryList:(input:unknown)=>ipcRenderer.invoke('orvia:memory-list',input),
+  memoryContext:(input:unknown)=>ipcRenderer.invoke('orvia:memory-context',input),
+  memoryPreview:(input:unknown)=>ipcRenderer.invoke('orvia:memory-preview',input),
+  memoryGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:memory-generate',input),
+  memorySearch:(input:unknown)=>ipcRenderer.invoke('orvia:memory-search',input),
+  memoryCorrect:(input:unknown)=>ipcRenderer.invoke('orvia:memory-correct',input),
+  memoryForget:(input:unknown)=>ipcRenderer.invoke('orvia:memory-forget',input),
   retrievalStatus:()=>ipcRenderer.invoke('orvia:retrieval-status'),
   retrievalActivate:()=>ipcRenderer.invoke('orvia:retrieval-activate'),
   retrievalChoose:()=>ipcRenderer.invoke('orvia:retrieval-choose'),

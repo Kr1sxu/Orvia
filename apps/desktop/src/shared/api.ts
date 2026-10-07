@@ -17,6 +17,13 @@ export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  memoryList:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryList>>;
+  memoryContext:(input:{id:string;query?:string})=>Promise<Reply<import('../main/memory-contracts').MemoryContext>>;
+  memoryPreview:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryPreview>>;
+  memoryGenerate:(input:{id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/memory-contracts').MemoryGenerated}>>;
+  memorySearch:(input:{query:string})=>Promise<Reply<import('../main/memory-contracts').MemorySearch>>;
+  memoryCorrect:(input:{id:string;memory_id:string;value:string})=>Promise<Reply<import('../main/memory-contracts').MemoryCorrected>>;
+  memoryForget:(input:{id:string;memory_id:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/memory-contracts').MemoryForgotten}>>;
   retrievalStatus:()=>Promise<Reply<import('../main/retrieval-contracts').RetrievalStatus>>;
   retrievalActivate:()=>Promise<Reply<import('../main/retrieval-contracts').RetrievalStatus>>;
   retrievalChoose:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/retrieval-contracts').RetrievalStatus}>>;

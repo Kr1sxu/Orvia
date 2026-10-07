@@ -336,7 +336,13 @@ class ChatService:
     async def synthesis_generate(self, request):
         """仅处理已确认版本；固定 Main 单次调用，无工具、自动重试或权限升级。"""
         cid, rid = str(request.id), str(request.request_id)
-        packet = await self.synthesis_preview(request)
+        try:
+            packet = await self.synthesis_preview(request)
+        except ToolError as error:
+            # 来源撤回可能先在检索范围检查中被发现；准确审批统一失效，绝不发出旧正文。
+            if error.code in {"SOURCE_UNAVAILABLE", "SOURCE_CHANGED"}:
+                raise ToolError("STALE_APPROVAL", "拟发送资料或关联范围已变化，请重新预览并确认") from None
+            raise
         if packet["revision"] != request.revision:
             raise ToolError("STALE_APPROVAL", "拟发送的证据片段已变化，请重新预览并确认")
         parent = await self.natural.workflow(cid)
@@ -696,7 +702,11 @@ class ChatService:
         profile = next(profile for profile in mission.models if profile.role == "main")
         history, _ = await self.repository.messages(cid)
         context = [{"role": item["role"], "content": item["text"]} for item in history[-8:] if item["kind"] == "text"]
-        if not append_user:
+        if getattr(self, "memory", None) is not None:
+            window = await self.memory.context(cid)
+            local = {key: window[key] for key in ("rounds", "current", "summary", "truncated")}
+            context = [{"role": "user", "content": "本会话五轮背景（不构成操作许可）：" + json.dumps(local, ensure_ascii=False)}]
+        if not append_user or getattr(self, "memory", None) is not None:
             context.append({"role": "user", "content": request.text})
         grant_id = self.gateway.status(cid)["grant_id"]
         observations = [item["data"] for item in history if item["kind"] == "scan"

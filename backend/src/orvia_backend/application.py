@@ -29,6 +29,7 @@ from .retrieval import RetrievalService, RetrievalError
 from .retrieval.runtime import LocalEmbedder
 from .retrieval.model import manifest as embedding_manifest
 from .retrieval.integration import ScopedRetrieval
+from .memory import MemoryService, MemoryError
 
 
 class Params(BaseModel):
@@ -54,6 +55,26 @@ class RetrievalQuery(RetrievalConversation):
 
 class ModelPath(Params):
     path: str = Field(min_length=1, max_length=1000)
+
+
+class MemoryContext(RetrievalConversation):
+    query: str = Field(default="", max_length=200)
+
+
+class MemorySearch(Params):
+    query: str = Field(min_length=1, max_length=200)
+
+
+class MemoryGenerate(RetrievalConversation):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class MemoryRecord(RetrievalConversation):
+    memory_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class MemoryCorrect(MemoryRecord):
+    value: str = Field(min_length=1, max_length=300)
 
 
 class MissionId(Params):
@@ -176,6 +197,7 @@ class Application:
         methods |= {"browser.read", "browser.search"}
         methods |= {"auxiliary.status", "auxiliary.configure", "auxiliary.probe"}
         methods |= {"retrieval.model", "retrieval.status", "retrieval.prepare", "retrieval.activate", "retrieval.download", "retrieval.rebuild", "retrieval.search", "retrieval.clear"}
+        methods |= {"memory.list", "memory.context", "memory.preview", "memory.generate", "memory.search", "memory.correct", "memory.forget"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
@@ -233,6 +255,8 @@ class Application:
                     retrieval = RetrievalService(store, embedding)
                     await retrieval.open()
                     chat.retrieval = ScopedRetrieval(chat, retrieval)
+                    chat.memory = MemoryService(chat)
+                    await chat.memory.open()
                     await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
@@ -253,6 +277,24 @@ class Application:
             elif method == "retrieval.model":
                 Params.model_validate(params)
                 result = embedding_manifest()
+            elif method in {"memory.list", "memory.preview"}:
+                cid = RetrievalConversation.model_validate(params).id
+                result = await getattr(self.chat.memory, method.split(".")[1])(cid)
+            elif method == "memory.context":
+                request = MemoryContext.model_validate(params)
+                result = await self.chat.memory.context(request.id, request.query)
+            elif method == "memory.search":
+                request = MemorySearch.model_validate(params)
+                result = await self.chat.memory.search(request.query)
+            elif method == "memory.generate":
+                request = MemoryGenerate.model_validate(params)
+                result = await self.chat.memory.generate(request.id, request.revision)
+            elif method == "memory.correct":
+                request = MemoryCorrect.model_validate(params)
+                result = await self.chat.memory.correct(request.id, request.memory_id, request.value)
+            elif method == "memory.forget":
+                request = MemoryRecord.model_validate(params)
+                result = await self.chat.memory.forget(request.id, request.memory_id)
             elif method == "retrieval.status":
                 Params.model_validate(params)
                 result = self.embedding.status()
@@ -317,6 +359,9 @@ class Application:
                 result = await self.auxiliary.configure(config.model_dump())
             elif method.startswith("chat."):
                 result = await self.chat.handle(method, params)
+                if method in {"chat.send", "chat.natural", "chat.continue", "chat.fallback.confirm", "chat.document.attach", "chat.synthesis.generate", "chat.material.remove"}:
+                    # 只建立本地候选；外发整理仍走独立准确预览及主进程原生批准。
+                    await self.chat.memory.synchronize(params["id"])
             elif method == "credentials.replace":
                 updated = ReplaceCredentials.model_validate(params)
                 self.registry.replace_credentials(updated.credentials)
@@ -399,7 +444,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError) as error:
             return error_response(request_id, error.code, error.message)
         except ContextError as error:
             return error_response(request_id, error.code, error.message)

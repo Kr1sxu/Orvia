@@ -97,4 +97,6 @@ M07 增加 browser.read / browser.search，须存在的 mission_id；来源与�
 
 V4连续模块状态以docs/PROGRESS与独立Git提交为准。Skills固定方法族见 [模块 README](src/orvia_backend/skills/README.md)，所有声明式调用仍受既有权限网关限制，不执行包内代码，不自动安装。
 
-V4-004已完成开发版验收：可选embeddings运行库、固定版本Qwen离线CPU工作器、SQLite范围/版本/hash/epoch校验及FTS5/余弦/RRF已接入。实际官方六文件核验、合成真实模型基准、满批8×600码点与token超限拒绝、模型Electron均通过；命令与限制见PROGRESS，使用与接口见[src/orvia_backend/retrieval/README.md](src/orvia_backend/retrieval/README.md)。无模型保留关键词路径；不在启动时加载或补下载，不进入发布运行时或安装包。004完成后暂停。
+V4-004已完成开发版验收：可选embeddings运行库、固定版本Qwen离线CPU工作器、SQLite范围/版本/hash/epoch校验及FTS5/余弦/RRF已接入。实际官方六文件核验、合成真实模型基准、满批8×600码点与token超限拒绝、模型Electron均通过；命令与限制见PROGRESS，使用与接口见[src/orvia_backend/retrieval/README.md](src/orvia_backend/retrieval/README.md)。无模型保留关键词路径；不在启动时加载或补下载，不进入发布运行时或安装包。004后的暂停已解除。
+
+V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/README.md)：固定memory.list/context/preview/generate/search/correct/forget方法，SQLite保存来源/批准摘要/无正文调用账本。默认候选发现与跨会话查询不调用模型；固定Main批次整理必须主进程准确原生批准，无重试。95个不同后端用例通过，模型mock和真实SQLite/FTS分开记录，无新增依赖。

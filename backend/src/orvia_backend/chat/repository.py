@@ -139,8 +139,18 @@ class ChatRepository:
                 "created_at": datetime.now(timezone.utc).isoformat()}
 
     async def append(self, conversation_id, role, text, kind="text", data=None):
-        message = self._message(role, text, kind, data)
         async with self.store._lock:
+            # 工具事件及澄清归属既有请求，不能因消息条数增加而占据新的上下文轮次。
+            # 明确传入的父请求身份优先；已结束请求后的独立元数据操作不继承旧身份。
+            if data is None or isinstance(data, dict) and "request_id" not in data:
+                async with self.store._db().execute(
+                    "SELECT request_id,status FROM chat_requests WHERE conversation_id=? ORDER BY rowid DESC LIMIT 1",
+                    (conversation_id,),
+                ) as cursor:
+                    request = await cursor.fetchone()
+                if request and request[1] in {"pending", "waiting_input", "waiting_approval"}:
+                    data = {**(data or {}), "request_id": request[0]}
+            message = self._message(role, text, kind, data)
             # 防止删除并发前已进入的只读/撤权请求在确认后重新写入消息。
             async with self.store._db().execute('SELECT 1 FROM chat_deletions WHERE id=?', (conversation_id,)) as cursor:
                 if await cursor.fetchone():

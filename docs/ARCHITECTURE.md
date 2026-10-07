@@ -214,4 +214,10 @@ V4-002新增Skills框架，完整接口见backend/src/orvia_backend/skills/READM
 
 ### V4-004 已实现架构（2026-10-07）
 
-独立离线CPU嵌入工作器与SQLite retrieval_vectors，精确会话有效资料SQL候选、FTS5/余弦/RRF、hash/version/epoch和级联删除；不以相似度当事实或授权。启动不加载模型，模型准备及首次下载只有原生入口，下载已获批准、六文件大小/摘要核验。工作器统计启动器及自有子进程合计RSS、监测6GiB阈值并回收全部已识别自有进程。实际固定Qwen合成语义、8×600码点、1201tokens拒绝与模型Electron/重启复用已验证；详细资源、版本、权限边界与小样本限制见模块README/PROGRESS，不提供ANN、全盘扫描或发布运行时。按最新指令完成004后暂停，003及以后尚未实施。
+独立离线CPU嵌入工作器与SQLite retrieval_vectors，精确会话有效资料SQL候选、FTS5/余弦/RRF、hash/version/epoch和级联删除；不以相似度当事实或授权。启动不加载模型，模型准备及首次下载只有原生入口，下载已获批准、六文件大小/摘要核验。工作器统计启动器及自有子进程合计RSS、监测6GiB阈值并回收全部已识别自有进程。实际固定Qwen合成语义、8×600码点、1201tokens拒绝与模型Electron/重启复用已验证；详细资源、版本、权限边界与小样本限制见模块README/PROGRESS，不提供ANN、全盘扫描或发布运行时。004后的暂停已由“继续目标”解除。
+
+### V4-003 已实现架构（2026-10-07）
+
+MemoryService从chat_requests/精确request_id消息和当前有效资料生成本地五轮/当前状态；同会话批准摘要接入路由、普通回答及旧规划器，跨会话命中仅本地展示。memory_candidates/records/summaries/revocations保存引用及失效支持，FTS5/jieba只检索verified值，冲突不冒充确认事实。memory_batches保存最多20份准确预览，独立memory_attempts无正文持久账本在网络前事务写入，最多128次/会话，失败/未知/缓存淘汰/遗忘不授权重发；已有聊天purge在同一事实事务清掉七表。
+
+主进程固定IPC严格校验身份、字节预算和完整预览，原生展示实际instructions/input、固定Main、用途和费用；取消零调用，批准仅准确未变化的revision，模型结果还须严格逐字来源核验。纠正/忘记仅源会话；资料撤回清除其支持，仍有其它有效支持则保留。无新依赖；27核心＋3协议＋65相关回归、8前端契约及1真实Electron流程通过，Main mock/原生模拟与真实SQLite分开记录。有限中文/敏感模板、摘要12KiB/12条、原始上下文24KiB及长期来源128有界，不声称全语义覆盖或客观事实真伪证明。详见memory README/PROGRESS。

@@ -100,6 +100,12 @@ async def purge(chat, cid):
                 has_retrieval_epochs = await cursor.fetchone() is not None
             if has_retrieval_epochs:
                 await db.execute('DELETE FROM retrieval_epochs WHERE mission_id=?', (cid,))
+            # 长期记忆及批准批次属于会话派生正文；删除必须在同一事实事务中清理。
+            # 启动恢复可能早于新表迁移，只处理实际已存在的固定白名单表。
+            for memory_table in ('memory_candidates', 'memory_records', 'memory_summaries', 'memory_batches', 'memory_attempts', 'memory_revocations', 'memory_fts'):
+                async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (memory_table,)) as cursor:
+                    if await cursor.fetchone():
+                        await db.execute(f'DELETE FROM {memory_table} WHERE cid=?', (cid,))
             await db.execute('DELETE FROM m20_scan_entries WHERE scan_id IN (SELECT id FROM m20_scans WHERE conversation_id=?)', (cid,))
             for table in ('context_fts','context_documents','context_preferences','context_summaries','browser_evidence','document_evidence','operation_tasks'):
                 await db.execute(f'DELETE FROM {table} WHERE mission_id=?', (cid,))

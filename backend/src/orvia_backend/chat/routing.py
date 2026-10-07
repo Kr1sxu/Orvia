@@ -210,7 +210,15 @@ async def understand(chat, cid, text, materials, history, active, *, nonstream=F
               "仅提及网址/讨论链接不构成读取意图；只有用户明确要求读取网页时read_url。解释普通概念用answer，不能要求无关附件。"
               "复合请求保留全部目标及顺序，超4步用clarify要求拆分，不能静默省略。"
               "answer用于普通解释或聊天，不冒充事实证据。schema=" + json.dumps(Route.model_json_schema(), ensure_ascii=False))
-    payload = json.dumps({"instruction": text, "user_context": authored, "materials": materials,
+    background = authored
+    if getattr(chat, "memory", None) is not None:
+        window = await chat.memory.context(cid)
+        # 结构化轮次标明待结束及失败事实；工具文本不能被提升为system指令或授权。
+        background = {key: window[key] for key in ("rounds", "current", "summary", "truncated")}
+        authored = [message for turn in [*window["rounds"], *([window["current"]] if window["current"] else [])]
+                    for message in turn["messages"] if message["role"] == "user"
+                    and message["kind"] in {"text", "natural_request", "clarification"}]
+    payload = json.dumps({"instruction": text, "user_context": background, "materials": materials,
                           "directory_authorized": bool(chat.gateway.status(cid)["allow_files"])}, ensure_ascii=False)
     messages = [{"role": "system", "content": system}, {"role": "user", "content": payload}]
     model = asyncio.create_task(chat.client.complete(profile, messages, max_tokens=1024) if nonstream else
