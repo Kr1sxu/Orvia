@@ -80,16 +80,18 @@ def test_real_gateway_graph_persistence_and_single_use(tmp_path):
     asyncio.run(run())
 
 
-def test_builtins_unavailable_not_empty_success(tmp_path):
+def test_builtins_versions_and_invalid_inputs_not_empty_success(tmp_path):
     async def run():
         store, service = await setup(tmp_path)
         try:
             items = (await service.list())["skills"]
             assert len(items) == 5
-            assert sum(item["available"] for item in items) == 3
+            assert sum(item["available"] for item in items) == 5
             for item in items:
                 if item["id"] in {"web-research", "report-build"}:
-                    with pytest.raises(SkillError, match="等待 V4"):
+                    assert item["version"] == "1.1.0"
+                    # V4-010已实现真实适配；旧文件盘点输入仍不能变为空壳成功。
+                    with pytest.raises(SkillError):
                         await service.plan(item["id"], {"path": "."}, *identities())
         finally:
             await store.close()

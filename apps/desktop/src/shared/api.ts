@@ -17,6 +17,14 @@ export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  researchCreate:(input:z.input<typeof import('../main/research-contracts').researchCreateInput>)=>Promise<Reply<import('../main/research-contracts').ResearchTask>>;
+  researchCollect:(input:{id:string;operation_id:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/research-contracts').ResearchTask}>>;
+  researchReviewCollect:(input:{id:string;operation_id:string})=>Promise<Reply<import('../main/research-contracts').ResearchTask>>;
+  researchStatus:(input:{id:string;operation_id:string})=>Promise<Reply<import('../main/research-contracts').ResearchTask>>;
+  researchHistory:(input:{id:string})=>Promise<Reply<import('../main/research-contracts').ResearchHistory>>;
+  researchPreview:(input:z.input<typeof import('../main/research-contracts').researchPreviewInput>)=>Promise<Reply<import('../main/research-contracts').ResearchPacket>>;
+  researchGenerate:(input:{id:string;operation_id:string;stage:'batch'|'final';revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/research-contracts').ResearchTask}>>;
+  researchCancel:(input:{id:string;operation_id:string})=>Promise<Reply<import('../main/research-contracts').ResearchTask>>;
   processList:(input:{id:string})=>Promise<Reply<import('../main/process-contracts').ProcessList>>;
   processLaunchPreview:(input:z.infer<typeof import('../main/process-contracts').processLaunchInput>)=>Promise<Reply<{cancelled:boolean;result?:import('../main/process-contracts').ProcessPreview}>>;
   processActionPreview:(input:z.infer<typeof import('../main/process-contracts').processActionInput>)=>Promise<Reply<import('../main/process-contracts').ProcessPreview>>;
@@ -69,7 +77,7 @@ declare global { interface Window { orvia: {
   skillsExecution:(input:{plan_id:string})=>Promise<Reply<import('../main/skills-contracts').SkillExecution>>;
   skillsImport:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillSummary}>>;
   skillsToggle:(input:{skill_id:string;enabled:boolean})=>Promise<Reply<import('../main/skills-contracts').SkillSummary>>;
-  skillsRun:(input:{skill_id:string;inputs:Record<string,unknown>;conversation_id?:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillExecution}>>;
+  skillsRun:(input:{skill_id:string;inputs:Record<string,unknown>;conversation_id?:string;choose_directory?:boolean})=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillExecution}>>;
   connectionStatus: () => Promise<Reply<ConnectionStatus>>;
   reconnect: () => Promise<Reply<{connected: true}>>;
   chatCancel: (input: {id: string; request_id: string}) => Promise<Reply<{cancelled: boolean}>>;

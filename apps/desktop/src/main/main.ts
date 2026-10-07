@@ -22,6 +22,7 @@ import {registerRewrite} from './rewrite-ipc';
 import {registerMcp} from './mcp-ipc';
 import {registerShell} from './shell-ipc';
 import {registerProcesses} from './process-ipc';
+import {registerResearch} from './research-ipc';
 import {McpCredentialVault} from './mcp-credentials';
 
 let backend: BackendClient;
@@ -71,6 +72,7 @@ app.whenReady().then(async () => {
   let mcpAuthorization: {clear:()=>void} | undefined;
   let shellAuthorization: {clear:()=>void} | undefined;
   let processAuthorization: {clear:()=>void} | undefined;
+  let researchAuthorization: {clear:()=>void} | undefined;
   let rewriteAuthorization: {clear:()=>void} | undefined;
   let graphAuthorization: {clear:()=>void} | undefined;
   const page = path.join(__dirname, '../renderer/index.html');
@@ -128,7 +130,7 @@ app.whenReady().then(async () => {
       memoryAuthorization?.clear();
       graphAuthorization?.clear();
       rewriteAuthorization?.clear();
-      mcpAuthorization?.clear();shellAuthorization?.clear();processAuthorization?.clear();
+      mcpAuthorization?.clear();shellAuthorization?.clear();processAuthorization?.clear();researchAuthorization?.clear();
       m18Authorization?.clear();
       materialProcessing=undefined;
       backend = createBackend();
@@ -154,6 +156,7 @@ app.whenReady().then(async () => {
   mcpAuthorization=registerMcp({handle,serial:chatAction,window:()=>window!,backend:()=>backend,vault:()=>mcpVault});
   shellAuthorization=registerShell({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   processAuthorization=registerProcesses({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
+  researchAuthorization=registerResearch({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   rewriteAuthorization=registerRewrite({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   graphAuthorization=registerGraph({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   handle('orvia:chat-rename',1,input=>chatAction(()=>backend.chat('chat.rename',chatRenameSchema.parse(input))));
@@ -189,7 +192,7 @@ app.whenReady().then(async () => {
   handle('orvia:chat-stream-pull',1,async input=>backend.streamPull(streamPullInput.parse(input)));
   handle('orvia:chat-stream-ack',1,async input=>backend.streamAck(streamAckInput.parse(input)));
   handle('orvia:chat-scan-page',1,input=>backend.scanPage(scanPageInput.parse(input)));
-  function invalidatePreviews(){processAuthorization?.clear();mcpAuthorization?.clear();shellAuthorization?.clear();rewriteAuthorization?.clear();graphAuthorization?.clear();memoryAuthorization?.clear();documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
+  function invalidatePreviews(){researchAuthorization?.clear();processAuthorization?.clear();mcpAuthorization?.clear();shellAuthorization?.clear();rewriteAuthorization?.clear();graphAuthorization?.clear();memoryAuthorization?.clear();documentPreviewAuthorization=undefined;synthesisAuthorization=undefined;publicationAuthorization=undefined;developmentContextAuthorization=undefined;developmentDraftAuthorization=undefined;}
   handle('orvia:chat-material-remove',1,input=>chatAction(async()=>{invalidatePreviews();return backend.chat('chat.material.remove',materialRemoveInput.parse(input));}));
   handle('orvia:chat-revoke',1,input=>chatAction(async()=>{invalidatePreviews();m18Authorization?.clear();return backend.chat('chat.revoke',revokeInput.parse(input));}));
   handle('orvia:chat-add-files',1,input=>chatAction(async()=>{

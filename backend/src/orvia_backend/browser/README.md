@@ -102,3 +102,7 @@ Remove-Item Env:ORVIA_BROWSER_TEST
 # M13 复用说明
 
 `EvidenceStore` 增加程序内部限定的browser/document存储类型及 `save_version`，供M13文档共用不可变版本、首次时间和会话归属检查；默认browser表、哈希标识及已有证据格式保持兼容。文档不伪装为网页，不改变Browser网络权限或M12只读流程；M13回归已覆盖原来源版本/隔离/重启。文档接口见 `../documents/README.md`。
+
+## V4-010 复用
+
+研究采集复用既有公开HTTP/Playwright校验和20秒单页预算，不开登录/下载/写入权限。缺Tavily仍明确不可用，查询最多两轮，每轮五个候选；站点限制仅在本机过滤结果/最终URL。十页失败也占额度；研究原文及关联在同一SQLite墓碑事务保存，已有不可变身份保持。真实HTTP测试使用自有合成站点及测试专用DNS路由，不冒充生产Internet搜索验收。

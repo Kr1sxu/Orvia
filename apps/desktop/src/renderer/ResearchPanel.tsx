@@ -1,0 +1,69 @@
+import React,{useEffect,useState} from 'react';
+import {researchCreateInput,type ResearchTask,type ResearchPacket} from '../main/research-contracts';
+import type {Conversation,ChatMessage} from '../main/chat-contracts';
+import {PublicationComposer} from './PublicationCards';
+import {SynthesisResult} from './SynthesisCards';
+
+type Source={kind:'document'|'browser';evidence_id:string};
+const identity=(source:Source)=>source.kind+':'+source.evidence_id;
+const lines=(text:string)=>text.split(/\r?\n/).filter(value=>value.trim().length>0);
+const states={planned:'范围计划已保存，尚未采集',collecting:'正在采集',collected:'资料已采集',limited:'采集有明确限制',generating:'正在生成',ready:'最终回答已保存',cancelled:'已取消',interrupted:'执行中断，未自动重放',failed:'执行失败'};
+
+/** 采集、每批云端发送与成品保存是三个独立原生许可；展示事实覆盖，批摘要不充当原文。 */
+export function ResearchPanel(){
+  const [chats,setChats]=useState<{id:string;title:string}[]>([]),[cid,setCid]=useState(''),[conversation,setConversation]=useState<Conversation>();
+  const [question,setQuestion]=useState(''),[urls,setUrls]=useState(''),[queries,setQueries]=useState(''),[sites,setSites]=useState(''),[localSources,setLocalSources]=useState<Source[]>([]);
+  const [task,setTask]=useState<ResearchTask>(),[history,setHistory]=useState<ResearchTask[]>([]),[limitedHistory,setLimitedHistory]=useState(false),[planned,setPlanned]=useState('');
+  const [stage,setStage]=useState<'batch'|'final'>('final'),[selectedSources,setSelectedSources]=useState<Source[]>([]),[packet,setPacket]=useState<ResearchPacket>(),[active,setActive]=useState<{id:string;operation_id:string}>();
+  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[savedMessage,setSavedMessage]=useState(''),[compose,setCompose]=useState<ChatMessage>(),[sourceText,setSourceText]=useState('');
+  const materials=conversation?.materials?.filter(item=>item.status==='ready')??[];
+  const messages=conversation?.messages.filter(message=>message.kind==='synthesis')??[];
+  const message=messages.find(item=>item.id===savedMessage);
+  async function loadFacts(id=cid){const [h,c]=await Promise.all([window.orvia.researchHistory({id}),window.orvia.chatGet({id})]);if(h.ok){setHistory(h.result.tasks);setLimitedHistory(h.result.truncated);setTask(old=>old?h.result.tasks.find(item=>item.operation_id===old.operation_id)??old:old);}else setNotice(h.message);if(c.ok)setConversation(c.result);else setNotice(c.message);}
+  useEffect(()=>{void window.orvia.chatList().then(r=>{if(r.ok){setChats(r.result.conversations);setCid(r.result.conversations[0]?.id??'');}}).catch(()=>setNotice('会话列表暂不可用。'));},[]);
+  useEffect(()=>{let live=true;setTask(undefined);setPacket(undefined);setHistory([]);setConversation(undefined);setPlanned('');setLocalSources([]);setSelectedSources([]);setSavedMessage('');setCompose(undefined);setSourceText('');if(cid)void Promise.all([window.orvia.researchHistory({id:cid}),window.orvia.chatGet({id:cid})]).then(([h,c])=>{if(!live)return;if(h.ok){setHistory(h.result.tasks);setLimitedHistory(h.result.truncated);}else setNotice(h.message);if(c.ok)setConversation(c.result);else setNotice(c.message);}).catch(()=>{if(live)setNotice('调研事实或会话暂不可用。');});return()=>{live=false;};},[cid]);
+  useEffect(()=>{if(!active)return;let live=true,inFlight=false;const timer=setInterval(()=>{if(inFlight)return;inFlight=true;void window.orvia.researchStatus(active).then(r=>{if(live&&r.ok)setTask(r.result);}).catch(()=>{if(live)setNotice('调研状态暂时未知，不自动重新采集或生成。');}).finally(()=>{inFlight=false;});},500);return()=>{live=false;clearInterval(timer);};},[active]);
+  async function act(action:()=>Promise<void>){setBusy(true);try{await action();}catch{setPacket(undefined);setNotice('操作失败或结果未知，请刷新已保存事实；不会自动重试。');}finally{setBusy(false);}}
+  function choose(source:Source,checked:boolean,collection:boolean){const current=collection?localSources:selectedSources;const maximum=collection?3:stage==='batch'?3:10;if(checked&&current.length>=maximum){setNotice(`此次最多明确选择 ${maximum} 个来源。`);return;}const next=checked?[...current,source]:current.filter(item=>identity(item)!==identity(source));if(collection)setLocalSources(next);else{setSelectedSources(next);setPacket(undefined);}}
+  const available:Source[]=[];for(const source of [...(task?.sources??[]),...(task?.pages.filter(page=>page.state==='ready'&&page.evidence_id).map(page=>({kind:'browser' as const,evidence_id:page.evidence_id!}))??[])])if(!available.some(item=>identity(item)===identity(source)))available.push(source);
+  const eligible=task&&['collected','limited','ready'].includes(task.state);
+  async function showSource(kind:'document'|'browser',evidence_id:string){await act(async()=>{const r=kind==='document'?await window.orvia.chatDocumentSource({id:cid,evidence_id}):await window.orvia.chatBrowserSource({id:cid,evidence_id});if(r.ok)setSourceText(JSON.stringify(r.result,null,2));else setNotice(r.message);});}
+  return <section aria-label="调研与报告" className="skills-panel"><h3>调研与报告</h3>
+    <p>最多十个公共网页、两轮检索、五个准确站点，采集总预算120秒。创建仅保存计划；采集须原生批准。缺少搜索凭据会明确显示不可用，显式URL仍可访问。不会登录或写入网站。</p>
+    <label>调研所属会话<select aria-label="调研所属会话" disabled={busy} value={cid} onChange={e=>setCid(e.target.value)}>{chats.map(chat=><option key={chat.id} value={chat.id}>{chat.title}</option>)}</select></label>
+    <label>调研问题<textarea aria-label="调研问题" rows={3} maxLength={1000} disabled={busy} value={question} onChange={e=>setQuestion(e.target.value)}/></label>
+    <label>准确公共网页URL（每行一个，最多十个）<textarea aria-label="准确公共网页URL" rows={4} disabled={busy} maxLength={20480} value={urls} onChange={e=>setUrls(e.target.value)}/></label>
+    <label>检索问题（每行一轮，最多两轮）<textarea aria-label="调研检索问题" rows={2} disabled={busy} maxLength={802} value={queries} onChange={e=>setQueries(e.target.value)}/></label>
+    <label>准确站点约束（每行一个公共host，最多五个）<textarea aria-label="调研准确站点约束" rows={2} disabled={busy} maxLength={1270} value={sites} onChange={e=>setSites(e.target.value)}/></label>
+    <fieldset disabled={busy}><legend>明确加入当前会话的本地资料（最多三项）</legend>{materials.map(source=><label key={identity(source)}><input aria-label={`加入调研资料 ${source.title}`} type="checkbox" checked={localSources.some(item=>identity(item)===identity(source))} onChange={e=>choose({kind:source.kind,evidence_id:source.evidence_id},e.target.checked,true)}/>{source.title} · {source.kind}</label>)}</fieldset>
+    <button disabled={busy||!cid||!question.trim()} onClick={()=>void act(async()=>{const parsed=researchCreateInput.safeParse({id:cid,question,urls:lines(urls),queries:lines(queries),sites:lines(sites),sources:localSources});if(!parsed.success){setNotice('请核对问题500字符、十个URL、两轮200字符检索、五个准确host和三项资料的范围。');return;}setPacket(undefined);const r=await window.orvia.researchCreate(parsed.data);if(r.ok){setTask(r.result);setPlanned(r.result.operation_id);setSelectedSources([]);setNotice('准确范围计划已保存，请核对完整计划后原生批准采集。');await loadFacts();}else setNotice(r.message);})}>创建准确调研计划</button>
+    <button disabled={busy||!cid} onClick={()=>void act(()=>loadFacts())}>刷新调研与回答事实</button>
+    <label>本会话调研历史<select aria-label="本会话调研历史" disabled={busy} value={task?.operation_id??''} onChange={e=>{setTask(history.find(item=>item.operation_id===e.target.value));setPacket(undefined);setSelectedSources([]);setCompose(undefined);}}><option value="">选择已保存调研</option>{history.map(item=><option key={item.operation_id} value={item.operation_id}>{item.question} · {states[item.state]}</option>)}</select></label>
+    {limitedHistory&&<p>历史达到展示预算，只展示最近十条。</p>}
+    {task&&<article aria-label="调研事实"><h4>{states[task.state]}</h4><p>{task.question}</p><details><summary>准确采集范围与预算</summary><textarea aria-label="完整调研采集计划" readOnly rows={10} value={JSON.stringify(task,null,2)}/></details>
+      <button disabled={busy||task.state!=='planned'} onClick={()=>void act(async()=>{setPlanned('');setPacket(undefined);const r=await window.orvia.researchReviewCollect({id:cid,operation_id:task.operation_id});if(r.ok){setTask(r.result);setPlanned(r.result.operation_id);setNotice('已重新核对准确计划，采集仍需新原生批准。');}else setNotice(r.message);})}>重新核对已保存采集计划</button>
+      <button disabled={busy||task.state!=='planned'||planned!==task.operation_id} onClick={()=>void act(async()=>{const operation={id:cid,operation_id:task.operation_id};setPlanned('');setActive(operation);try{const r=await window.orvia.researchCollect(operation);if(r.ok){if(r.result.cancelled)setNotice('已取消原生采集批准，未读取网页、搜索或调用模型。');else if(r.result.result){setTask(r.result.result);setNotice('采集已返回实际逐页结果，请核对限制与覆盖。');await loadFacts();}}else setNotice(r.message);}finally{setActive(undefined);}})}>原生批准准确调研采集</button>
+      <button disabled={!['collecting','generating'].includes(task.state)&&!active} onClick={()=>{const operation={id:cid,operation_id:task.operation_id};setPacket(undefined);setPlanned('');void window.orvia.researchCancel(operation).then(r=>{if(r.ok){setTask(r.result);setNotice('取消已记录；请核对任务状态，未知请求不自动重试。');}else setNotice(r.message);}).catch(()=>setNotice('取消结果未知，请刷新任务事实。'));}}>取消当前调研操作</button>
+      <p>尝试网页 {task.coverage.attempted_pages}/10，取得 {task.coverage.ready_pages}，去重最终网页 {task.coverage.distinct_final_pages}；检索轮次 {task.coverage.search_rounds}/2。{task.coverage.search_unavailable?'搜索服务不可用。':''}</p>
+      {task.coverage.limitations.map((item,i)=><p key={i}>{item}</p>)}{task.error&&<p>{task.error.code} · {task.error.message}</p>}
+      <ul>{task.pages.map((page,i)=><li key={i}>{page.url} · {page.state}{page.final_url&&page.final_url!==page.url?` → ${page.final_url}`:''}{page.error?` · ${page.error.code} ${page.error.message}`:''}{page.evidence_id&&<button disabled={busy} onClick={()=>void showSource('browser',page.evidence_id!)}>查看采集原文 {i+1}</button>}</li>)}</ul>
+      {task.searches.map((search,i)=><details key={i}><summary>第 {i+1} 轮：{search.query} · {search.state}</summary>{search.error&&<p>{search.error.code} · {search.error.message}</p>}{search.results.map((item,j)=><p key={j}>{item.title} · {item.url}</p>)}</details>)}
+      <h4>逐批准备准确模型发送</h4><p>固定 Main：deepseek-flash / https://api.deepseek.com。每批输入最多42KiB，30秒，4096输出token，可能产生费用；没有默认云端调用。摘要最多四批，每批最多三源；最终原文最多十源，遗漏与截断须核对。</p>
+      <label>调研模型阶段<select aria-label="调研模型阶段" disabled={busy} value={stage} onChange={e=>{setStage(e.target.value as 'batch'|'final');setSelectedSources([]);setPacket(undefined);}}><option value="final">最终综合（引用原文）</option><option value="batch">一批摘要（不替代原文）</option></select></label>
+      <fieldset disabled={busy||!eligible}><legend>明确选择此批原文来源；未选时预览服务默认有界范围</legend>{available.map(source=><label key={identity(source)}><input aria-label={`发送来源 ${source.kind} ${source.evidence_id.slice(0,12)}`} type="checkbox" checked={selectedSources.some(item=>identity(item)===identity(source))} onChange={e=>choose(source,e.target.checked,false)}/>{source.kind} · {source.evidence_id.slice(0,12)}</label>)}</fieldset>
+      <button disabled={busy||!eligible} onClick={()=>void act(async()=>{setPacket(undefined);const r=await window.orvia.researchPreview({id:cid,operation_id:task.operation_id,stage,...(selectedSources.length?{sources:selectedSources}:{})});if(r.ok){setPacket(r.result);setNotice('完整准确发送正文已准备，核对后另行原生批准。');}else setNotice(r.message);})}>准备准确调研发送预览</button>
+      {task.batches.map((batch,i)=><details key={i}><summary>批摘要 {i+1} · {batch.state}（不能作为原文引用）</summary><p>{batch.answer??'未保存摘要正文'}</p></details>)}
+      <p>最终综合：{task.final.state}{task.final.message_id?` · 已保存回答 ${task.final.message_id}`:''}</p>
+      {task.publications.map(item=><p key={item.format}>已实际保存并读回核验：{item.filename} · {item.format.toUpperCase()} · {item.pages}页 · SHA版本 {item.revision.slice(0,12)}</p>)}
+    </article>}
+    {packet&&<article aria-label="调研准确发送预览"><h4>{packet.purpose}</h4><p>{packet.supplier} · {packet.bytes} / 43008字节</p><label>调研完整系统说明<textarea aria-label="调研完整系统说明" readOnly rows={6} value={packet.system}/></label><label>调研完整发送输入<textarea aria-label="调研完整发送输入" readOnly rows={12} value={packet.input}/></label>
+      <details><summary>逐来源覆盖与原文</summary>{packet.coverage.map(item=><p key={identity(item)}>{item.title} · {item.selected_chunks}/{item.available_chunks}片段{item.source_truncated?' · 原文截断':''}{item.missing_units.length?' · 缺失单元':''}</p>)}{packet.fragments.map((item,i)=><article key={i}><strong>{item.citation} · {item.locator}</strong><p className="source-content">{item.text}</p></article>)}</details>
+      <button disabled={busy} onClick={()=>void act(async()=>{const saved=packet;setPacket(undefined);const operation={id:cid,operation_id:saved.operation_id};setActive(operation);try{const r=await window.orvia.researchGenerate({...operation,stage:saved.stage,revision:saved.revision});if(r.ok){if(r.result.cancelled)setNotice('已取消此批原生批准，未调用模型。');else if(r.result.result){setTask(r.result.result);setNotice('本批已返回已保存事实；请核对引用与限制。');await loadFacts();if(r.result.result.final.message_id)setSavedMessage(r.result.result.final.message_id);}}else setNotice(r.message);}finally{setActive(undefined);}})}>原生批准此批调研模型发送</button>
+    </article>}
+    {sourceText&&<details open><summary>原文来源详情</summary><textarea aria-label="调研原文来源详情" readOnly rows={12} value={sourceText}/></details>}
+    <h4>已保存回答与三格式成品</h4><label>明确选择已保存综合回答<select aria-label="明确选择已保存综合回答" disabled={busy} value={savedMessage} onChange={e=>{setSavedMessage(e.target.value);setCompose(undefined);}}><option value="">选择已保存回答</option>{messages.map(item=><option key={item.id} value={item.id}>{item.created_at} · {item.text.slice(0,80)}</option>)}</select></label>
+    {message&&<SynthesisResult message={message} disabled={busy} show={(kind,id)=>void showSource(kind,id)} compose={setCompose}/>}
+    {compose&&<PublicationComposer key={cid+compose.id} cid={cid} message={compose} disabled={busy} close={()=>setCompose(undefined)} notice={setNotice} saved={(reply,id)=>{if(id===cid&&reply.ok){setConversation(reply.result);setNotice('成品已创建并读回核验。');void loadFacts();}}}/>}
+    <p role="status">{notice}</p>
+  </section>;
+}

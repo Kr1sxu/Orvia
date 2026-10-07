@@ -37,6 +37,8 @@ from .mcp import McpService
 from .mcp.protocol import McpError
 from .shell import ShellService, ShellError
 from .processes import ProcessService, ProcessError
+from .research import ResearchService, ResearchError
+from .research.contracts import Conversation as ResearchConversation, Create as ResearchCreate, Operation as ResearchOperation, Preview as ResearchPreview, Generate as ResearchGenerate
 
 
 class Params(BaseModel):
@@ -327,6 +329,7 @@ class Application:
         self.mcp: McpService | None = None
         self.shell: ShellService | None = None
         self.processes: ProcessService | None = None
+        self.research: ResearchService | None = None
         self.embedding: LocalEmbedder | None = None
         self.retrieval: RetrievalService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
@@ -349,6 +352,7 @@ class Application:
         methods |= {"mcp.list","mcp.preview_config","mcp.configure","mcp.connect_preview","mcp.connect","mcp.approve_tools","mcp.call_preview","mcp.call","mcp.history","mcp.disconnect","mcp.remove","mcp.credential_replace"}
         methods |= {"shell.detect","shell.preview","shell.review","shell.execute","shell.cancel","shell.status","shell.history","shell.export_preview","shell.export"}
         methods |= {"process.list","process.preview_launch","process.preview_action","process.review","process.execute","process.status","process.history"}
+        methods |= {"research.create", "research.collect", "research.status", "research.history", "research.preview", "research.generate", "research.cancel"}
         methods |= {"rewrite.preview", "rewrite.generate", "rewrite.search", "rewrite.history"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
@@ -404,6 +408,10 @@ class Application:
                     processes = ProcessService(store,chat,self.computer)
                     await processes.open()
                     chat.processes = processes
+                    # 调研账本先于旧删除journal恢复建立，重启仅中断事实，不恢复外发许可。
+                    research = ResearchService(store, chat)
+                    await research.open()
+                    chat.research = research
                     if self.event_sink is not None:
                         chat.set_event_sink(self.event_sink)
                     await chat.open()
@@ -443,6 +451,7 @@ class Application:
                 self.mcp = mcp
                 self.shell = shell
                 self.processes = processes
+                self.research = research
                 self.embedding, self.retrieval = embedding, retrieval
                 result = {"initialized": True}
             elif self.store is None:
@@ -581,6 +590,24 @@ class Application:
             elif method == "retrieval.search":
                 query = RetrievalQuery.model_validate(params)
                 result = await self.chat.retrieval.search(query.id, query.query)
+            elif method == "research.create":
+                request = ResearchCreate.model_validate(params)
+                result = await self.research.create(request.id, request.question, request.urls, request.queries, request.sites,
+                                                    [source.model_dump() for source in request.sources])
+            elif method in {"research.collect", "research.status", "research.cancel"}:
+                request = ResearchOperation.model_validate(params)
+                action = {"research.collect": self.research.collect, "research.status": self.research.status,
+                          "research.cancel": self.research.cancel}[method]
+                result = await action(request.id, request.operation_id)
+            elif method == "research.history":
+                result = await self.research.history(ResearchConversation.model_validate(params).id)
+            elif method == "research.preview":
+                request = ResearchPreview.model_validate(params)
+                result = await self.research.preview(request.id, request.operation_id, request.stage,
+                    [source.model_dump() for source in request.sources] if request.sources is not None else None)
+            elif method == "research.generate":
+                request = ResearchGenerate.model_validate(params)
+                result = await self.research.generate(request.id, request.operation_id, request.stage, request.revision)
             elif method == 'skills.list':
                 result = await self.skills.list(SkillList.model_validate(params).offset)
             elif method == 'skills.history':
@@ -605,6 +632,24 @@ class Application:
                 request = SkillExecute.model_validate(params)
                 # 固定角色与授权只由可信调度闭包注入；Skill 包不能提供模型/权限字段。
                 async def dispatch(tool, arguments):
+                    # 调研/成品Skill只准备真实计划或读取事实；展开步骤不能继承云发送或保存许可。
+                    if tool in {"research_create", "research_status", "report_build_preview"}:
+                        await self.chat.repository.get(request.mission_id)
+                        if tool == "research_create":
+                            value = await self.research.create(str(request.mission_id), arguments["query"],
+                                [url.strip() for url in arguments["urls"].splitlines() if url.strip()], [], [], [])
+                            return {"complete": False, "truncated": False, "errors": [], "status": "pending_approval", "task": value}
+                        if tool == "research_status":
+                            value = await self.research.status(str(request.mission_id), arguments["task_id"])
+                            return {"complete": value["state"] == "ready", "truncated": False, "errors": [], "status": value["state"], "task": value}
+                        from .chat.contracts import PublicationPreview
+                        message = await self.chat.repository.message(str(request.mission_id), arguments["message_id"])
+                        data = message.get("data") or {}
+                        packet = await self.chat.publication_preview(PublicationPreview.model_validate({
+                            "id": str(request.mission_id), "message_id": arguments["message_id"], "format": arguments["format"],
+                            "title": arguments["title"], "answer": data.get("answer"),
+                            "claim_texts": [claim["text"] for claim in data.get("claims", [])]}))
+                        return {"complete": False, "truncated": False, "errors": [], "status": "pending_save", "preview": packet}
                     # 固定本地适配只使用已绑定会话，声明不能选cid、generate或授予正文上云许可。
                     if tool in {"memory_context", "query_rewrite"}:
                         await self.chat.repository.get(request.mission_id)
@@ -638,6 +683,8 @@ class Application:
                     self.shell.forget_previews(params["id"])
                 if self.processes is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
                     self.processes.forget_previews(params["id"])
+                if self.research is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
+                    self.research.forget_previews(params["id"])
                 if method in {"chat.send", "chat.natural", "chat.continue", "chat.fallback.confirm", "chat.document.attach", "chat.synthesis.generate", "chat.material.remove"}:
                     # 只建立本地候选；外发整理仍走独立准确预览及主进程原生批准。
                     await self.chat.memory.synchronize(params["id"])
@@ -723,7 +770,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError, ProcessError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError, ProcessError, ResearchError) as error:
             return error_response(request_id, error.code, error.message)
         except ModelUnavailable as error:
             # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。
@@ -753,6 +800,10 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.research is not None:
+            # 等待只读/模型取消收尾后才能关闭共享SQLite，绝不自动重发。
+            await self.research.close()
+            self.research = None
         if self.processes is not None:
             # 只收尾已批准的有限等待；绝不因关闭Orvia自行结束用户目标应用。
             await self.processes.close()

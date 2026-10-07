@@ -123,3 +123,7 @@ V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/REA
 ## V4-007 MCP只读客户端
 
 固定mcp方法族分离配置、连接、工具清单、调用和历史；可信主进程准确原生确认后才触发外部请求。冻结2025-06-18，有限schema校验、真实stdio Windows Job及HTTPS JSON/SSE。SQLite保存全局配置/审查与会话尝试/结果，删除会话清后两表且晚到不得重建；启动不恢复连接或许可。独立Bearer仅私有Initialize.mcp_credentials/credential_replace进入内存，不接受配置env或角色Key，不落库。每工具请求20秒、完整调用60秒（包括前后发现），未知不重试。无新增依赖，现有httpx/psutil用于受控传输及实际验收；[模块README](src/orvia_backend/mcp/README.md)记录支持子集、预算和限制。
+
+## V4-010 有界调研
+
+`research/`提供SQLite十页/两轮工作流、准确原文检索范围、逐批固定Main和成品事件关联。Application仅开放七个严格调研方法；取消/状态/历史为控制旁路，写阶段仍串行。研究网页不扩M20三资料，删除journal同事务清任务/关联/尝试，Context写前墓碑拒晚到正文。真实HTTP/SQLite/原文/三格式与模型mock结果分别见PROGRESS。

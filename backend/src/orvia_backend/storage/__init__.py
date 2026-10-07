@@ -257,6 +257,14 @@ class Store:
             db = self._db()
             await db.execute("BEGIN IMMEDIATE")
             try:
+                # 分词可能跨越会话删除；在最终写事务内核对墓碑，晚到索引不能复活正文。
+                # 独立目录Mission没有chat记录，仍可使用原有索引接口。
+                async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chat_deletions'") as cursor:
+                    has_deletions = await cursor.fetchone() is not None
+                if has_deletions:
+                    async with db.execute("SELECT 1 FROM chat_deletions WHERE id=?", (document["mission_id"],)) as cursor:
+                        if await cursor.fetchone() is not None:
+                            raise ValueError("会话已删除，晚到上下文不能写回")
                 async with db.execute("SELECT id FROM context_documents WHERE mission_id = ? AND source = ?",
                                       (document["mission_id"], document["source"])) as cursor:
                     old = await cursor.fetchone()

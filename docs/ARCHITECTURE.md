@@ -1,5 +1,11 @@
 # 序航 Orvia 架构
 
+### V4-010 有界调研与成品组合（2026-10-08）
+
+ResearchService在SQLite保存任务、单消费阶段尝试与准确不可变来源关联，调研采集不挤入或扩M20三附件。现Browser安全读取→原文/Evidence身份→研究精确来源检索（前后版本/撤回核验）→准确system/input原生批准→固定Main→引用结构校验→保存synthesis→现Publication独占新文件及准确保存事件回执。摘要不替代原文、ready只表明回答已保存；Skill进一步核对实际采集范围/限制，pending或limited停止组合。
+
+控制旁路仅status/history/cancel；独立采集120秒、每批30秒、无自动重试。启动标中断而不恢复许可，删除journal同事务清研究三表；FTS最终事务墓碑阻迟到正文。Renderer固定八入口不接受自由方法/URL网络写操作、SQL、路径或模型配置；原生重核planned只准备新审批，不恢复旧许可。预算与真实/mock证据见模块README/PROGRESS，011尚未实施。
+
 ### V4-009 普通用户进程架构（2026-10-08）
 
 ProcessPanel→六个固定IPC→process-ipc原生exe/cwd选择/完整风险确认→七个私有stdio方法→ProcessService→native ctypes/psutil。精确身份包含PID/名称/路径/create_time/creation_ticks字符串/全文SHA256，不读取真实cmdline/env/window正文或返回SID；完整preview同时绑定action/argv/cwd/wait_seconds/revision，不能用renderer approved或程序自述授权。Windows同用户普通Token、低于High完整性、非AppContainer/UIAccess、critical/protection可读、关键PID/祖先/Orvia程序拒绝；核验与动作沿用同一个HANDLE防复用。

@@ -2,6 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
+  researchCreate:(input:unknown)=>ipcRenderer.invoke('orvia:research-create',input),
+  researchCollect:(input:unknown)=>ipcRenderer.invoke('orvia:research-collect',input),
+  researchReviewCollect:(input:unknown)=>ipcRenderer.invoke('orvia:research-review-collect',input),
+  researchStatus:(input:unknown)=>ipcRenderer.invoke('orvia:research-status',input),
+  researchHistory:(input:unknown)=>ipcRenderer.invoke('orvia:research-history',input),
+  researchPreview:(input:unknown)=>ipcRenderer.invoke('orvia:research-preview',input),
+  researchGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:research-generate',input),
+  researchCancel:(input:unknown)=>ipcRenderer.invoke('orvia:research-cancel',input),
   processList:(input:unknown)=>ipcRenderer.invoke('orvia:process-list',input),
   processLaunchPreview:(input:unknown)=>ipcRenderer.invoke('orvia:process-launch-preview',input),
   processActionPreview:(input:unknown)=>ipcRenderer.invoke('orvia:process-action-preview',input),

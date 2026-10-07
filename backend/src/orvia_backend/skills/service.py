@@ -19,7 +19,10 @@ from langgraph.graph import END, START, StateGraph
 from ..computer.contracts import DirectoryArgs, PathArgs, ReadArgs, SearchArgs, SpaceArgs
 from ..computer.paths import PathPolicy, ToolError
 from ..storage import Store
+from ..browser.network import BrowserError, validate_url
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Literal
+from urllib.parse import urlsplit
 
 
 class LocalContextArgs(BaseModel):
@@ -38,19 +41,100 @@ class LocalRewriteArgs(LocalContextArgs):
         return None if value == "" else value
 
 
-LOCAL_TOOLS = {"memory_context", "query_rewrite"}
+class ResearchCreateArgs(LocalContextArgs):
+    """URL以显式换行标量保持v1契约；这里只校验地址，不解析DNS或发出网络请求。"""
+    urls: str = Field(min_length=1, max_length=8000)
+
+    @field_validator("urls")
+    @classmethod
+    def bounded_urls(cls,value):
+        urls=[line.strip() for line in value.splitlines() if line.strip()]
+        if not 1<=len(urls)<=10:raise ValueError("必须明确提供1～10个公共URL")
+        try:checked=[validate_url(url) for url in urls]
+        except BrowserError:raise ValueError("公共URL不符合Browser地址边界") from None
+        if len({urlsplit(url).hostname for url in checked})>5:raise ValueError("最多五个明确站点")
+        return value
+
+
+class ResearchStatusArgs(BaseModel):
+    """只引用同一可信cid下的准确研究任务，不提供读其它会话的字段。"""
+    model_config=ConfigDict(extra="forbid",strict=True,hide_input_in_errors=True)
+    task_id: str=Field(min_length=36,max_length=36)
+
+    @field_validator("task_id")
+    @classmethod
+    def uuid_identity(cls,value):return str(UUID(value))
+
+
+class ReportPreviewArgs(BaseModel):
+    """仅重排同会话已保存综合消息，输出文件路径与云动作不在契约中。"""
+    model_config=ConfigDict(extra="forbid",strict=True,hide_input_in_errors=True)
+    message_id: str=Field(min_length=36,max_length=36)
+    format: Literal["docx","pptx","pdf"]
+    title: str=Field(min_length=1,max_length=40)
+
+    @field_validator("message_id")
+    @classmethod
+    def uuid_identity(cls,value):return str(UUID(value))
+
+
+LOCAL_TOOLS = {"memory_context", "query_rewrite", "research_create", "research_status", "report_build_preview"}
+PREPARATION_TOOLS={"research_create":"pending_approval","report_build_preview":"pending_save"}
+PENDING_STATUSES={"pending_approval","pending_save","pending_cloud","limited","unknown"}
 
 
 TOOLS = {"list_directory": DirectoryArgs, "search_files": SearchArgs,
          "get_file_metadata": PathArgs, "analyze_directory_space": SpaceArgs,
          "read_text_file": ReadArgs}
 TOOLS.update(memory_context=LocalContextArgs, query_rewrite=LocalRewriteArgs)
+TOOLS.update(research_create=ResearchCreateArgs,research_status=ResearchStatusArgs,report_build_preview=ReportPreviewArgs)
 RESERVED = {"mission_id", "grant_id", "role", "approval", "approved", "token", "permissions",
             "model", "base_url", "api_key", "command", "script", "expression"}
 IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{1,63}\Z")
 VERSION = re.compile(r"[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}\Z")
 OPEN_OBJECT = {"type": "object", "additionalProperties": True}
 OUTPUT_LIMIT = 32 * 1024
+
+
+def _research_ready(task):
+    """已保存综合不能掩盖采集缺口；只核对当前明确范围的事实，不推断行业完整性。"""
+    if not isinstance(task, dict) or task.get("state") != "ready" or task.get("error"):
+        return False
+    final = task.get("final")
+    if not isinstance(final, dict) or final.get("state") != "saved":
+        return False
+    try:
+        message_id = final.get("message_id")
+        if not isinstance(message_id, str) or str(UUID(message_id)) != message_id:
+            return False
+    except ValueError:
+        return False
+    coverage = task.get("coverage")
+    if not isinstance(coverage, dict) or coverage.get("limitations") != [] or coverage.get("search_unavailable") is not False:
+        return False
+    urls, queries, sources, pages, searches = (task.get(key) for key in ("urls", "queries", "sources", "pages", "searches"))
+    if any(not isinstance(value, list) for value in (urls, queries, sources, pages, searches)):
+        return False
+    if any(not isinstance(value, str) for value in urls + queries) or not (urls or queries or sources):
+        return False
+    if any(not isinstance(source, dict) or source.get("kind") not in ("browser", "document")
+           or not isinstance(source.get("evidence_id"), str)
+           or not re.fullmatch("[0-9a-f]{64}", source["evidence_id"]) for source in sources):
+        return False
+    if any(not isinstance(page, dict) or page.get("state") != "ready" or page.get("error")
+           or not isinstance(page.get("url"), str) or not isinstance(page.get("final_url"), str)
+           or not page["final_url"] or not isinstance(page.get("evidence_id"), str)
+           or not re.fullmatch("[0-9a-f]{64}", page["evidence_id"]) for page in pages):
+        return False
+    if any(not isinstance(search, dict) or search.get("state") != "completed" or search.get("error")
+           or not isinstance(search.get("query"), str) for search in searches):
+        return False
+    expected = {"attempted_pages": len(pages), "ready_pages": len(pages),
+                "search_rounds": len(searches), "distinct_final_pages": len({page["final_url"] for page in pages})}
+    if any(type(coverage.get(key)) is not int or coverage[key] != value for key, value in expected.items()):
+        return False
+    # 零页仅对真实选定原文范围成立；有明确URL/检索轮时必须各自存在成功事实。
+    return set(urls).issubset({page["url"] for page in pages}) and set(queries).issubset({search["query"] for search in searches})
 
 
 class SkillError(ValueError):
@@ -327,9 +411,18 @@ def _builtin():
                {"id": "context", "skill": "memory-context", "arguments": {"query": {"from_input": "query"}}, "output_schema": OPEN_OBJECT},
                {"id": "retrieve", "tool": "query_rewrite", "arguments": {"query": {"from_input": "query"}, "revision": {"from_input": "revision"}}, "output_schema": OPEN_OBJECT}],
            "output": {"context": {"from_step": "context"}, "retrieval": {"from_step": "retrieve"}}}, None
-    for sid, name, reason in (("web-research", "Web Research", "等待 V4-010 多来源调研实现"),
-                              ("report-build", "Report Build", "等待 V4-010 简报组合实现")):
-        yield {**manifest, "id": sid, "name": name, "description": reason}, reason
+    research_inputs=copy.deepcopy(query_inputs)
+    research_inputs["properties"]["urls"]={"type":"string","minLength":1,"maxLength":8000}
+    research_inputs["required"].append("urls")
+    yield {**local,"id":"web-research","name":"Web Research","description":"从明确问题与公共URL创建真实有界研究任务；采集、云摘要和综合另行原生批准，准备完成不代表研究完成。",
+           "input_schema":research_inputs,"dependencies":[],
+           "steps":[{"id":"prepare-research","tool":"research_create","arguments":{"query":{"from_input":"query"},"urls":{"from_input":"urls"}},"output_schema":OPEN_OBJECT}],
+           "output":{"research":{"from_step":"prepare-research"}}},None
+    report_inputs={"type":"object","properties":{"message_id":{"type":"string","minLength":36,"maxLength":36},"format":{"type":"string","enum":["docx","pptx","pdf"]},"title":{"type":"string","minLength":1,"maxLength":40}},"required":["message_id","format","title"]}
+    yield {**local,"id":"report-build","name":"Report Build","description":"从同会话已保存的引用综合回答创建Word/PPT/PDF准确预览；保存仍需独立原生新文件审批，不自动外发。",
+           "input_schema":report_inputs,"dependencies":[],
+           "steps":[{"id":"prepare-report","tool":"report_build_preview","arguments":{key:{"from_input":key} for key in ("message_id","format","title")},"output_schema":OPEN_OBJECT}],
+           "output":{"preview":{"from_step":"prepare-report"}}},None
 
 
 class GraphState(TypedDict):
@@ -375,7 +468,7 @@ class SkillsService:
             revision = hashlib.sha256(content.encode()).hexdigest()
             await db.execute("INSERT OR IGNORE INTO skills_registry VALUES(?,?,?,?,?,1,1,?,1)",
                              (manifest["id"], manifest["version"], revision, content, manifest["description"], reason))
-            if manifest["id"] in {"memory-context", "query-rewrite"}:
+            if manifest["id"] in {"memory-context", "query-rewrite", "web-research", "report-build"}:
                 # 只迁移内置版本，保留用户禁用状态；旧占位清单不能继续伪装文件整理流程。
                 await db.execute("UPDATE skills_registry SET version=?,revision=?,manifest_json=?,documentation=?,reason=NULL,generation=generation+1 WHERE id=? AND builtin=1 AND revision<>?",
                                  (manifest["version"], revision, content, manifest["description"], manifest["id"], revision))
@@ -627,7 +720,7 @@ class SkillsService:
 
             output = expand(skill_id, inputs, "")
             if grant_id is None and any(step["tool"] not in LOCAL_TOOLS for step in steps):
-                _fail("SKILL_PERMISSION", "文件工具必须具备真实目录授权；本地会话模式只允许记忆和检索")
+                _fail("SKILL_PERMISSION", "文件工具必须具备真实目录授权；本地会话工具不能授予文件读取权限")
             # 结构绑定没有晚到权限；可立即解析的参数在原生确认前按现有网关契约校验。
             for step in steps:
                 if "from_step" not in _json(step["arguments"]):
@@ -765,11 +858,21 @@ class SkillsService:
                 await self._check_bindings(plan)
                 if not isinstance(value, dict):
                     _fail("SKILL_CONTRACT", "工具必须返回结构化结果")
+                if step["tool"] in PREPARATION_TOOLS:
+                    # 创建任务或成品预览的事实可以保存，但不能代替后续采集、云或保存审批。
+                    value={**value,"complete":False,"status":PREPARATION_TOOLS[step["tool"]]}
+                elif step["tool"]=="research_status":
+                    task=value.get("data")
+                    if not _research_ready(task):
+                        # ready只是综合保存状态；失败页面、未读范围或搜索不可用仍须停止组合。
+                        state=task.get("state") if isinstance(task,dict) else None
+                        pending={"planned":"pending_approval","collected":"pending_cloud","limited":"limited","ready":"limited","cancelled":"limited","interrupted":"unknown"}.get(state,"unknown")
+                        value={**value,"complete":False,"status":pending}
                 output_bytes += _size(value)
                 if output_bytes > OUTPUT_LIMIT or _size(execution) + _size(value) + 512 > OUTPUT_LIMIT:
                     _fail("SKILL_OUTPUT_LIMIT", "工作流结果合计超过32KiB；不返回超限正文")
                 _validate(step["output_schema"], value)
-                if (value.get("complete") is not True or value.get("truncated") is True or value.get("errors")):
+                if (value.get("status") in PENDING_STATUSES or value.get("complete") is not True or value.get("truncated") is True or value.get("errors")):
                     evidence.update(status="limited", result=value)
                     execution.update(status="limited", error={"code": "SKILL_LIMITED", "message": "工具结果未完整核验；后续步骤已停止"})
                 else:

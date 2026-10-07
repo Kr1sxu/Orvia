@@ -1820,3 +1820,53 @@ npx playwright test tests/e2e/v4-processes.spec.ts
 沿用Python3.12.6/psutil7.2.2/ctypes/aiosqlite，无新工具/依赖/模型安装；原生常量参照Microsoft WinBase.h及TokenInformationClass（native README链接），不修改系统策略。模块/root/backend/desktop/Computer README、架构/清单/V4/进度已更新。提交前status/diff/cached/working与staged敏感和禁入检查，回执在忽略目录；仅显式009文件，预存两个文件保持不读/暂存，不收密钥/DB/测试产物/DLL/用户文件。独立正常本地commit标题`feat(V4-009): manage approved ordinary Windows processes with exact identity evidence`，hash见Git/commit-receipt；不amend、不push、不Release/重建包。009提交后自动进入010，Goal仍未完成。
 
 试用npm start→设置→普通用户进程→刷新/明确准确PID或原生选.exe、JSON完整参数、可选cwd→准备→原生逐项批准→看exited/still_running/unknown及close_sent；close未退需另选terminate并新批准，不能用旧按钮或聊天授权。历史可选已核验准确target再现查，不恢复旧执行资格；新启动程序要自行关闭或单独批准终止。
+
+## V4-010：有界多来源调研与简报 Skills（2026-10-08交付）
+
+009已交付独立本地commit **6c2472a**；117不同后端、40桌面、1真实Electron通过。按已恢复“继续目标”自动进入010，未开始011；预检main、origin/main与历史，工作树仅预存.zcodeignore/docs/INTERVIEW.md，不读或暂存，不push/发布/重建安装包。
+
+目标：每任务最多10公共网页、2检索轮；独立采集与每批固定Main正文发送审批、不可变来源引用回查、比较/冲突/缺口/覆盖、已核验回答三格式新文件保存。复用Browser安全HTTP/Playwright、SQLite证据、M15引用校验、M16真实成品服务，不把摘要或搜索片段替代原文事实。Tavily缺失明确不可用，显式公共URLs可用；模型默认mock，真实读取/SQLite/三格式文件分开记录。
+
+文件所有权：graph_core仅新research服务/README/test_v4_research；rewrite_core仅Skills服务/README及对应测试；rewrite_desktop仅新research contracts/ipc/Panel/unit；主Agent仅现有Application/生命周期/删除/preload/API/Settings与协议/E2E、审查文档提交。禁止并发同文件/后续开发/传递凭据。沿用依赖，不提前安装资源。L0类型/构建与文档，L1边界，L2实际接口/原文/SQLite/成品，L3 Electron取消/审批/成品/重启；L4按最终跨模块改动评估。完成条件为实际实现、必要验证、文档/敏感审计及独立正常本地commit，当前未完成。证据只放忽略artifacts/test-results/V4-010/。
+
+### V4-010 当前交付事实、验证与限制
+
+- [x] √ Research实际保存/单次采集/精确来源检索/逐批准确Main/原文引用/实际成品事件关联。SQLite研究三表、120秒采集/十个规范URL尝试（失败也计）/两轮（失败计）/每轮5候选/五准确host；URL输入8KiB、候选URL标题8KiB、URL元数据16KiB，单会话20任务/128单次阶段尝试，历史10/完整48KiB。空范围拒绝；source-only可用。
+- [x] √ 调研独立关联不扩M20三资料。Browser安全策略保留，当前Tavily缺失准确unavailable，站点仅本机过滤不发送搜索服务。FTS复用Context；研究代理仅当前任务准确标签、最多150定位、前后版本/撤回复核；Store最终事务墓碑阻迟到索引，独立目录Mission保持兼容。
+- [x] √ 最多四批，每批三源、每源最多3×600字符；最终十源各一个原片段。13→10明确排除三源和scope计数，全文/抽样/OCR/截断覆盖保留。实际system/input合42KiB、完整可见包48KiB（含重复片段），固定Main30秒4096tokens单调用，不请求工具/重试；最终四项比较/冲突/缺口/覆盖，引用只回查原文、同源冲突/不存在引用拒绝。批摘要不替代原文或新权限；ready仅回答保存，不等完整业务。
+- [x] √ Web Research/Report Build真实1.1.0注册与三窄工具，可与同cid准确目录/文本/检索组合。Skill只准备计划或版式；pending/采集失败/搜索不可用/遗漏/计数不一致即limited停止，不能以complete自述推进。UI原生选择准确目录及文本范围，随后实际逐叶网关检查并撤销；研究计划在历史点击重新核对后仍新原生采集批准。七后端/八preload固定入口，无自由转发；控制status/history/cancel旁路已实测。
+- [x] √ 同cid活性、初始资料撤回/全文变化的采集前复核、生成前后准确原文版本、取消等待实际协程结束、重启running→interrupted且无重放、永久删除三表及正文/索引、晚到响应拒绝。三格式独占新文件/读回复用M16，实际publication事件和源回答版本才记最多三格式回执；回调传准确request_id事件，避免并发其它消息被误作最近成品。
+
+L0：npm run check/build（69 renderer modules）及py_compile/compileall当前服务/契约、git diff --check通过。L1/L2 **197不同目标通过，1符号链接权限skip**：当前收集198项；34研究服务、35Skills、8协议/实际HTTP/成品/取消/调度、121相关（120pass/1skip）。最新JUnit去重verification-final.json无missing/failed。桌面 **38通过**（18调研含历史重核新批准+取消窗口许可/返回身份，3本地Skill，2框架，3M15，2M16，10backend）。L3 **1真实Electron流程11.2秒/总12.0秒通过**：WebResearch实际准备→重新核对→批准TCP原文采集；模型批次取消0→分别batch/final；引用原文回查→ReportBuild实际三格式版式→新文件取消0/逐格式写入读回→恢复同三receipt且未网络/云重播。实际Electron/preload/main/Python/HTTP TCP/SafeHTTP正文预算/Browser解析/SQLite/原文/DOCX/PPTX/PDF均执行；dialogs、合成DNS socket映射和两次固定Main输出为明确mock，真实云模型0，不假称生产Internet/Tavily成功。人工原生dialogs/独立机器/真实Main语义未覆盖。L4评估：涉及共享索引/删除/传输/成品边界，已做针对跨模块回归及真实流程；复用未改变模块结论，不重复全量发布/安装包验收。
+
+实际命令（项目根；证据统一忽略artifacts/test-results/V4-010/）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research.py -q --basetemp=artifacts/test-results/V4-010/service-data --junitxml=artifacts/test-results/V4-010/service.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research.py -q --basetemp=artifacts/test-results/V4-010/service-final-data --junitxml=artifacts/test-results/V4-010/service-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research.py::test_collect_rechecks_explicit_source_scope_before_any_web_request -q --basetemp=artifacts/test-results/V4-010/service-collect-guard-data --junitxml=artifacts/test-results/V4-010/service-collect-guard.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research.py::test_empty_scope_rejected_and_source_only_scope_valid backend/tests/test_v4_research.py::test_cancelled_search_has_terminal_step_and_missing_main_does_not_retry backend/tests/test_v4_research.py::test_final_explicit_subset_records_real_coverage_omission_and_batch_processed_fact -q --basetemp=artifacts/test-results/V4-010/service-scope-data --junitxml=artifacts/test-results/V4-010/service-scope.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research.py::test_thirteen_original_sources_default_final_sends_ten_and_approves_exact_omission -q --basetemp=artifacts/test-results/V4-010/service-thirteen-data --junitxml=artifacts/test-results/V4-010/service-thirteen.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research.py::test_task_and_independent_attempt_caps_reject_before_requests backend/tests/test_v4_research.py::test_full_preview_budget_includes_duplicate_fragments_and_url_metadata -q --basetemp=artifacts/test-results/V4-010/service-budget-data --junitxml=artifacts/test-results/V4-010/service-budget.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_skills.py -q --basetemp artifacts/test-results/V4-010/skills-final-temp --junitxml artifacts/test-results/V4-010/skills-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_skills.py -q -k 'status or pending_envelope' --basetemp artifacts/test-results/V4-010/skills-status-temp --junitxml artifacts/test-results/V4-010/skills-status.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_skills.py -q -k 'status or pending_envelope or source_only' --basetemp artifacts/test-results/V4-010/skills-coverage-temp --junitxml artifacts/test-results/V4-010/skills-coverage.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_protocol.py -q --basetemp=artifacts/test-results/V4-010/protocol-data --junitxml=artifacts/test-results/V4-010/protocol.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_protocol.py -k 'inflight or stdio' -q --basetemp=artifacts/test-results/V4-010/cancel-data --junitxml=artifacts/test-results/V4-010/cancel.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_protocol.py::test_actual_http_citations_publication_three_formats_restart_and_purge -q --basetemp=artifacts/test-results/V4-010/receipt-final-data --junitxml=artifacts/test-results/V4-010/receipt-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_research_protocol.py::test_publication_callback_uses_exact_receipt_despite_later_message -q --basetemp=artifacts/test-results/V4-010/receipt-race-data --junitxml=artifacts/test-results/V4-010/receipt-race.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_skills.py backend/tests/test_v4_skills_protocol.py backend/tests/test_m15_synthesis.py backend/tests/test_m16_publication.py backend/tests/test_m12_browser_chat.py backend/tests/test_browser.py backend/tests/test_context.py backend/tests/test_storage.py backend/tests/test_v3_management.py -q --basetemp=artifacts/test-results/V4-010/related-data --junitxml=artifacts/test-results/V4-010/related.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_skills.py::test_builtins_versions_and_invalid_inputs_not_empty_success -q --basetemp=artifacts/test-results/V4-010/skills-migration-temp --junitxml=artifacts/test-results/V4-010/skills-migration.xml
+npm run check
+npm run build
+npx vitest run apps/desktop/tests/v4-research.test.ts apps/desktop/tests/v4-skills.test.ts apps/desktop/tests/v4-local-skills.test.ts apps/desktop/tests/m15-contracts.test.ts apps/desktop/tests/m16-contracts.test.ts apps/desktop/tests/backend.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-010/desktop-final.json
+npx vitest run apps/desktop/tests/v4-research.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-010/desktop-ipc-final.json
+$env:ORVIA_TEST_MODULE='V4-010'
+npx playwright test tests/e2e/v4-research.spec.ts
+```
+
+历史失败均保留：Skills初4项fixture误读(messages,count)，修后最小/最终pass；related旧断言只3builtin available失败，010新增真实两Skill故应5，修正目标通过；Electron首轮中文selector错、第二轮误认默认filename为标题、第三轮复用旧成功提示过早查文件，均测试修正，最终真实11.2秒通过。原文成品回调去掉最近消息竞态时未带持久事件继承的request_id，receipt.xml复验发现实际事件严格匹配拒绝；补准确rid后receipt-final及并发后来消息race目标均pass。不是隐去失败或仅构建通过。已实际查看electron-lhbFTS/research-three-formats.png（中文/成品界面可读）；acceptance.json记录TCP两请求、mock/真实边界、三个实际filename/格式/版本与0真实云。既有LangChain弃用/pdfium读文本warning保留，Windows普通账户符号链接skip不提权。
+
+沿用现有Python3.12.6、aiosqlite/pydantic/httpx/trafilatura/jieba、LangGraph、DOCX/PPTX/PDF字体与生成库，无新增工具/依赖/模型安装或锁文件变化。已更新模块/Skills/root/backend/desktop/Browser/Publication/Storage README、架构、清单与V4。working敏感/禁入检查42文件为0，实际凭据只核存在、不输出值；cached最终检查/commit回执在忽略目录。显式仅010文件、不收Key/DB/用户文件/测试产物、不读或暂存预存两文件；独立正常本地commit标题feat(V4-010): compose approved bounded web research and cited briefs，实际hash见Git及commit-receipt，未push/发布/重建包，不amend。010完成提交后自动进入011，Goal此时仍未完成。
+
+试用：npm start→设置→调研与报告→明确合成问题与公共URLs/最多两查询/最多五host/资料→创建或重新核对保存计划→核对完整计划并原生批准→查看逐页状态/来源与搜索不可用/限额→可选批摘要和最终原文发送各另批→引用回查→制作Word/PPT/PDF，预览版式后原生新文件保存。Skills选所属会话，web-research输入query/urls换行字符串；report-build输入message_id/format/title；同cid需要文件读取时原生选择只读目录与文本范围，pending保存后转调研/简报入口新批准。不是完整行业报告、云语义事实保证或自动业务结束；静态公开读取可用，登录/写入/下载不在010范围，原成品与用户文件删除会话后保留。

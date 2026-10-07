@@ -50,3 +50,7 @@ async def save_draft(trusted_data_dir: Path):
 ## 权限边界与已知限制
 
 只访问可信启动配置指定的数据库；密钥不入库。SQL trigger 禁止修改现有模型快照，但数据库不加密，也不抵御有权直接修改数据库文件的本机用户。上下文索引只保存调用方提交的文本块和来源，不自动读取文件；无自动备份、跨版本降级、分页或多设备同步，未来版本拒绝打开。
+
+## V4-010 晚到索引
+
+`replace_context_document`最终BEGIN IMMEDIATE写事务检查chat_deletions；分词期间已永久删除的会话不能再插入正文/FTS。没有chat记录的原有独立目录Mission仍可用，数据库FK继续限制不存在的Mission。实际墓碑拒绝及独立Mission检索测试通过；不授予已移除资料有效来源权限。

@@ -1,13 +1,14 @@
 import React,{useEffect,useState} from 'react';
 import type {SkillSummary,SkillExecution} from '../main/skills-contracts';
 const statusLabel={completed:'已完成只读工作流',limited:'结果受限，后续步骤已停止',failed:'执行失败',interrupted:'执行中断',planned:'计划待执行',running:'运行中'};
-const toolLabel:Record<string,string>={list_directory:'文件清单',search_files:'搜索文件',get_file_metadata:'文件属性',analyze_directory_space:'空间统计',read_text_file:'读取文本',memory_context:'本地记忆上下文',query_rewrite:'原问题与已批准候选检索'};
+const toolLabel:Record<string,string>={list_directory:'文件清单',search_files:'搜索文件',get_file_metadata:'文件属性',analyze_directory_space:'空间统计',read_text_file:'读取文本',memory_context:'本地记忆上下文',query_rewrite:'原问题与已批准候选检索',research_create:'准备明确网址调研（采集另批）',research_status:'读取调研事实',report_build_preview:'准备简报（新文件保存另批）'};
 
 /** 展示注册与真实执行事实；Skill 声明和“可用”状态不能代替原生授权。 */
 export function SkillsPanel(){
   const [skills,setSkills]=useState<SkillSummary[]>([]),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [selected,setSelected]=useState('file-organize'),[inputs,setInputs]=useState('{"path":"."}');
   const [local,setLocal]=useState(false),[cid,setCid]=useState(''),[chats,setChats]=useState<{id:string;title:string}[]>([]);
+  const [directory,setDirectory]=useState(false);
   const [result,setResult]=useState<SkillExecution>();
   const [history,setHistory]=useState<Pick<SkillExecution,'plan_id'|'skill_id'|'version'|'status'>[]>([]);
   const [offset,setOffset]=useState(0),[total,setTotal]=useState(0);
@@ -29,11 +30,12 @@ export function SkillsPanel(){
     <label>运行工作流<select aria-label="运行工作流" disabled={busy} value={selected} onChange={e=>{const id=e.target.value;setSelected(id);setResult(undefined);const isLocal=['memory-context','query-rewrite'].includes(id);setLocal(isLocal);setInputs(isLocal?(id==='query-rewrite'?'{"query":"合成问题","revision":""}':'{"query":"合成问题"}'):'{"path":"."}');}}>{skills.map(s=><option key={s.id} value={s.id} disabled={!s.enabled||!s.available}>{s.name}</option>)}</select></label>
     <label><input type="checkbox" checked={local} disabled={busy} onChange={e=>setLocal(e.target.checked)}/>只读本机会话与资料</label>
     {local&&<label>本地工作流所属会话<select aria-label="本地工作流所属会话" disabled={busy} value={cid} onChange={e=>setCid(e.target.value)}>{chats.map(chat=><option key={chat.id} value={chat.id}>{chat.title}</option>)}</select></label>}
+    {local&&<label><input type="checkbox" checked={directory} disabled={busy} onChange={e=>setDirectory(e.target.checked)}/>为组合步骤原生选择只读目录及文本范围</label>}
     <p>{local?'本地运行只读取该会话与已有有效资料；不生成云端改写。Query Rewrite 的 revision 留空时使用原问题。':'文件工作流将原生选择本次目录。'}</p>
     <label>工作流输入（JSON）<textarea aria-label="工作流输入（JSON）" disabled={busy} maxLength={8000} value={inputs} onChange={e=>setInputs(e.target.value)}/></label>
     <button disabled={busy||(local&&!cid)||!skills.some(s=>s.id===selected&&s.enabled&&s.available)} onClick={()=>void act(async()=>{
       const value:unknown=JSON.parse(inputs);if(!value||typeof value!=='object'||Array.isArray(value)){setNotice('输入必须是 JSON 对象。');return;}
-      const r=await window.orvia.skillsRun({skill_id:selected,inputs:value as Record<string,unknown>,...(local?{conversation_id:cid}:{})});
+      const r=await window.orvia.skillsRun({skill_id:selected,inputs:value as Record<string,unknown>,...(local?{conversation_id:cid,...(directory?{choose_directory:true}:{})}:{})});
       if(!r.ok)setNotice(r.message);else if(r.result.cancelled)setNotice('已取消，工具未执行。');else {setResult(r.result.result);setNotice('执行已结束，请核对逐步事实。');}await reload();
     })}>{local?'预览本地工作流':'选择目录并预览执行'}</button>
     <p role="status">{notice}</p>

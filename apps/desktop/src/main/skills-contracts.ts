@@ -3,7 +3,7 @@ import {z} from 'zod';
 const identity=z.string().regex(/^[a-z][a-z0-9-]{1,63}$/),revision=z.string().regex(/^[a-f0-9]{64}$/);
 const data=z.record(z.string(),z.unknown());
 export const skillToggle=z.object({skill_id:identity,enabled:z.boolean()}).strict();
-export const skillRun=z.object({skill_id:identity,inputs:data,conversation_id:z.string().uuid().optional()}).strict();
+export const skillRun=z.object({skill_id:identity,inputs:data,conversation_id:z.string().uuid().optional(),choose_directory:z.boolean().optional()}).strict();
 export const skillSummary=z.object({id:identity,name:z.string().max(100),version:z.string().max(32),revision,
   description:z.string().max(1000),enabled:z.boolean(),builtin:z.boolean(),available:z.boolean(),
   unavailable_reason:z.string().max(300).nullable(),dependencies:z.array(z.string()).max(16),step_count:z.number().int().min(0).max(16)}).strict();

@@ -13,6 +13,9 @@ async def deletion_blockers(chat, cid):
     """检查全部账本而非最近20条；未知状态保守阻止，不能丢弃恢复/核验入口。"""
     if cid in chat._active:
         return True
+    research = getattr(chat, 'research', None)
+    if research is not None and await research.has_unresolved(cid):
+        return True
     processes = getattr(chat, 'processes', None)
     if processes is not None and await processes.has_unresolved(cid):
         return True
@@ -72,6 +75,9 @@ def remove_private_script(root, oid):
 
 async def purge(chat, cid):
     """已确认删除的幂等收尾；journal先阻断旧身份，跨文件/数据库中断可在启动重做清理。"""
+    research = getattr(chat, 'research', None)
+    if research is not None:
+        research.forget_previews(cid)
     chat.gateway.revoke(cid)
     processes = getattr(chat, 'processes', None)
     if processes is not None:
@@ -136,7 +142,7 @@ async def purge(chat, cid):
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {mcp_table} WHERE cid=?', (cid,))
             # 本地Skills计划/结果归属明确选择的会话，旧目录Mission不受此删除影响。
-            for shell_table in ('shell_attempts', 'shell_executions', 'process_attempts', 'process_executions'):
+            for shell_table in ('shell_attempts', 'shell_executions', 'process_attempts', 'process_executions', 'research_tasks', 'research_attempts', 'research_sources'):
                 async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (shell_table,)) as cursor:
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {shell_table} WHERE cid=?', (cid,))

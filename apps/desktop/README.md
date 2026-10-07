@@ -231,3 +231,7 @@ V4-003设置→记忆与上下文提供五轮/当前状态、候选、批准摘�
 设置→查询改写与本地检索支持选会话、明确勾选最多3记忆、准确instructions/input/scope预览、原生批准、原问题＋有效候选检索与来源/历史。renderer不能提供来源正文、路径、SQL、模型或批准标记；准确旧包任何字段改变拒批，一次许可在原生窗口开始即消费。重连、撤权、资料移除或会话删除清许可；取消零生成调用，直接本地原查询。
 
 Skills选择Memory Context或Query Rewrite自动采用本机会话模式，必须选实际会话、原生确认展开计划；Query Rewrite输入revision空串仅原问题，已批准sha64可消费同问题有效候选。文件模式继续原生目录授权。设置页的memory-list/context、graph-list、rewrite-history仅有界本地事实读取允许并发，防多个面板初始化互拒；审批/执行/其它查询仍串行。输入控件明确可访问名称。L3为真实Electron–Python/SQLite/本地DOCX、Main HTTP和原生dialogs模拟，无真实云/人工原生验收，证据artifacts/test-results/V4-006/。
+
+## V4-010 调研与报告
+
+设置中的ResearchPanel及固定八个preload入口提供明确网址/搜索/资料选择、完整采集核对、逐批准确system/input、取消/原文/覆盖/历史及复用PublicationComposer三格式新文件保存。Skill创建及历史planned需点击“重新核对已保存采集计划”，仍要新原生批准；已尝试任务不能重放。Main固定DeepSeek，采集不调用Main；原生取消零外发。18个调研unit及相关契约共38通过，真实Electron/TCP/SQLite/三格式流程通过；原生dialogs/DNS绑定/云模型为明确替身，详见PROGRESS。

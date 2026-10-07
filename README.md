@@ -156,3 +156,5 @@ V4-007 MCP：设置→MCP外部只读工具→原生选择服务JSON并审查配
 V4-008 Shell：设置→Shell→检测已有环境→明确解释器、完整脚本、输入/工作目录和核验条件→准备→原生逐次批准。PowerShell 7、Windows PowerShell 5.1、Git Bash已用本机真实合成脚本验证；WSL仅允许普通非root发行版，本机仅Docker管理发行版，显示不可用，真实Linux验收未覆盖。普通权限Shell可以访问当前账户文件和网络，不是LPAC；Windows Job仅管理自有成员，无法保证经外部broker产生的进程。退出码、回收和具体核验分别展示，取消/未知不重试；产物另行原生批准保存为新文件。预算、接口及示例见[Shell README](backend/src/orvia_backend/shell/README.md)，真实验证与限制见PROGRESS。
 
 V4-009 进程：设置→普通用户进程管理→准确PID/创建身份/程序哈希，或原生选EXE、完整参数及cwd→准备→原生批准单步。仅同用户普通Windows目标，拒关键/保护/提权/AppContainer/UIAccess及未知身份；启动、等待、温和关闭和强制终止独立确认。温和关闭未退出不会自动终止，等待超时不会杀进程，Orvia关闭不自动杀已释放程序；不管理WSL内部进程。实际合成窗口/程序及Electron已验证，进程退出不等业务完成。重启仅凭当前会话保留的已核验启动事实重新核对来源登记，动作仍须新批准；来源已删/淘汰或未知则不恢复Job归属。示例、预算与限制见[进程README](backend/src/orvia_backend/processes/README.md)。
+
+V4-010 调研与简报：设置→调研与报告→明确问题、最多十个公共网址、两轮搜索及五个准确站点→创建/核对→原生批准采集→可选批摘要及最终原文发送分别批准→已保存回答制作Word/PPT/PDF并原生选择新文件。Web Research / Report Build 1.1.0也可与同会话文件、文本及检索步骤组合；待采集/待云发送/待保存或有限覆盖会停止后续。Tavily缺失明确搜索不可用；三格式不调用新模型，重启不重放。事实、预算和限制见[调研README](backend/src/orvia_backend/research/README.md)及PROGRESS。

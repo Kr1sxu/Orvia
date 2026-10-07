@@ -314,10 +314,16 @@ class ChatService:
         try:
             data = render_publication(packet)
             name = self.gateway.export_document("computer", request.path, data, request.format)
+            saved_receipt = {"filename": name, "format": request.format, "revision": request.revision,
+                             "request_id": rid,
+                             "message_id": str(request.message_id), "source_revision": packet["source_revision"],
+                             "pages": len(packet["pages"])}
             await self.repository.append(cid, "system", "已独占创建并读回核验本地成品；未上传内容或覆盖已有文件。", "publication",
-                                         {"filename": name, "format": request.format, "revision": request.revision,
-                                          "message_id": str(request.message_id), "source_revision": packet["source_revision"],
-                                          "pages": len(packet["pages"])})
+                                         saved_receipt)
+            research = getattr(self, "research", None)
+            if research is not None:
+                # 只关联刚落库的实际保存事件，不接受renderer自述或缓存作为成品事实。
+                await research.record_publication(cid, str(request.message_id), saved_receipt)
             await self.repository.finish(cid, rid)
         except ToolError as error:
             await self.repository.append(cid, "system", error.message, "error", {"code": error.code})

@@ -26,17 +26,27 @@ export function registerSkills({handle,serial,window,backend}:{
   }));
   handle('orvia:skills-run',1,input=>serial(async()=>{
     const request=skillRun.parse(input);
-    const {conversation_id,...workflow}=request;
+    const {conversation_id,choose_directory,...workflow}=request;
     if(conversation_id){
       // 会话必须实际存在。无文件grant仅由后端对展开后的每个leaf核验，声明不能自授权限。
       await backend().chat('chat.get',{id:conversation_id});
-      const plan=await backend().skills('plan',{...workflow,mission_id:conversation_id,grant_id:null});
-      const approval={plan_id:plan.plan_id,revision:plan.revision,mission_id:conversation_id,grant_id:null};
+      let grantId:string|null=null;
+      if(choose_directory){
+        const selected=await dialog.showOpenDialog(window(),{title:'为此会话组合明确选择只读目录',properties:['openDirectory']});
+        if(selected.canceled||selected.filePaths.length!==1)return{cancelled:true};
+        const access=await dialog.showMessageBox(window(),{type:'question',title:'选择本次目录只读范围',message:'批准此目录的哪些读取？',detail:selected.filePaths[0]+'\n只允许本次准确会话。读取文本不会自动发送模型；不得移动、删除、运行文件或扩大到目录之外。',buttons:['取消','仅清单与属性','清单、属性与文本读取'],defaultId:0,cancelId:0,noLink:true});
+        if(access.response!==1&&access.response!==2)return{cancelled:true};
+        grantId=(await backend().grantComputer({mission_id:conversation_id,root:selected.filePaths[0],allow_text:access.response===2})).grant_id;
+      }
+      try{
+      const plan=await backend().skills('plan',{...workflow,mission_id:conversation_id,grant_id:grantId});
+      const approval={plan_id:plan.plan_id,revision:plan.revision,mission_id:conversation_id,grant_id:grantId};
       const decision=await dialog.showMessageBox(window(),{type:'question',title:'确认本地 Skill 执行计划',
-        message:'读取明确选择的会话上下文与当前有效资料？',detail:JSON.stringify(plan,null,2)+'\n仅消费本地已核验事实。不调用模型，不授予文件目录权限；生成新改写需另行准确正文批准。受限结果会停止后续步骤。',
+        message:'执行所示会话和已明确选择目录的只读步骤？',detail:JSON.stringify(plan,null,2)+'\n只消费本地事实或准备调研/简报预览，不调用模型，不保存文件。采集、云正文和成品保存分别批准；待批准或受限结果停止后续步骤。',
         buttons:['取消','执行此计划'],defaultId:0,cancelId:0,noLink:true});
       if(decision.response!==1){await backend().skills('cancel',approval);return{cancelled:true};}
       return{cancelled:false,result:await backend().skills('execute',approval)};
+      }finally{if(grantId)await backend().revokeComputer(conversation_id);}
     }
     const chosen=await dialog.showOpenDialog(window(),{title:'授权本次 Skill 只读目录',properties:['openDirectory']});
     if(chosen.canceled||chosen.filePaths.length!==1)return{cancelled:true};
