@@ -9,7 +9,7 @@ export function registerGraph({handle,serial,window,backend}:{
   window:()=>BrowserWindow;backend:()=>BackendClient;
 }){
   const reviewed=new Map<string,{revision:string;body:string}>();
-  handle('orvia:graph-list',1,input=>serial(()=>backend().graph('list',graphId.parse(input))));
+  handle('orvia:graph-list',1,input=>backend().graph('list',graphId.parse(input)));
   handle('orvia:graph-query',1,input=>serial(()=>backend().graph('query',graphQueryInput.parse(input))));
   handle('orvia:graph-preview',1,input=>serial(async()=>{
     const request=graphId.parse(input),preview=graphPreview.parse(await backend().graph('preview',request));

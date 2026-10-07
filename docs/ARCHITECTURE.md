@@ -230,3 +230,11 @@ GraphService与MissionGraph分离：前者仅构造批准资料证据关系，�
 固定Main一次30秒/1536输出token；批次最多16来源、发送24KiB、预览32KiB，成功来源版本允许接续后批，缓存删除不能重发未知revision。只发送明确用户原文和当前ready资料，全文hash检测裁剪之外的变化；最终事务再核对版本、来源关联和独立完整关系句。实体person/project/file、关系responsible_for/member_of/documents/depends_on，否定、条件、可能、计划或名字前后缀不能形成正向模板。矛盾负责人保留conflict且不用于路径，遗漏矛盾拒绝结果。
 
 本地候选最多512实体，跨origin/cid/version同名不合并；选择准确身份后最多512条同scope关系、前向两跳、20路径及32KiB，排除循环/失效/冲突并明确截断。资料范围证据不是全局真相；有限中文模板和首2KiB摘录不保证完整自然语言抽取或全文覆盖，原始资料保留。真实SQLite/固定协议/Electron和Main mock验收见模块README/PROGRESS，不部署Neo4j、不新增依赖、不发布或重建安装包。
+
+### V4-006 已实现架构（2026-10-08）
+
+新增独立RewriteService与三张SQLite派生表：rewrite_previews准确包、rewrite_attempts无正文一次调用账本、rewrite_records校验结果/支持快照。原查询不可覆盖；当前cid ready资料scope＋原文/索引版本及显式选中记忆支持被冻结，保存预览、网络前和最终提交事务重核，检索前后再次核验。跨会话源cid pending删除墓碑即时失效，不依赖正文purge完成。候选须匹配有限同义/明确唯一代词白名单，最多3；原查询＋候选仍只读原scope，来源失效回原查询，失败不重发，历史非执行完成证据。
+
+MemoryContext/QueryRewrite内置1.1.0声明式Skill与可信闭包调度memory_context/query_rewrite（没有generate），逐叶8KiB投影且limited停止，保留LangGraph10秒总预算。全部展开leaf本地才允许grant_id=None，混合文件工具必须真实grant并走原Gateway；cid来自明确选择会话而非manifest。旧内置迁移保留禁用状态并失效旧计划。本地skills_executions并入会话purge，所有grant类型核删除墓碑，含本地leaf再核会话存活，晚到不能恢复正文。
+
+独立检索180秒涵盖最多4表达与撤回回退；每次固定Main30秒/1024token，准确实际发送24KiB、预览32KiB、128尝试不淘汰/20预览/32记录、历史20/32KiB、scope最多3资料/150标签/512片段。没有新服务/依赖/模型下载。设置并发本地投影读取不授予审批或外发权限。

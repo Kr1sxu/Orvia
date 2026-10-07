@@ -86,9 +86,9 @@ def test_builtins_unavailable_not_empty_success(tmp_path):
         try:
             items = (await service.list())["skills"]
             assert len(items) == 5
-            assert sum(item["available"] for item in items) == 1
+            assert sum(item["available"] for item in items) == 3
             for item in items:
-                if item["id"] != "file-organize":
+                if item["id"] in {"web-research", "report-build"}:
                     with pytest.raises(SkillError, match="等待 V4"):
                         await service.plan(item["id"], {"path": "."}, *identities())
         finally:

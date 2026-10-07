@@ -9,8 +9,8 @@ export function registerMemory({handle,serial,window,backend}:{
   window:()=>BrowserWindow;backend:()=>BackendClient;
 }){
   const reviewed=new Map<string,{revision:string;body:string}>();
-  handle('orvia:memory-list',1,input=>serial(()=>backend().memory('list',memoryId.parse(input))));
-  handle('orvia:memory-context',1,input=>serial(()=>backend().memory('context',memoryContextInput.parse(input))));
+  handle('orvia:memory-list',1,input=>backend().memory('list',memoryId.parse(input)));
+  handle('orvia:memory-context',1,input=>backend().memory('context',memoryContextInput.parse(input)));
   handle('orvia:memory-search',1,input=>serial(()=>backend().memory('search',memorySearchInput.parse(input))));
   handle('orvia:memory-preview',1,input=>serial(async()=>{
     const request=memoryId.parse(input);

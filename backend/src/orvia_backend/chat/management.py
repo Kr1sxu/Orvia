@@ -111,6 +111,14 @@ async def purge(chat, cid):
                 async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (graph_table,)) as cursor:
                     if await cursor.fetchone():
                         await db.execute(f'DELETE FROM {graph_table} WHERE cid=?', (cid,))
+            for rewrite_table in ('rewrite_previews', 'rewrite_attempts', 'rewrite_records'):
+                async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (rewrite_table,)) as cursor:
+                    if await cursor.fetchone():
+                        await db.execute(f'DELETE FROM {rewrite_table} WHERE cid=?', (cid,))
+            # 本地Skills计划/结果归属明确选择的会话，旧目录Mission不受此删除影响。
+            async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='skills_executions'") as cursor:
+                if await cursor.fetchone():
+                    await db.execute('DELETE FROM skills_executions WHERE mission_id=?', (cid,))
             await db.execute('DELETE FROM m20_scan_entries WHERE scan_id IN (SELECT id FROM m20_scans WHERE conversation_id=?)', (cid,))
             for table in ('context_fts','context_documents','context_preferences','context_summaries','browser_evidence','document_evidence','operation_tasks'):
                 await db.execute(f'DELETE FROM {table} WHERE mission_id=?', (cid,))

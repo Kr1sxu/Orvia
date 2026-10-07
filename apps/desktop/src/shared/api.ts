@@ -18,6 +18,10 @@ export type Settings = Configuration & { mode: 'development' | 'secure_storage';
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
   memoryList:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryList>>;
+  rewritePreview:(input:{id:string;query:string;memory_ids?:string[]})=>Promise<Reply<import('../main/rewrite-contracts').RewritePreview>>;
+  rewriteGenerate:(input:{id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/rewrite-contracts').RewriteResult}>>;
+  rewriteSearch:(input:{id:string;query:string;memory_ids?:string[];revision?:string})=>Promise<Reply<import('../main/rewrite-contracts').RewriteSearch>>;
+  rewriteHistory:(input:{id:string})=>Promise<Reply<import('../main/rewrite-contracts').RewriteHistory>>;
   graphList:(input:{id:string})=>Promise<Reply<import('../main/graph-contracts').GraphList>>;
   graphPreview:(input:{id:string})=>Promise<Reply<import('../main/graph-contracts').GraphPreview>>;
   graphGenerate:(input:{id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/graph-contracts').GraphList}>>;
@@ -40,7 +44,7 @@ declare global { interface Window { orvia: {
   skillsExecution:(input:{plan_id:string})=>Promise<Reply<import('../main/skills-contracts').SkillExecution>>;
   skillsImport:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillSummary}>>;
   skillsToggle:(input:{skill_id:string;enabled:boolean})=>Promise<Reply<import('../main/skills-contracts').SkillSummary>>;
-  skillsRun:(input:{skill_id:string;inputs:Record<string,unknown>})=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillExecution}>>;
+  skillsRun:(input:{skill_id:string;inputs:Record<string,unknown>;conversation_id?:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillExecution}>>;
   connectionStatus: () => Promise<Reply<ConnectionStatus>>;
   reconnect: () => Promise<Reply<{connected: true}>>;
   chatCancel: (input: {id: string; request_id: string}) => Promise<Reply<{cancelled: boolean}>>;

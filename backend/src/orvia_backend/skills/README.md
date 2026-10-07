@@ -1,4 +1,4 @@
-# Skills 注册与顺序工作流（V4-002）
+# Skills 注册与顺序工作流（V4-002 / V4-006）
 
 提供 Orvia 自有 v1 声明式契约、内置登记、用户主动导入审查、版本启停、版本绑定计划、LangGraph 顺序组合执行及 SQLite 事实账本。它不是任意第三方 Skill 格式的自动兼容层。
 
@@ -13,7 +13,7 @@
 - `await register(review_id, revision)`：只供原生确认后的可信主进程使用，重新读取全部内容核对 SHA-256，再保存登记；同版本不同内容要求新版本。
 - `await set_enabled(skill_id, enabled)`：启停保存到 SQLite；每次实际状态变化增加 generation，禁用后再启用也不能复活旧计划。
 - `await plan(skill_id, inputs, mission_id, grant_id)`：核对输入、依赖和现有工具契约，返回不可变的 `{plan_id, revision, skill_id, version, mission_id, grant_id, inputs, steps, bindings, status}`。
-- `await execute(plan_id, revision, mission_id, grant_id, dispatcher)`：在准确计划原生确认后消费一次内存计划。`dispatcher(tool, arguments)` 必须是可信异步调度器，闭包注入固定 Computer 角色和目录 grant，经既有 `ComputerGateway` 执行。
+- `await execute(plan_id, revision, mission_id, grant_id, dispatcher)`：在准确计划原生确认后消费一次内存计划。`dispatcher(tool, arguments)` 必须是可信异步调度器，文件叶由闭包注入固定 Computer 角色和目录 grant，经既有 `ComputerGateway` 执行；本地业务叶由闭包注入准确会话cid，调用下文固定本地适配器。
 - `await cancel(plan_id, revision, mission_id, grant_id)`：原生取消消费计划，保存 `interrupted/SKILL_CANCELLED`；零工具调用。
 - `await get_execution(plan_id)`、`await history()`：读回结果或最近20项 ID/版本/状态摘要。结果包含每步实际状态、结构化响应、稳定错误与最终状态。
 
@@ -27,7 +27,7 @@
 
 输入/输出 schema 仅支持 `object/string/integer/boolean`、对象 properties/required/additionalProperties、字符串长度、整数范围、标量 enum。输入根对象拒绝额外字段；不支持 `$ref`、数组 schema、正则、表达式或任意 schema 扩展。工具结果的开放 object 仅作为有界 JSON 观察，完整性仍由程序依据 `complete/truncated/errors` 判断。schema 最多6层，参数最多8层。
 
-所有工具叶节点只允许 `list_directory`、`search_files`、`get_file_metadata`、`analyze_directory_space`、`read_text_file`，并再次应用已有 Pydantic 工具契约。文本读取需要额外的既有 grant；默认桌面入口不授予文本权限。没有文件变更、Shell、任意代码或权限节点；原有文件变更仍经既有聊天审批链。
+文件工具叶节点只允许 `list_directory`、`search_files`、`get_file_metadata`、`analyze_directory_space`、`read_text_file`；V4-006另允许固定本地 `memory_context`、`query_rewrite`。全部再次应用各自Pydantic工具契约。文本读取需要额外的既有 grant；默认桌面入口不授予文本权限。没有文件变更、Shell、任意代码或权限节点；原有文件变更仍经既有聊天审批链。
 
 节点参数只支持标量、结构化对象、`{"from_input":"path"}` 与 `{"from_step":"previous","path":["data","path"]}`；步骤引用只能指向之前节点。`skill` 节点必须在 dependencies 中声明，编译时展开成唯一叶节点 ID，子 Skill 输入、输出以及父节点输出均在执行时校验。
 
@@ -35,9 +35,9 @@
 
 ## 内置能力与试用
 
-`file-organize` / File Organize 实际执行一级清单（40项）→空间统计（前5项），输入 `{"path":"."}`；它不生成或执行移动/重命名计划。Memory Context、Query Rewrite、Web Research、Report Build 当前明确依赖 V4-003、006、010，不可执行；登记这些名字不表示后续业务已实现。
+`file-organize` / File Organize 实际执行一级清单（40项）→空间统计（前5项），输入 `{"path":"."}`；它不生成或执行移动/重命名计划。Memory Context与Query Rewrite在V4-006已接入真实本地业务组合，详见下文；Web Research、Report Build仍等待V4-010不可执行。
 
-开发版设置的 Skills 区域可启停、原生选择包、检查完整正文与声明后注册。选择 File Organize 或可用导入包，输入结构化 JSON，原生选择合成目录，在准确目录、业务输入、步骤预览后确认执行。最近执行可查询保存结果；这些任务是独立 Mission，不隶属某个聊天，因此删除聊天不会删除此独立账本。
+开发版设置的 Skills 区域可启停、原生选择包、检查完整正文与声明后注册。选择 File Organize 或可用导入包，输入结构化 JSON，原生选择合成目录，在准确目录、业务输入、步骤预览后确认执行。最近执行可查询保存结果；目录模式任务是独立Mission，删除聊天不删除此独立账本；V4-006本地模式属于明确选择的会话，删除该会话清除相应执行正文并拒绝晚到写入。
 
 可导入的最小 `workflow.json` 示例：
 
@@ -75,4 +75,18 @@ L1/L2：`backend/.venv/Scripts/python.exe -m pytest backend/tests/test_v4_skills
 
 目标测试使用真实临时 SQLite、LangGraph、ComputerGateway 和合成目录，覆盖组合与先前结果引用、审查变化、版本/启停失效、预算与重复展开、分页通信、schema、依赖、只读失败、取消及重启账本。失败与时钟由合成测试注入，没有真实模型调用；Windows普通账户不能创建符号链接的创建用例可能 skip，但本机已使用普通权限实际创建目录联接并验证包被拒绝。桌面 L3/IPC 证据由主 Agent 记录在 PROGRESS，临时产物统一在 `artifacts/test-results/V4-002/` 并忽略。
 
-这是受限顺序只读工作流；没有通用并行节点、条件表达式、自动依赖安装、自动重试、恢复执行或通用撤销。结果不能证明任意文件内容真实，说明和工具输出始终是不可信数据。新节点种类、能力或聊天归属删除必须在对应后续模块明确实施。
+这是受限顺序只读工作流；没有通用并行节点、条件表达式、自动依赖安装、自动重试、恢复执行或通用撤销。结果不能证明任意文件内容真实，说明和工具输出始终是不可信数据。新增节点种类或能力需对应模块明确实施；本地会话归属与删除由V4-006实际实现。
+
+## V4-006 本地业务组合
+
+Memory Context 与 Query Rewrite 已迁移为真实内置1.1.0，迁移只改内置内容、保留用户禁用状态并增加generation使旧计划失效。Web Research / Report Build仍明确不可用，等待V4-010。
+
+工具允许清单新增`memory_context({query})`和`query_rewrite({query,revision?})`，均不接受cid、grant、model或generate。Main可信异步dispatcher闭包提供固定会话cid：前者调用实际`chat.memory.context`，后者调用`chat.rewrite.search`。两个只读工具必须返回`{complete,truncated,errors,data}`，不能包装未完成投影为成功。Main将业务data限制8KiB，记忆保留当前状态，依次删末尾命中、最旧轮和超长摘要；检索最多5引用并受8KiB投影预算；截断时complete=false，工作流limited且停止后续节点。完整数据仍通过独立业务入口查看。
+
+内置Memory Context输入`{"query":"费用"}`，本地读取五轮/当前状态/批准摘要/有原文支持记忆；不外发。内置Query Rewrite输入`{"query":"费用","revision":""}`，先组合MemoryContext再读取当前资料；空字符串明确表示仅原查询，不自动挑选历史版本。用户可把已通过独立原生批准的准确sha64改写版本填入revision，原问题必须与批准版本一致、支持来源实时有效；它不从manifest隐式生成或调用Main，也不授予文件权限。声明式参数仍保持原v1格式，没有新增可执行表达式/default绑定语义。
+
+`plan(...,mission_id=当前会话cid,grant_id=None)`只允许展开后全部leaf属于上述两个本地工具；含任何Computer文件工具必须有真实UUID目录grant。execute再次检查，cancel消费同一None身份。主进程负责核验cid真实存在、固定调度业务；包不能伪造会话或提供另一个cid。文件模式原有ComputerGateway逐叶授权不变。导入组合包也只可调用固定本地工具或已有文件工具，云改写入口不在允许清单。
+
+本地模式账本归属于已明确选择的会话，聊天删除需清除其skills_executions；原独立目录Mission账本仍保留。计划本身不授予隐式云批准或新资料范围。本地检索可能受10秒Skill总预算限制；独立业务检索总预算180秒，不能宣称所有本地索引都可在组合预算内完成。
+
+L1/L2：`backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_rewrite.py`验证真实MemoryContext→QueryRewrite LangGraph组合、空版本原查询/批准版本、零云调用、无目录grant文件拒绝、cancel、迁移保留禁用。旧Skills回归48通过/1skip/旧占位期望1失败，期望随实际内置3项更新后，主Agent最终相关集合57通过/1skip，106个不同后端通过/1skip见PROGRESS。证据在`artifacts/test-results/V4-006/`。无新增依赖或真实模型测试。

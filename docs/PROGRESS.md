@@ -1587,3 +1587,58 @@ L4评估：图谱是新派生服务，无新文件执行、网络服务或发布
 所有权已由两个子Agent交回；另一个只读审查发现模型遗漏矛盾负责人问题，主Agent整合修复与复验，不曾并发改同文件。根/backend/desktop README、graph README、架构、开发清单/V4/本进度已更新。提交前git status/diff/cached、敏感/禁入审计真实回执hygiene-working.json/hygiene-staged.json及commit-receipt.json在忽略目录；显式选择005文件，排除预存两个文件、密钥、DB、日志/测试产物/模型和用户文件。独立正常本地commit标题 `feat(V4-005): add source-verified entities and bounded relationship queries`，实际hash见Git历史/回执；不amend、不push、不Release或重建安装包。
 
 试用npm start→发送合成明确关系原文→设置→实体关系与知识图谱→选会话→准备准确预览→原生批准；查询姓名/项目，歧义时选身份，最多两跳查看原文。当前模块实际交付后自动进入006，后续未完成不将完整Goal标完成。
+
+
+## V4-006：Query Rewrite / Memory Context Skill（2026-10-07开始，10-08交付）
+
+005已完成实际验证/审计/独立本地commit **acd22ee**（72个不同后端、9桌面、1Electron）；工作树保留预存.zcodeignore/docs/INTERVIEW.md，未读取或暂存。按原Goal连续顺序进入006，不开始007。rewrite_core独占新rewrite目录/核心测试及现有Skills backend service/README，rewrite_desktop独占4个新rewrite桌面文件；主Agent拥有Application、现有IPC与Skills桌面接入、删除/文档/集成和提交。
+
+设计：保留原问题，最多3个经过程序校验的检索表达，来源仅明确选择的本地记忆和当前cid ready资料片段，准确scope冻结；Main生成另经准确原生批次批准，候选不能改变动作/新增条件/扩大资料权限。有限明确代词消解和固定同义字典拒绝无来源的新约束，多主题歧义需减小选择。取消/缺Key/超时/结构失败清楚使用原查询，original始终参与精确同scope检索；检索回查支持/版本并按来源去重。SQLite保留批准预览、无正文尝试、校验的改写/历史，缓存不授权重发。
+
+Skills改为真实声明式本地适配，不以enabled占位冒充完成。Memory Context仅本地投影，Query Rewrite只消费已校验改写事实/本地检索；ImportedWorkflow不暗中调用Main。只有全部leaf为本地业务才允许无文件grant，涉及文件的计划和逐叶执行仍受原ComputerGateway/目录/正文权限；不会创建fakegrant。原生工作流计划确认与改写上云确认分别保留。复用003/004能力与依赖，无新增安装或模型下载。
+
+- [x] √ 实际候选/审批/fallback/原查询保留/scope/来源校验与真实声明式组合。
+- [x] √ L0类型/契约、L1边界/同义/代词/歧义、L2实际SQLite检索/Skills/删除/相关回归及固定合成集原查询对照，L3真实Electron；mock/真实组件分别记录，L4评估。
+- [x] √ 模块/根/架构/开发清单/V4/进度、敏感审计及独立正常本地commit标题/回执见下文和Git；不提前007。
+
+报告只放artifacts/test-results/V4-006/并Git忽略，完成证据不成立前不标完成。
+
+
+006实际实现与设计：固定RewriteService.preview/generate/search/history；SQLite三表记录准确批准包、无正文128次尝试及最近32成功/失败记录（历史展示20）。预览20份、实际input＋instructions24KiB/完整32KiB，原问题1～200字、选有效记忆最多3、ready资料最多3/150source/512片段。资料/记忆原文及范围签名在预览保存、网络前、最终提交事务和检索回查重核，跨会话支持先核source cid删除墓碑；被删会话晚到不得再写正文。固定Main仅30秒/1024token一次，没有Key/超时/错误JSON/引用或候选校验失败用原问题和明确原因，同revision不重发，缓存淘汰不恢复许可。纯本地search/clarification不是已批准模型改写，不进入调用历史。
+
+程序有限白名单：费用→成本/经费、计划→方案、预算→经费、进度→进展；明确问题前缀的项目/人物代词由唯一选中有效来源替换，复杂/多主题消歧而不猜测。修复“其他费用/吉他费用”子串误替换，明确指代外保留原文。新操作、数值、否定、URL/路径/自由新增条件不接纳。search原问题永远queries[0]，最多再3候选、最多5命中/32KiB，按source/定位/hash去重；超过5、正文超预算均truncated。独立检索180秒含最多4表达/源回查/撤回原查询回退，沿用004单嵌入预算及关键词降级，不额外加载或下载模型。
+
+Memory Context/Query Rewrite现为内置1.1.0真实LangGraph组合，固定memory_context/query_rewrite本地闭包分发；旧内置迁移保留禁用并失效旧计划。Query Rewrite required revision空串明确只用原问题，sha64只消费另行准确原生批准的同问题事实，不自动调用Main。只有展开后全部本地leaf可grant_id=None；含文件leaf必须真实grant且原Gateway逐叶检查。每叶data8KiB投影，超限明确limited并停止后续，原10秒组合预算保留。真实会话选择及独立计划原生确认不等于云生成批准。会话purge三表＋skills_executions，所有grant计划核删除墓碑，任一本地leaf再核chat存活；真实目录grant也不能恢复被删除会话正文。两个删除竞态由只读审查发现、主Agent修复与实际SQLite复验，没有并发编辑。
+
+实际验证命令（项目根；全部Main mock/缺Key，零真实云；产物前缀artifacts/test-results/V4-006/）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_rewrite.py -q --basetemp=artifacts/test-results/V4-006/rewrite-final-data --junitxml=artifacts/test-results/V4-006/rewrite-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_rewrite.py backend/tests/test_v4_rewrite_protocol.py backend/tests/test_v4_skills.py backend/tests/test_v4_skills_protocol.py backend/tests/test_v3_management.py backend/tests/test_application.py backend/tests/test_v4_memory_protocol.py backend/tests/test_v4_graph_protocol.py backend/tests/test_v4_retrieval_protocol.py -q --basetemp=artifacts/test-results/V4-006/accept-data --junitxml=artifacts/test-results/V4-006/accept.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_rewrite_protocol.py -k cross_session_memory_pending -q --basetemp=artifacts/test-results/V4-006/cross-purge-data --junitxml=artifacts/test-results/V4-006/cross-purge.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_rewrite_protocol.py backend/tests/test_v4_skills.py backend/tests/test_v4_skills_protocol.py -q --basetemp=artifacts/test-results/V4-006/final-boundary-data --junitxml=artifacts/test-results/V4-006/final-boundary.xml
+backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend/rewrite backend/src/orvia_backend/skills backend/src/orvia_backend/application.py backend/src/orvia_backend/chat/management.py
+npx vitest run apps/desktop/tests/v4-rewrite.test.ts apps/desktop/tests/v4-local-skills.test.ts apps/desktop/tests/v4-skills.test.ts apps/desktop/tests/v4-memory.test.ts apps/desktop/tests/v4-graph.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-006/desktop-final.json
+npm run check
+npm run build
+$env:ORVIA_TEST_MODULE='V4-006'
+npx playwright test tests/e2e/v4-rewrite.spec.ts
+```
+
+|级别|结果与证据|真实性/修复记录|
+|---|---|---|
+|L0|check/build、compileall/diffcheck通过|无新工具/依赖/模型；build不是安装包|
+|L1/L2核心|21不同rewrite目标通过（rewrite-final.xml15、skills-approved新增1、rewrite-races新增4、skills-purge新增1）|真实SQLite/FTS/LangGraph，Main mock；最初13setuperror为basetemp父目录缺失，随后12pass1fixturefail已修，历史保留|
+|L2协议/相关|accept.xml104pass1skip；删除来源/非空grant修复后final-boundary.xml57pass1skip包含8rewrite协议＋49旧Skills通过项|真实Application/SQLite/ComputerGateway合成目录；符号链接因本机普通权限不可创建skip，实际Windows目录联接拒绝用例通过。旧available占位期望1改实际3后通过|
+|L1桌面|desktop-final.json31通过（改写9＋本地Skills3＋旧Skills2＋memory8＋graph9）|严格输入/Unicode/实际字节/完整scope变更/取消0/窗口异常/unknown单次许可、local无目录grant/文件拒绝、相关投影接口回归，dialog模拟|
+|L3|e2e.json1通过/11.3秒测试（总12.1秒），electron-pIqbRN/acceptance.json|实际Electron–Python/SQLite、原生显式合成DOCX本地解析→产品记忆批准保存→准确改写取消0/批准1mock→原问题＋候选FTS命中120万元→重启历史→资料撤回仅原query空hits→真实本地QueryRewrite两叶无folder/无额外云。Main HTTP/native dialogs模拟|
+
+最终JUnit(classname,name)去重 **106个不同后端通过、未解决失败0、权限skip1**，verification-final.json列归属；31桌面＋1不同Electron流程。固定3合成主题真实FTS原/改写Recall@5都1.0（rewrite-recall.json），不宣称召回提升或通用语义质量；复用004真实固定嵌入模型结论，没有重新加载资源回归或下载。
+
+Electron第一次设置页本地投影并发互拒导致记忆未显示，修为memory-list/context、graph-list、rewrite-history有界本地读取允许并发，其余审批/执行仍串行；第二/三次输入可访问名称含选项/正文导致精确locator失败，补显式aria-label后整个真实流程通过，三个失败报告保留。approved-search.png与local-skills-after-withdrawal.png已实际查看：中文原问题/候选/片段及只读两步事实清晰，无横向溢出；技术字段在详情。没有人工原生、真实Main/费用、独立Windows或安装包验收。
+
+L4评估：新增只读派生服务/本地Skills会话归属，无新文件执行/外部服务/发布；已跑77项通过相关后端及1权限skip、相关19桌面回归和实际Electron，复用003～005仍有效结果，不重复无关全量或打包。限制：有限同义词与明确前缀代词，任意文件名指代当前澄清；三主题评估太小且持平，不承诺提高召回。敏感检测有限，准确发送仍须用户审查；scope/字节/片段超限拒绝或可见截断，组合10秒可能早于独立检索完成并保留unknown，不自动重试。
+
+已更新模块/Skills/root/backend/desktop README、架构、开发清单/V4/进度；提交前git status、diff、cached及敏感/禁入检查，回执hygiene-working.json/hygiene-staged.json/commit-receipt.json在忽略目录。显式选择006文件，不读取或暂存预存.zcodeignore/docs/INTERVIEW.md，不收Key、数据库、日志/产物/模型/用户文件；独立正常本地commit标题`feat(V4-006): approve bounded query rewrites and run local context skills`，hash见Git历史/回执，不amend、不push、不Release/重建包。006提交完成后按最新继续目标自动进入007。
+
+试用npm start→添加合成资料→记忆入口保存“我的项目是合成航线”有效记忆→查询改写选会话/原问题“它的费用”/勾当前项目→预览全部正文→原生批准→本地原问题＋候选；或直接原问题。Skills选Query Rewrite→本机会话→inputs包含query和revision空串→原生计划确认；没有暗中生成模型请求。

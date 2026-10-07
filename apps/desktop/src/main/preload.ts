@@ -4,6 +4,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
   memoryList:(input:unknown)=>ipcRenderer.invoke('orvia:memory-list',input),
   graphList:(input:unknown)=>ipcRenderer.invoke('orvia:graph-list',input),
+  rewritePreview:(input:unknown)=>ipcRenderer.invoke('orvia:rewrite-preview',input),
+  rewriteGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:rewrite-generate',input),
+  rewriteSearch:(input:unknown)=>ipcRenderer.invoke('orvia:rewrite-search',input),
+  rewriteHistory:(input:unknown)=>ipcRenderer.invoke('orvia:rewrite-history',input),
   graphPreview:(input:unknown)=>ipcRenderer.invoke('orvia:graph-preview',input),
   graphGenerate:(input:unknown)=>ipcRenderer.invoke('orvia:graph-generate',input),
   graphQuery:(input:unknown)=>ipcRenderer.invoke('orvia:graph-query',input),

@@ -32,6 +32,7 @@ from .retrieval.model import manifest as embedding_manifest
 from .retrieval.integration import ScopedRetrieval
 from .memory import MemoryService, MemoryError
 from .graph import GraphService, GraphError
+from .rewrite import RewriteService, RewriteError
 
 
 class Params(BaseModel):
@@ -84,6 +85,15 @@ class EvidenceGraphQuery(Params):
     query: str = Field(min_length=1, max_length=200, strict=True)
     entity_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     hops: int = Field(default=2, ge=1, le=2, strict=True)
+
+
+class RewritePreviewRequest(RetrievalConversation):
+    query: str = Field(min_length=1, max_length=200, strict=True)
+    memory_ids: list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]] = Field(default_factory=list, max_length=3)
+
+
+class RewriteSearchRequest(RewritePreviewRequest):
+    revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class MissionId(Params):
@@ -162,7 +172,7 @@ class SkillRegister(Params):
 class SkillPlan(SkillIdentity):
     inputs: dict
     mission_id: str = Field(min_length=1, max_length=64)
-    grant_id: str = Field(min_length=1, max_length=64)
+    grant_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class SkillExecution(Params):
@@ -172,11 +182,33 @@ class SkillExecution(Params):
 class SkillExecute(SkillExecution):
     revision: str = Field(pattern=r'^[a-f0-9]{64}$')
     mission_id: str = Field(min_length=1, max_length=64)
-    grant_id: str = Field(min_length=1, max_length=64)
+    grant_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class Application:
     """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
+
+    @staticmethod
+    def _local_skill_result(tool, value):
+        """组合结果每叶最多8KiB；明确受限并停止后续，不删除原事实或假称完整。"""
+        data = json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False))
+        limited = bool(data.get("truncated"))
+        def too_large():
+            return len(json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > 8192
+        keys = ("memories", "rounds") if tool == "memory_context" else ("evidence",)
+        for key in keys:
+            while too_large() and data.get(key):
+                data[key].pop(0 if key == "rounds" else -1)
+                limited = True
+        if too_large() and tool == "memory_context":
+            data["summary"] = None
+            limited = True
+        if too_large():
+            # 极端长候选元数据只返回原问题，不让私有计划结果突破运输预算。
+            data = {"original": value.get("original", ""), "truncated": True}
+            limited = True
+        data["truncated"] = limited
+        return {"complete": not limited, "truncated": limited, "errors": [], "data": data}
 
     def __init__(self, event_sink=None):
         self.session = Session()
@@ -208,6 +240,7 @@ class Application:
         methods |= {"retrieval.model", "retrieval.status", "retrieval.prepare", "retrieval.activate", "retrieval.download", "retrieval.rebuild", "retrieval.search", "retrieval.clear"}
         methods |= {"memory.list", "memory.context", "memory.preview", "memory.generate", "memory.search", "memory.correct", "memory.forget"}
         methods |= {"graph.list", "graph.preview", "graph.generate", "graph.query"}
+        methods |= {"rewrite.preview", "rewrite.generate", "rewrite.search", "rewrite.history"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
@@ -269,6 +302,8 @@ class Application:
                     await chat.memory.open()
                     chat.evidence_graph = GraphService(chat)
                     await chat.evidence_graph.open()
+                    chat.rewrite = RewriteService(chat)
+                    await chat.rewrite.open()
                     await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
@@ -316,6 +351,17 @@ class Application:
             elif method == "graph.query":
                 request = EvidenceGraphQuery.model_validate(params)
                 result = await self.chat.evidence_graph.query(request.query, request.entity_id, request.hops)
+            elif method == "rewrite.preview":
+                request = RewritePreviewRequest.model_validate(params)
+                result = await self.chat.rewrite.preview(request.id, request.query, request.memory_ids)
+            elif method == "rewrite.generate":
+                request = MemoryGenerate.model_validate(params)
+                result = await self.chat.rewrite.generate(request.id, request.revision)
+            elif method == "rewrite.search":
+                request = RewriteSearchRequest.model_validate(params)
+                result = await self.chat.rewrite.search(request.id, request.query, request.memory_ids, request.revision)
+            elif method == "rewrite.history":
+                result = await self.chat.rewrite.history(RetrievalConversation.model_validate(params).id)
             elif method == "retrieval.status":
                 Params.model_validate(params)
                 result = self.embedding.status()
@@ -354,12 +400,19 @@ class Application:
                 request = SkillPlan.model_validate(params)
                 if await self.store.get_mission(request.mission_id) is None:
                     return error_response(request_id, 'NOT_FOUND', '任务不存在')
-                self.computer.check_scan('computer', request.mission_id, request.grant_id)
+                if request.grant_id is not None:
+                    self.computer.check_scan('computer', request.mission_id, request.grant_id)
                 result = await self.skills.plan(request.skill_id, request.inputs, request.mission_id, request.grant_id)
             elif method in {'skills.execute', 'skills.cancel'}:
                 request = SkillExecute.model_validate(params)
                 # 固定角色与授权只由可信调度闭包注入；Skill 包不能提供模型/权限字段。
                 async def dispatch(tool, arguments):
+                    # 固定本地适配只使用已绑定会话，声明不能选cid、generate或授予正文上云许可。
+                    if tool in {"memory_context", "query_rewrite"}:
+                        await self.chat.repository.get(request.mission_id)
+                        value = (await self.chat.memory.context(request.mission_id, arguments["query"]) if tool == "memory_context" else
+                                 await self.chat.rewrite.search(request.mission_id, arguments["query"], [], arguments.get("revision")))
+                        return self._local_skill_result(tool, value)
                     return await asyncio.to_thread(self.computer.execute, 'computer', ToolRequest.model_validate({
                         'mission_id': request.mission_id, 'grant_id': request.grant_id,
                         'call': {'tool': tool, 'arguments': arguments}}))
@@ -465,7 +518,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError) as error:
             return error_response(request_id, error.code, error.message)
         except ModelUnavailable as error:
             # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。

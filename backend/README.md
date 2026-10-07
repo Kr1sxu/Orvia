@@ -105,3 +105,9 @@ V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/REA
 ## V4-005 来源知识图谱
 
 [graph README](src/orvia_backend/graph/README.md)记录SQLite实体/关系/原文支持、固定graph.list/preview/generate/query、来源版本及128项无正文处理/尝试账本。固定Main抽取前准确原生批准，query始终本地，歧义要求准确entity_id；两跳排除冲突/撤回，完整原文独立模板句核验不能由模型自述代替。已有资料移除撤回支持，会话purge清派生表；无新依赖或Neo4j服务。测试为真实SQLite和Main mock，真实云整理未覆盖。
+
+## V4-006 查询改写与本地Skills
+
+`RewriteService`新增preview/generate/search/history固定接口与SQLite三表，准确正文及scope版本原生批准后固定Main一次30秒/1024token；最多三候选须匹配程序限定同义/唯一主题规则，原查询始终保留。来源撤回/删除先核墓碑，预览保存/网络前/最终提交及检索回查，缓存不恢复重发许可。128尝试/20预览/32记录、独立检索180秒，数据与运输预算详见[rewrite README](src/orvia_backend/rewrite/README.md)。
+
+`memory_context`、`query_rewrite`为固定本地Skill工具，只读取已核验事实；无文件grant仅允许展开后全部本地leaf，文件工具仍逐叶ComputerGateway检查。每叶data8KiB、受限停止后续、原10秒工作流预算保留。本地执行账本归属选中会话，purge及晚到写入有删除保护；声明不能自选cid或generate。无新增依赖，真实SQLite/FTS/LangGraph与Main mock分别记录在PROGRESS。

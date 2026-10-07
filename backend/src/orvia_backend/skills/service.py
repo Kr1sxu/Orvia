@@ -19,11 +19,32 @@ from langgraph.graph import END, START, StateGraph
 from ..computer.contracts import DirectoryArgs, PathArgs, ReadArgs, SearchArgs, SpaceArgs
 from ..computer.paths import PathPolicy, ToolError
 from ..storage import Store
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class LocalContextArgs(BaseModel):
+    """会话身份由可信分发闭包提供，声明不能注入其它会话或授予外发权限。"""
+    model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
+    query: str = Field(min_length=1, max_length=200)
+
+
+class LocalRewriteArgs(LocalContextArgs):
+    revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("revision", mode="before")
+    @classmethod
+    def original_only(cls, value):
+        """审查中明确显示的空版本代表原查询，不自动选取其它批准记录。"""
+        return None if value == "" else value
+
+
+LOCAL_TOOLS = {"memory_context", "query_rewrite"}
 
 
 TOOLS = {"list_directory": DirectoryArgs, "search_files": SearchArgs,
          "get_file_metadata": PathArgs, "analyze_directory_space": SpaceArgs,
          "read_text_file": ReadArgs}
+TOOLS.update(memory_context=LocalContextArgs, query_rewrite=LocalRewriteArgs)
 RESERVED = {"mission_id", "grant_id", "role", "approval", "approved", "token", "permissions",
             "model", "base_url", "api_key", "command", "script", "expression"}
 IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{1,63}\Z")
@@ -293,9 +314,20 @@ def _builtin():
                     {"id": "space", "tool": "analyze_directory_space", "arguments": {"path": {"from_input": "path"}, "top_n": 5}, "output_schema": OPEN_OBJECT}],
                 "output": {"inventory": {"from_step": "inventory"}, "space": {"from_step": "space"}}}
     yield manifest, None
-    for sid, name, reason in (("memory-context", "Memory Context", "V4-003本地记忆已实现；声明式组合入口待V4-006接入"),
-                              ("query-rewrite", "Query Rewrite", "等待 V4-006 查询改写实现"),
-                              ("web-research", "Web Research", "等待 V4-010 多来源调研实现"),
+    query_inputs = {"type": "object", "properties": {"query": {"type": "string", "minLength": 1, "maxLength": 200}}, "required": ["query"]}
+    local = {**manifest, "version": "1.1.0", "input_schema": query_inputs, "output_schema": OPEN_OBJECT}
+    yield {**local, "id": "memory-context", "name": "Memory Context", "description": "本地读取五轮上下文、当前状态和有原文支持的记忆；不自动外发。", "dependencies": [],
+           "steps": [{"id": "context", "tool": "memory_context", "arguments": {"query": {"from_input": "query"}}, "output_schema": OPEN_OBJECT}],
+           "output": {"context": {"from_step": "context"}}}, None
+    rewrite_inputs = copy.deepcopy(query_inputs)
+    rewrite_inputs["properties"]["revision"] = {"type": "string", "minLength": 0, "maxLength": 64}
+    rewrite_inputs["required"].append("revision")
+    yield {**local, "id": "query-rewrite", "name": "Query Rewrite", "description": "组合本地记忆投影与当前资料检索，仅使用另行原生批准且有效的改写记录；缺省保留原查询。", "input_schema": rewrite_inputs,
+           "dependencies": ["memory-context"], "steps": [
+               {"id": "context", "skill": "memory-context", "arguments": {"query": {"from_input": "query"}}, "output_schema": OPEN_OBJECT},
+               {"id": "retrieve", "tool": "query_rewrite", "arguments": {"query": {"from_input": "query"}, "revision": {"from_input": "revision"}}, "output_schema": OPEN_OBJECT}],
+           "output": {"context": {"from_step": "context"}, "retrieval": {"from_step": "retrieve"}}}, None
+    for sid, name, reason in (("web-research", "Web Research", "等待 V4-010 多来源调研实现"),
                               ("report-build", "Report Build", "等待 V4-010 简报组合实现")):
         yield {**manifest, "id": sid, "name": name, "description": reason}, reason
 
@@ -343,6 +375,10 @@ class SkillsService:
             revision = hashlib.sha256(content.encode()).hexdigest()
             await db.execute("INSERT OR IGNORE INTO skills_registry VALUES(?,?,?,?,?,1,1,?,1)",
                              (manifest["id"], manifest["version"], revision, content, manifest["description"], reason))
+            if manifest["id"] in {"memory-context", "query-rewrite"}:
+                # 只迁移内置版本，保留用户禁用状态；旧占位清单不能继续伪装文件整理流程。
+                await db.execute("UPDATE skills_registry SET version=?,revision=?,manifest_json=?,documentation=?,reason=NULL,generation=generation+1 WHERE id=? AND builtin=1 AND revision<>?",
+                                 (manifest["version"], revision, content, manifest["description"], manifest["id"], revision))
         async with db.execute("SELECT plan_id,result_json FROM skills_executions WHERE status IN ('running','planned')") as cursor:
             rows = await cursor.fetchall()
         for pid, result in rows:
@@ -535,11 +571,12 @@ class SkillsService:
             records[skill_id]["enabled"] = enabled
             return self._summary(records[skill_id], records)
 
-    async def plan(self, skill_id, inputs, mission_id, grant_id):
+    async def plan(self, skill_id, inputs, mission_id, grant_id=None):
         """计划绑定版本、任务和授权身份；声明只产生只读调用计划，不产生访问许可。"""
         async with self._lock:
             try:
-                mission_id, grant_id = str(UUID(str(mission_id))), str(UUID(str(grant_id)))
+                mission_id = str(UUID(str(mission_id)))
+                grant_id = str(UUID(str(grant_id))) if grant_id is not None else None
             except (ValueError, TypeError):
                 _fail("SKILL_PERMISSION", "计划缺少有效任务或授权身份")
             records = await self._records()
@@ -589,6 +626,8 @@ class SkillsService:
                 return output
 
             output = expand(skill_id, inputs, "")
+            if grant_id is None and any(step["tool"] not in LOCAL_TOOLS for step in steps):
+                _fail("SKILL_PERMISSION", "文件工具必须具备真实目录授权；本地会话模式只允许记忆和检索")
             # 结构绑定没有晚到权限；可立即解析的参数在原生确认前按现有网关契约校验。
             for step in steps:
                 if "from_step" not in _json(step["arguments"]):
@@ -617,6 +656,18 @@ class SkillsService:
     async def _save(self, plan, result, insert=False):
         async with self.store._lock:
             db = self.store._db()
+            # 有目录grant也不能绕过会话删除墓碑；独立目录Mission无chat记录仍保持原权限链。
+            async with db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chat_deletions'") as cursor:
+                has_tombstones = await cursor.fetchone() is not None
+            if has_tombstones:
+                async with db.execute("SELECT 1 FROM chat_deletions WHERE id=?", (plan["mission_id"],)) as cursor:
+                    if await cursor.fetchone() is not None:
+                        _fail("SKILL_PERMISSION", "所属会话已删除，执行记录不能恢复其正文")
+            if plan["grant_id"] is None or any(step["tool"] in LOCAL_TOOLS for step in plan["steps"]):
+                # 只读业务也不能在会话删除后重新写入上下文正文或晚到执行记录。
+                async with db.execute("SELECT 1 FROM chat_conversations WHERE id=? AND id NOT IN(SELECT id FROM chat_deletions)", (plan["mission_id"],)) as cursor:
+                    if await cursor.fetchone() is None:
+                        _fail("SKILL_PERMISSION", "本地会话已删除，执行记录不能恢复其正文")
             if insert:
                 await db.execute("INSERT INTO skills_executions VALUES(?,?,?,?,?,?)", (plan["plan_id"], plan["mission_id"], plan["revision"], result["status"], _json(plan), _json(result)))
             else:
@@ -647,7 +698,7 @@ class SkillsService:
                 _fail("SKILL_PLAN", "计划不存在、已执行或重启失效")
             plan = private["public"]
             result = self._execution(plan)
-            if (revision != plan["revision"] or str(mission_id) != plan["mission_id"] or str(grant_id) != plan["grant_id"]):
+            if (revision != plan["revision"] or str(mission_id) != plan["mission_id"] or (str(grant_id) if grant_id is not None else None) != plan["grant_id"]):
                 result.update(status="failed", error={"code": "SKILL_PERMISSION", "message": "取消身份与计划不匹配"})
                 await self._save(plan, result)
                 _fail("SKILL_PERMISSION", "取消身份与计划不匹配")
@@ -672,8 +723,10 @@ class SkillsService:
             plan = private["public"]
             execution = self._execution(plan)
             try:
-                if (revision != plan["revision"] or str(mission_id) != plan["mission_id"] or str(grant_id) != plan["grant_id"]):
+                if (revision != plan["revision"] or str(mission_id) != plan["mission_id"] or (str(grant_id) if grant_id is not None else None) != plan["grant_id"]):
                     _fail("SKILL_PERMISSION", "审批与计划、任务或授权不匹配")
+                if grant_id is None and any(step["tool"] not in LOCAL_TOOLS for step in plan["steps"]):
+                    _fail("SKILL_PERMISSION", "文件工具不能使用本地会话授权")
                 await self._check_bindings(plan)
             except SkillError as exc:
                 execution.update(status="failed", error={"code": exc.code, "message": exc.message})
