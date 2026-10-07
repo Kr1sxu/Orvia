@@ -197,5 +197,10 @@ SynthesisResult 的引用标签使用 coverage.title 与 locator，点击仍使�
 运行 `npm start`；组件测试 `npx vitest run apps/desktop/tests/v3-document-presentation.test.tsx apps/desktop/tests/m15-contracts.test.ts`；Electron流程见 tests/e2e/v3-document.spec.ts，产物在 artifacts/test-results/V3-005。模型自然语言布局需真实模型后续体验验证，mock通过不代表生成质量保证。
 
 ## V4-001 Redis 设置
+
 `npm start` → 设置 → Redis辅助服务，连接用户已部署的本地端点。只允许127.0.0.1/::1；保存并启用、关闭辅助连接、显式检测恢复只影响Orvia连接。设置页3秒读取后端已知状态，不因轮询自动重连。详情显示分别统计的Redis/本地通知及最多20个经SQLite核验的状态，不表示业务完成。无原始会话标识/正文/密码显示。主进程校验来源及固定Zod契约，renderer无任意Redis方法。
 开发REDIS_PASSWORD只从根.env.local读取；发布凭据类型选择Redis独立密码，沿用safeStorage，无明文回退。该引用不是模型角色。后端断连不影响原有目录/聊天能力。测试为v4-auxiliary.test.ts和tests/e2e/v4-auxiliary.spec.ts（后者需显式ORVIA_REDIS_TEST_PORT），报告在artifacts/test-results/V4-001。未更新安装包。
+
+## V4-002 Skills 设置与执行
+
+V4-002入口为设置→Skills工作流：原生选择SKILL.md/workflow.json二文件包，预览准确声明并确认登记；启停使旧计划失效。选工作流及结构化输入后，原生选择本次只读目录、复核计划再执行。正文读取没有默认权限，文件变更继续走既有审批，不由Skill声明授权。固定IPC/类型见skills-contracts.ts，组件见SkillsPanel.tsx，后端契约/结构/示例/限制见backend/src/orvia_backend/skills/README.md。运行npm run build、npm start；目标测试见v4-skills.test.ts和tests/e2e/v4-skills.spec.ts，证据在artifacts/test-results/V4-002/；无安装包重建。

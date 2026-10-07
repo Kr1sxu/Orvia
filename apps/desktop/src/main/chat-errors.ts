@@ -1,6 +1,19 @@
 /** 错误码映射为固定中文，不展示供应商正文、路径或异常输入。 */
 export function chatErrorMessage(code: string): string {
   const messages: Record<string, string> = {
+    SKILL_PACKAGE:'Skill 包须为普通本地目录，只含有界 SKILL.md 与 workflow.json；不接受脚本或链接。',
+    SKILL_SCHEMA:'Skill 输入输出声明含不支持的类型或约束，请检查 Orvia v1 契约。',
+    SKILL_CONTRACT:'Skill 输入、声明或工具结果不符合契约，流程未完成。',
+    SKILL_UNAVAILABLE:'Skill 或依赖尚未就绪，请查看工作流状态。',
+    SKILL_CHANGED:'包、依赖版本或启用状态已变化，请重新审查并生成计划。',
+    SKILL_VERSION:'更新 Skill 内容必须使用不同版本，并重新审查。',
+    SKILL_DEPENDENCY:'Skill 依赖缺失、循环或组合超过预算，不能执行。',
+    SKILL_LIMIT:'Skills 注册、输入或组合计划超过当前资源预算。',
+    SKILL_PLAN:'计划已使用、失效或重启清除，请重新预览并批准。',
+    SKILL_REVIEW:'导入审查已失效，请重新选择并确认。',
+    SKILL_PERMISSION:'工作流计划与任务授权不匹配，未执行。',
+    SKILL_BUILTIN:'导入包不能覆盖内置工作流。',
+    SKILL_TOOL:'该工具不在工作流允许清单中。',
     STREAM_UNSUPPORTED:'固定Main未支持本次所需流式；请明确确认同模型非流式新请求，可能再次收费。',
     STREAM_INTERRUPTED:'流式回答中断；部分文本尚未完成引用校验，未自动重试或制作成品。',
     STREAM_INVALID:'固定模型增量格式无效，结果未通过校验；请查看已保存事实。',

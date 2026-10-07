@@ -90,4 +90,9 @@ M07 增加 browser.read / browser.search，须存在的 mission_id；来源与�
 历史M14未签名候选版0.2.0-rc.1只含M10–M13；当时“安装包未重建”的状态保留为历史。本轮完整0.3.0-rc.1冻结、资源、安装／升级／卸载和开发对照以packaging/README.md与PROGRESS实际证据为准，产物在M20，不覆盖M14。真实本地组件不等于供应商或Tavily验证，生产签名和独立Windows继续暂缓。
 
 ## V4-001 本地 Redis 辅助服务
+
 见 [模块 README](src/orvia_backend/auxiliary/README.md)。`uv sync --project backend --locked` 安装锁定redis==7.0.0客户端；服务由用户部署。本轮新增默认关闭的配置/检测/启停、TTL元数据缓存与可重建任务通知，SQLite继续为唯一事实存储。固定私有方法 auxiliary.status/configure/probe 不接收凭据/任意命令；redis密码仅Initialize/credentials.replace的私有Credentials.redis注入。不对模型或工具提供Redis执行入口。真实服务验证命令与版本见docs/PROGRESS，正常测试不调用模型或要求服务。
+
+## V4-002 Skills 注册与编排
+
+V4连续模块状态以docs/PROGRESS与独立Git提交为准。Skills固定方法族见 [模块 README](src/orvia_backend/skills/README.md)，所有声明式调用仍受既有权限网关限制，不执行包内代码，不自动安装。

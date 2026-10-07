@@ -203,6 +203,11 @@ M13文档提取、M16固定简报、M17受限代码／原型／临时文件隔�
 证据层与展示层分离，DTO和数据库不迁移；DocumentCard只读完整性元数据，不能用短预览文本推断全文可用性。摘要引用显示文件名+定位，动作仍绑定不可变证据身份。高级字段保留在来源详情，旧消息技术引导不重复渲染，原记录不改写。部分选用/读取不全的回答显示范围限定，具体缺失对问题的影响由受约束模型说明，不用前端启发式伪造相关性。发送范围及固定接收模型可见，原生确认、revision重算和citation校验照常执行。
 
 ## V4-001 可选辅助连接（2026-10-07）
+
 Redis 默认为关闭，仅连接用户部署的回环服务。固定 IPC auxiliary-status/configure/probe → Zod → stdio auxiliary.status/configure/probe → Pydantic/端点校验 → AuxiliaryService；没有自由命令或服务进程管理。独立redis凭据引用不参与三角色模型映射，开发仅主进程读取REDIS_PASSWORD，发布safeStorage，后端只持有内存。
 
 SQLite chat_requests 的原子触发器维护随机任务身份、版本、状态及派生消费游标；删除进度标记立即撤销关联。Redis只保存TTL30秒状态元数据与UUID/版本通知（256条/60秒）；消费者回查SQL后刷新最近20项只读投影，status再次核对。关闭/降级用同一SQL派生本地通知，不执行任务、不恢复权限、不重放副作用。服务断线熔断，显式检测/配置或更新凭据后才重新连接。没有资料正文或审批令牌缓存，无分布式执行队列。资源预算、验收环境和限制见auxiliary README/PROGRESS；不代表V4未来模块已接入。
+
+## V4-002 声明式工作流（2026-10-07）
+
+V4-002新增Skills框架，完整接口见backend/src/orvia_backend/skills/README.md：原生目录选择→包普通文件/预算/schema校验→完整审查确认→SHA256二次核验→SQLite版本化登记；启停generation使旧计划失效。固定renderer接口只传业务输入/身份，不能提供包路径或grant。原生选择只读目录后建立独立Mission/内存授权，版本绑定计划经原生批准→LangGraph逐步ComputerGateway→schema与完整性复核→SQLite事实；每步再查版本及授权，失败/受限停止。结果不作为新权限，重启planned/running中断，不恢复审批或重放。最近20只读执行记录和单记录回查均从SQLite读取；独立任务不隶属聊天，无模型/网络或附带脚本执行。现阶段只读盘点组合和合法导入读取可运行，其它内置按后续依赖显示未就绪。

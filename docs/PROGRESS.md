@@ -1288,3 +1288,55 @@ backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert
 ```
 
 `docker stop orvia-v4-001-test`已执行，保留已停止的专用容器/镜像便于用户自行试用；未关闭Docker Desktop或更改其它容器。本轮没有push或安装包命令。
+
+## V4 连续授权与 V4-002 实施（2026-10-07）
+
+用户 `/goal` 已授权002→004→003→005→006→007→008→009→010→011逐模块连续实施，每模块实际验证、记录与独立commit后自动继续，取代此前相应停止要求；001不重复实施，不push/Release/重建安装包。模型首次下载仍需准确来源/版本/体积/校验预览及用户确认。
+
+预检：Orvia/main，HEAD `a6c9d30`，001独立提交及PROGRESS证据齐全；`git ls-remote --symref origin HEAD`核对远端main/`5d6d0e9`，不fetch或更改网络。预存未跟踪`.zcodeignore`、`docs/INTERVIEW.md`保留，不暂存；无LICENSE删除。原001测试结论复用，不重复真实Redis或旧模型测试。
+
+本模块主Agent负责application、桌面固定协议/原生审批/界面、整合、验证、文档与提交；subagent独占新skills目录、test_v4_skills.py，另一subagent只读审查。无真实Key或私人资料传递，不提前实施后续模块。复用当前LangGraph/Pydantic/SQLite，无新依赖。
+
+- [x] √ V4-002 实际实现、权限/版本/组合边界、L0～L3验证及文档。
+- [x] √ V4-002 敏感审计和独立正常本地commit，标题及证据见本节。
+- [ ] 用户手动push；Agent不推送、不发布、不重建安装包。
+
+### 实施决策与真实能力
+
+自有workflow.json schema_version=1，不宣称任意Skill包兼容。SKILL.md只是完整审查的不可信说明，不注入模型指令。内置File Organize实际执行一级清单40项→空间统计前5项；Memory Context/Query Rewrite/Web Research/Report Build分别等待003/006/010，不可计划。导入可引用固定五个读取工具和已声明依赖Skill，参数仅结构化前序结果引用，不执行脚本/表达式/安装/文件变更。原有文件变更审批链保留。
+
+skills_registry保存快照/hash/版本/启停generation，skills_executions保存计划和逐步结果；事务追加表，不改旧user_version。每个步骤固定ComputerGateway/Pydantic权限与参数复核，LangGraph推进必须有完整结构化事实与SQLite保存；任何不完整/截断/errors停止为limited，不伪报completed。坏审批、版本失效写failed；原生取消零调用保存interrupted，重启旧planned/running中断，旧token不复活、不重试。专用Mission只读任务独立于聊天，最近20记录及准确结果可回查；不会以聊天删除清除独立任务账本。原生选择/批准后仅主进程注入目录及grant，完成/取消/异常均撤销本次grant；默认不授予文本正文或系统权限。
+
+预算：仅本地普通目录、恰好2文件，SKILL.md8KiB/workflow16KiB/两文件64KiB硬限/完整审查32KiB；第三个目录项立即拒绝；PathPolicy和打开句柄防链接/联接/竞态。最多32导入，每页10、审查16、内存计划64；每包16节点/16依赖/4层组合/32叶步骤。输入8KiB、复制表达式16KiB、隐藏checks/output及计划40KiB、结果含逐步事实32KiB，执行10秒，主进程响应15秒留持久化余量。固定object/string/integer/boolean schema；双端ID/UTF16字段长度一致，拒绝控制字符/重复JSON键/非有限数/未知schema。复制前预算防重复引用指数膨胀；循环检查不因依赖禁用被遮蔽。具体结构/API/输入输出/示例/限制见skills/README。
+
+### 验证与证据
+
+全部结果在`artifacts/test-results/V4-002/`，Git忽略。无新增依赖、外网服务、真实模型调用；真实SQLite/LangGraph/ComputerGateway/合成文件读取与合成失败注入分开。L3为真实Electron–Python，已有m20测试启动器只模拟原生选择/确认和模型网络；测试中模型调用计数为0，不冒充人工原生验收。未访问用户真实文件。L4不必启动：增加有界只读框架及固定接口，已有初始化/配置/删除相关L1/L2回归，未变更模型/执行副作用/发布链，不重建安装包。
+
+|等级|实际命令与结果|证据与限制|
+|---|---|---|
+|L0|`npm run check`、`npm run build`通过；`backend/.venv/Scripts/python.exe -m compileall -q backend/src/orvia_backend/skills`通过|最终构建仅开发版，含TypeScript检查，无打包；原LangGraph弃用提示保留|
+|L1/L2|`backend/.venv/Scripts/python.exe -m pytest backend/tests/test_v4_skills.py -q --basetemp=artifacts/test-results/V4-002/skills-tmp --junitxml=artifacts/test-results/V4-002/skills-junit.xml`，36通过/1跳过；追加审计后同命令41通过/1跳过|真实临时SQLite/组合引用/目录工具；注入失败、超时和超限为合成，符号链接创建权限不足skip|
+|L1/L2|主Agent同pytest运行 `backend/tests/test_v4_skills.py backend/tests/test_v4_skills_protocol.py backend/tests/test_application.py backend/tests/test_configuration.py backend/tests/test_v3_management.py -q --basetemp=artifacts/test-results/V4-002/final-data --junitxml=artifacts/test-results/V4-002/backend-final.xml`，80通过/1失败/1跳过|协议旧fixture期待错误授权后仍可执行原计划；新的消费语义已保存failed，修正fixture重新计划，不修改生产语义|
+|L2|同pytest仅`backend/tests/test_v4_skills_protocol.py`，`--basetemp=artifacts/test-results/V4-002/protocol-complete-data --junitxml=artifacts/test-results/V4-002/protocol-complete.xml`，1通过|真实应用/gateway两步骤、重复/越权拒绝、重启持久化、固定配置；此前protocol.xml和protocol-final.xml也通过，错误审批消费改变后本项最小复验|
+|L1/L2|同pytest模块加`-k 'cancel_history or exponential or pagination or identifier or hidden or timeout or control'`，`--basetemp=artifacts/test-results/V4-002/audit-data --junitxml=artifacts/test-results/V4-002/audit-final.xml`，4通过；`-k runtime_repeat`，runtime-audit-data/runtime-audit.xml，1通过|追加取消/重启/失效账本、满额中文分页、隐藏展开、合成时钟晚到响应、重复输出拒绝；复用仍有效先前项|
+|L1/L2|同pytest模块`-k human_summary`，summary-audit-data/summary-audit.xml，5通过；`-k 'missing_cycle or disabled_dependency'`，topology-data/topology-final.xml，2通过|控制字符/UTF16、失效Unicode、禁用依赖无法隐藏循环；未对全库重复测试|
+|L2|subagent `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_v4_skills.py -q -k 'human_summary or junction'`，`--basetemp=artifacts/test-results/V4-002/skills-boundary-tmp --junitxml=artifacts/test-results/V4-002/skills-boundary-junit.xml`，6通过；最后同命令筛选 -k disabled_dependency，--basetemp=artifacts/test-results/V4-002/skills-last-tmp --junitxml=artifacts/test-results/V4-002/skills-last-junit.xml，1通过|真实普通权限`mklink /J`合成目录联接被拒绝，解除联接不删除指向目录；非提权。5项summary与主Agent重复不重复计数|
+|L1|`npx vitest run apps/desktop/tests/v4-skills.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-002/unit-final.json`，2通过|固定renderer边界，无路径/grant/批准/自由方法透传，响应契约；无真实模型|
+|L3|`$env:ORVIA_TEST_MODULE='V4-002'; npx playwright test tests/e2e/v4-skills.spec.ts`，最终1通过|启停、内置两步骤、原生取消、导入取消/登记、导入属性读取、重启记录回查/零模型计数；最终e2e.json及electron目录截图|
+
+不同后端用例合计93通过、1跳过（Skills48+协议1+旧回归44）；前端2通过，Electron1完整流程通过。早期L3第一次因builtin名称fixture变化失败，第二次开发中初始化未连通；在迁移与名称稳定后最小流程通过，扩展导入/history后再验证通过，最后复验仍通过；没有将中间失败隐藏为通过。已实际查看skills.png与restart.png，M19视觉、可读中文步骤和展开技术事实无横向溢出。敏感审计和提交见下节。
+
+subagent另有已复用的审计最小集合：`backend/.venv/Scripts/python.exe -m pytest backend/tests/test_v4_skills.py -q -k 'maximum_chinese or repeat_output or runtime_repeat or timeout_unknown or cancel_history or human_summary' --basetemp=artifacts/test-results/V4-002/skills-review-tmp --junitxml=artifacts/test-results/V4-002/skills-review-junit.xml`，10通过/37未选择；后续主Agent/边界复验重叠项已去重。完整目标报告skills-junit.xml被最后41通过/1skip结果覆盖，早先36项结论不伪称仍有独立XML。
+
+### 限制与试用
+
+`npm start`→设置→Skills工作流，选File Organize，输入`{"path":"."}`，原生选择合成目录并确认计划；完整目录不超过40项，否则明确limited。模块README给出单文件属性包与组合示例，导入、更新须重新审查；最近工作流记录只读取事实，不恢复授权。默认不能读取正文；不具有任意Skill脚本、并行/条件节点、自动重试或恢复执行。静态schema及资源预算不证明任意资料正确。只读工作线程超时后可能在现有FileTools自身预算内收尾，程序忽略晚到结果、不重试、不接续；不能强杀任意文件系统调用。独立Mission账本当前无UI删除入口。原生选择/确认模拟、未独立Windows/发布模式验收，旧安装包未包含本模块。
+
+当前模块提交标题为`feat(V4-002): register reviewed skills and run bounded workflows`，实际hash见Git历史；沿用一次性git -c身份，不改持久配置。提交完成后自动进入V4-004，不等待继续授权；模型首次下载仍需用户明确确认。
+
+收尾L0：内联XML去重审计`l0-audit.json`确认93不同通过/1跳过/最终未解决失败0、README存在、产物忽略、真实模型0。检查`git status --short`、`git diff`和`git diff --cached`及两套diff --check；显式27本模块文件，用户预存两文件不暂存。敏感审计复用下列真实命令，`hygiene-staged.json`：禁入路径、真实密钥匹配、私钥块、产物真实密钥匹配、资源manifest差异均0，仅输出凭据是否存在和计数。无数据库/日志/用户文件/测试产物入index。
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('backend/tests').resolve())); import m19_hygiene as audit; audit.RESULT=pathlib.Path('artifacts/test-results/V4-002').resolve(); raise SystemExit(audit.main())"
+```

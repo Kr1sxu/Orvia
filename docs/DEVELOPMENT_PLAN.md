@@ -261,3 +261,12 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ 中文模块README、事实状态、敏感审计及正常本地提交；交付标题 feat(V4-001): add optional local Redis auxiliary service。
 - [ ] 用户手动push；未发布、未重建安装包、未做独立Windows验收。
 - [ ] V4-002及后续模块仍待逐轮授权；本轮结束停止。
+
+## V4-002（2026-10-07，连续授权取代上述未来模块停止要求）
+- [x] √ 自有v1声明式Skills注册、原生目录导入审查及hash复核、SQLite启停/版本/generation。
+- [x] √ 完整契约/依赖/循环/预算校验、结构化引用、LangGraph顺序组合和逐步事实落库。
+- [x] √ 固定工具网关权限；受限/失败停止、原生取消零调用、重启中断不续跑及最近记录回查。
+- [x] √ 真实合成目录只读组合、L0～L3、中文README/架构/进度与敏感检查；命令和限制见PROGRESS。
+- [x] √ 独立正常本地commit，交付标题 `feat(V4-002): register reviewed skills and run bounded workflows`，实际hash见Git历史。
+- [ ] 用户手动push；Agent不发布、不重建安装包。
+- [ ] V4-004→003→005→006→007→008→009→010→011依序实际实施、验证、记录及独立提交，已获授权，当前未完成。

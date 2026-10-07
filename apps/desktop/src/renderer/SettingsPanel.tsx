@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Settings, Role } from '../shared/api';
 import {AuxiliaryPanel} from './AuxiliaryPanel';
+import {SkillsPanel} from './SkillsPanel';
 
 /** 凭据只停留在输入框本轮内存，提交立即清空，不加入会话或通知。 */
 export function SettingsPanel({settings, reload, close}: {settings?: Settings; reload: () => Promise<void>; close: () => void}) {
@@ -26,7 +27,7 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
     if(e.key==='Escape'&&!busy){e.preventDefault();close();}
     if(e.key==='Tab'){
       // 模态设置只在自身可用控件间移动焦点，避免键盘触发背后的会话操作。
-      const nodes=panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)');
+      const nodes=panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)');
       if(!nodes?.length){e.preventDefault();return;}
       const first=nodes[0],last=nodes[nodes.length-1];
       if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
@@ -45,6 +46,7 @@ export function SettingsPanel({settings, reload, close}: {settings?: Settings; r
     </div>}
     <p>{settings?.search_available ? 'Tavily 已配置；在对话输入框选择搜索网页。' : '未配置 Tavily，搜索不可用；仍可读取已知公开网页。'}</p>
     <AuxiliaryPanel/>
+    <SkillsPanel/>
     <p role="status">{notice}</p>
     <button disabled={busy} onClick={() => void reload().catch(() => setNotice('连接检查失败，请重新启动应用。'))}>重新检查连接</button>
   </section></div>;

@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // 不暴露 invoke/send、路径、命令或 Electron 对象，渲染端无自选通道能力。
 contextBridge.exposeInMainWorld('orvia', Object.freeze({
+  skillsList: (input:unknown={offset:0}) => ipcRenderer.invoke('orvia:skills-list',input),
+  skillsHistory: () => ipcRenderer.invoke('orvia:skills-history'),
+  skillsExecution: (input:unknown) => ipcRenderer.invoke('orvia:skills-execution',input),
+  skillsImport: () => ipcRenderer.invoke('orvia:skills-import'),
+  skillsToggle: (input:unknown) => ipcRenderer.invoke('orvia:skills-toggle',input),
+  skillsRun: (input:unknown) => ipcRenderer.invoke('orvia:skills-run',input),
   connectionStatus: () => ipcRenderer.invoke('orvia:connection-status'),
   reconnect: () => ipcRenderer.invoke('orvia:reconnect'),
   chatCancel: (input: unknown) => ipcRenderer.invoke('orvia:chat-cancel', input),

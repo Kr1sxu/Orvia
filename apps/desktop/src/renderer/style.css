@@ -25,3 +25,4 @@
 .task-progress ol{max-height:260px;overflow:auto;padding-left:26px}.task-progress li{margin:8px 0;overflow-wrap:anywhere}.task-progress li details{font-size:12px;color:var(--muted)}.task-progress li p{margin:5px 0}
 
 .auxiliary-panel{border-top:1px solid var(--border);margin-top:18px;padding-top:12px;font-size:13px;line-height:1.7}.auxiliary-panel label{display:grid;gap:4px;min-width:0}.auxiliary-panel input{width:110px}.auxiliary-panel .row{flex-wrap:wrap}.auxiliary-panel details{margin:12px 0}.auxiliary-panel p{overflow-wrap:anywhere}
+.skills-panel{margin-top:24px;border-top:1px solid var(--border);padding-top:16px}.skills-list article{padding:12px 0;border-bottom:1px solid var(--border)}.skills-panel label{display:block;margin:12px 0}.skills-panel select,.skills-panel textarea{display:block;width:100%;margin-top:6px}.skills-panel pre{max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.skills-panel details p{overflow-wrap:anywhere}

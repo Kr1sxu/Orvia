@@ -14,6 +14,7 @@ import {registerM18} from './m18-ipc';
 import {windowPresentation,attachWindowPresentation,taskbarAppId} from './window-presentation';
 import {naturalInput,continuationInput,materialRemoveInput,revokeInput,scanPageInput,streamPullInput,streamAckInput,attachmentInput,fallbackConfirmInput} from './m20-contracts';
 import {auxiliaryConfig} from './auxiliary-contracts';
+import {registerSkills} from './skills-ipc';
 
 let backend: BackendClient;
 let window: BrowserWindow | null = null;
@@ -125,6 +126,7 @@ app.whenReady().then(async () => {
     try { return await action(); } finally { chatBusy = false; }
   }
   m18Authorization=registerM18({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
+  registerSkills({handle,serial:chatAction,window:()=>window!,backend:()=>backend});
   handle('orvia:chat-rename',1,input=>chatAction(()=>backend.chat('chat.rename',chatRenameSchema.parse(input))));
   handle('orvia:chat-pin',1,input=>chatAction(()=>backend.chat('chat.pin',chatPinSchema.parse(input))));
   handle('orvia:chat-delete',1,input=>chatAction(async()=>{

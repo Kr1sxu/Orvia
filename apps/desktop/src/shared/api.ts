@@ -11,11 +11,18 @@ export type { GrantStatus, ScanEnvelope } from '../main/contracts';
 export interface HealthResult { status: 'ok'; service: 'orvia-backend' }
 export type Reply<T> = { ok: true; result: T } | { ok: false; message: string };
 export type HealthReply = Reply<HealthResult>;
+export type {SkillSummary,SkillExecution} from '../main/skills-contracts';
 export type ConnectionStatus = { state: 'ready' | 'starting' | 'disconnected'; busy: boolean; cancellable: boolean; activeSend?: {id: string; request_id: string};materialProcessing?:{id:string;items:{title:string;status:'pending'|'parsing'|'ready'|'failed'|'cancelled'}[]} };
 export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  skillsList:(input?:{offset:number})=>Promise<Reply<{skills:import('../main/skills-contracts').SkillSummary[];offset:number;total:number}>>;
+  skillsHistory:()=>Promise<Reply<{executions:Pick<import('../main/skills-contracts').SkillExecution,'plan_id'|'skill_id'|'version'|'status'>[]}>>;
+  skillsExecution:(input:{plan_id:string})=>Promise<Reply<import('../main/skills-contracts').SkillExecution>>;
+  skillsImport:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillSummary}>>;
+  skillsToggle:(input:{skill_id:string;enabled:boolean})=>Promise<Reply<import('../main/skills-contracts').SkillSummary>>;
+  skillsRun:(input:{skill_id:string;inputs:Record<string,unknown>})=>Promise<Reply<{cancelled:boolean;result?:import('../main/skills-contracts').SkillExecution}>>;
   connectionStatus: () => Promise<Reply<ConnectionStatus>>;
   reconnect: () => Promise<Reply<{connected: true}>>;
   chatCancel: (input: {id: string; request_id: string}) => Promise<Reply<{cancelled: boolean}>>;

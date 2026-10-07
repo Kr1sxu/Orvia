@@ -1,6 +1,7 @@
 """M02 应用服务：可信主进程初始化数据目录和凭据，UI 只能创建/读取草稿。"""
 
 import json
+import asyncio
 import errno
 import sqlite3
 from pathlib import Path
@@ -23,6 +24,7 @@ from .computer.paths import ToolError
 from .computer.system import SystemToolError
 from .chat import ChatService
 from .auxiliary import AuxiliaryService, AuxiliaryConfig
+from .skills import SkillsService, SkillError
 
 
 class Params(BaseModel):
@@ -90,6 +92,43 @@ class ContextSummary(Params):
     revision: int = Field(ge=1, le=1_000_000, strict=True)
 
 
+class SkillIdentity(Params):
+    skill_id: str = Field(pattern=r'^[a-z][a-z0-9-]{1,63}$')
+
+
+class SkillList(Params):
+    offset: int = Field(default=0, ge=0, le=36, strict=True)
+
+
+class SkillEnable(SkillIdentity):
+    enabled: bool = Field(strict=True)
+
+
+class SkillImport(Params):
+    path: str = Field(min_length=1, max_length=1000)
+
+
+class SkillRegister(Params):
+    review_id: str = Field(min_length=1, max_length=64)
+    revision: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class SkillPlan(SkillIdentity):
+    inputs: dict
+    mission_id: str = Field(min_length=1, max_length=64)
+    grant_id: str = Field(min_length=1, max_length=64)
+
+
+class SkillExecution(Params):
+    plan_id: str = Field(min_length=1, max_length=64)
+
+
+class SkillExecute(SkillExecution):
+    revision: str = Field(pattern=r'^[a-f0-9]{64}$')
+    mission_id: str = Field(min_length=1, max_length=64)
+    grant_id: str = Field(min_length=1, max_length=64)
+
+
 class Application:
     """协议与持久化之间的窄接口；不接受 SQL、工具或任意执行请求。"""
 
@@ -103,6 +142,7 @@ class Application:
         self.graph: MissionGraph | None = None
         self.chat: ChatService | None = None
         self.auxiliary: AuxiliaryService | None = None
+        self.skills: SkillsService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
         self.event_sink = event_sink
 
@@ -117,6 +157,7 @@ class Application:
                    "computer.verify", "computer.undo_latest", "mission.run", "mission.approve"}
         methods |= {"browser.read", "browser.search"}
         methods |= {"auxiliary.status", "auxiliary.configure", "auxiliary.probe"}
+        methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
         methods |= {"chat.synthesis.preview", "chat.synthesis.generate"}
         methods |= {"chat.natural", "chat.continue", "chat.fallback.confirm", "chat.material.remove", "chat.revoke", "chat.scan.page"}
@@ -167,6 +208,8 @@ class Application:
                     await chat.open()
                     # 辅助连接故障内部降级；SQLite迁移失败仍按存储故障处理并完整释放。
                     await auxiliary.open()
+                    skills = SkillsService(store)
+                    await skills.open()
                     await auxiliary.replace_password(initial.credentials.redis.get_secret_value() if initial.credentials.redis else None)
                 except (OSError, sqlite3.Error, ValueError, RuntimeError):
                     # 初始化完整成功前不发布半就绪对象；失败后允许重新连接。
@@ -179,9 +222,42 @@ class Application:
                 self.browser.key = initial.credentials.tavily
                 # SQLite 初始化后建立只读事实通知；辅助连接失败不能改变业务就绪状态。
                 self.auxiliary = auxiliary
+                self.skills = skills
                 result = {"initialized": True}
             elif self.store is None:
                 return error_response(request_id, "NOT_INITIALIZED", "应用数据尚未初始化")
+            elif method == 'skills.list':
+                result = await self.skills.list(SkillList.model_validate(params).offset)
+            elif method == 'skills.history':
+                Params.model_validate(params)
+                result = await self.skills.history()
+            elif method == 'skills.enable':
+                request = SkillEnable.model_validate(params)
+                result = await self.skills.set_enabled(request.skill_id, request.enabled)
+            elif method == 'skills.preview_import':
+                result = await self.skills.preview_import(SkillImport.model_validate(params).path)
+            elif method == 'skills.register':
+                request = SkillRegister.model_validate(params)
+                result = await self.skills.register(request.review_id, request.revision)
+            elif method == 'skills.plan':
+                request = SkillPlan.model_validate(params)
+                if await self.store.get_mission(request.mission_id) is None:
+                    return error_response(request_id, 'NOT_FOUND', '任务不存在')
+                self.computer.check_scan('computer', request.mission_id, request.grant_id)
+                result = await self.skills.plan(request.skill_id, request.inputs, request.mission_id, request.grant_id)
+            elif method in {'skills.execute', 'skills.cancel'}:
+                request = SkillExecute.model_validate(params)
+                # 固定角色与授权只由可信调度闭包注入；Skill 包不能提供模型/权限字段。
+                async def dispatch(tool, arguments):
+                    return await asyncio.to_thread(self.computer.execute, 'computer', ToolRequest.model_validate({
+                        'mission_id': request.mission_id, 'grant_id': request.grant_id,
+                        'call': {'tool': tool, 'arguments': arguments}}))
+                if method == 'skills.cancel':
+                    result = await self.skills.cancel(request.plan_id, request.revision, request.mission_id, request.grant_id)
+                else:
+                    result = await self.skills.execute(request.plan_id, request.revision, request.mission_id, request.grant_id, dispatch)
+            elif method == 'skills.execution':
+                result = await self.skills.get_execution(SkillExecution.model_validate(params).plan_id)
             elif method == "auxiliary.status":
                 Params.model_validate(params)
                 result = await self.auxiliary.status()
@@ -275,7 +351,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError) as error:
+        except (ToolError, SystemToolError, SkillError) as error:
             return error_response(request_id, error.code, error.message)
         except ContextError as error:
             return error_response(request_id, error.code, error.message)
