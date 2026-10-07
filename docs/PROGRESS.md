@@ -1193,3 +1193,31 @@ D7桌面中间包及其审计/签名报告已移入M20/intermediate-D7，保留�
 暂存审计：复用 backend/tests/m19_hygiene.py（RESULT=V3-005），实际index 28文件、最终1347产物，禁入路径/凭据匹配/私钥/产物凭据/资源manifest差异均0。git status、git diff、git diff --cached及空白检查已核对；两项用户预存未跟踪文件保留且未暂存。
 
 补充L3：同V3-005环境运行 `npx playwright test tests/e2e/m20.spec.ts --grep 网址自然请求复合`，1通过；确认共享摘要组件的网页来源回查与小窗口无横向溢出。不同Electron流程最终合计5项。
+
+## V4-DOC 设计文档交付（2026-10-07）
+
+用户要求落实已确认的 V4 文档方案，本轮只交付文档，不开发十一项能力。预检：工作目录为 Orvia，main / HEAD `5d6d0e9`，origin 为 Kr1sxu/Orvia，本地已知远端默认分支为 origin/main；检查既有历史、AGENTS、旧技术设计、架构、清单和 V3 进度。保留预存未跟踪 `.zcodeignore`、`docs/INTERVIEW.md`，不纳入提交；不 fetch、不修改远端或网络配置。
+
+- [x] √ 新增 [V4_OPTIMIZATION.md](V4_OPTIMIZATION.md)，覆盖原审查表全部十一项缺口（不含开发时间调整），分别说明现状、目标、输入输出、依赖、权限边界、失败处理、验收标准和未完成清单。
+- [x] √ 固定选择：Redis 可选本地服务、SQLite 保留事实；本地 Qwen3-Embedding-0.6B；内置及用户导入 Skills；自动跨会话记忆候选与逐批原生确认 Main 发送；本地／远程 MCP 只读工具；普通权限 Shell 与 Windows 进程逐次审批；调研最多十网页／两轮；安全读取和检索最多额外重试两次。
+- [x] √ README 增加设计入口；未将 V4 目标写入 ARCHITECTURE 已实现能力，本文开发清单的 V4-001～011 均保持未完成。
+- [ ] V4-001～011 开发、运行验证及安装包；本轮未授权、未执行。
+- [ ] 用户手动 push；Agent 不推送或发布。
+
+### 本轮验证（文档-only）
+
+本轮仅 L0，非 mock、真实模型 0、真实服务调用 0；不运行 L1～L4 代码测试，不执行构建、依赖安装、模型下载、数据库迁移。
+
+| 等级 | 实际命令与结果 | 证据与边界 |
+|---|---|---|
+| L0 | `$v4DocAudit \| & backend/.venv/Scripts/python.exe -X utf8 -`（本轮内联文档检查），28 项通过、0 失败 | `l0-audit.json`；11 模块、原表 11 缺口、每模块必备字段、全部未完成、确认取舍、6 本地链接、README／进度入口与忽略目录。只检查本地链接存在，官方外部链接沿用规划阶段核对，不冒充本轮联网验证 |
+| L0 | `git diff --check`、`git diff --cached --check`通过；检查 `git status --short`、`git diff`、`git diff --cached`与暂存名单 | 本轮仅 README、PROGRESS、V4 文档；预存未跟踪文件、代码、数据库、密钥、日志和报告未暂存 |
+| L0 | 下列实际敏感审计命令通过，限定 RESULT 为 V4-DOC | `hygiene-staged.json`；实际暂存 3 文件，禁入路径、原始密钥匹配、私钥块、产物密钥匹配和既有资源 manifest 差异均 0。读取根凭据只用于本进程匹配，输出仅存在性和计数，不发送请求 |
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('backend/tests').resolve())); import m19_hygiene as audit; audit.RESULT=pathlib.Path('artifacts/test-results/V4-DOC').resolve(); audit.RESULT.mkdir(parents=True,exist_ok=True); raise SystemExit(audit.main())"
+```
+
+本轮结果目录为 `artifacts/test-results/V4-DOC/`（Git 忽略）。阅读入口为根 README 或本文链接，无新增功能试用步骤。限制：文档确定路线和权限取舍，依赖版本、具体契约与资源预算须在对应模块实施设计中锁定；不能将目标能力写成简历已完成事实。
+
+本地交付提交标题为 `docs(V4): plan capability expansion without implementation`，本节随该正常本地提交保存，实际 hash 见 Git 历史；沿用既有作者的单次 `git -c` 身份，不修改持久配置。提交后停止，不开始 V4-001，用户手动 push 单独保持未完成。
