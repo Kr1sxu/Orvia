@@ -1946,3 +1946,26 @@ backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_task_cl
 已更新retry/chat/browser/context/storage模块README、root/backend/desktop、AGENTS停止点、架构/清单/V4。working敏感及禁入检查44文件为0，实际Key只核存在、不输出值；随后cached内容与敏感审计、commit回执在忽略目录。显式仅011文件，预存.zcodeignore/docs/INTERVIEW.md原样保留未读/暂存，不收凭据/DB/日志/模型/用户文件/测试产物，不amend、push、发布或重建包。独立正常本地commit标题feat(V4-011): bound safe read retries and verify every task goal，实际hash交付回执与后续本地文档记录；011后停止原Goal，不启动其它业务。
 
 试用：根npm start→当前会话明确公共静态URL读取或已有来源检索→允许瞬态故障自动最多3attempt→设置/安全读取重试记录/明确会话/刷新查看固定原因、budget与终态。自然输入两个有支持的目标观察每项证据；截断/空引用/受限脚本/草稿必须明确接受或取消，accepted说明保留；调研的取消入口在采集中可及时用。关闭重开仅读持久账本与进度，不网络/模型/写动作重放。Redis不开仍原能力可用，固定Qwen只离线已批准目录。全部各模块本地提交等待用户手动push。
+
+
+### 全部V4授权模块本地交付回执（2026-10-08）
+
+- [x] √ 用户恢复的Goal顺序已全部实际实现、必要验证、文档与逐模块独立正常本地commit；001为已完成基线、未重复实施。最后011实际提交 **aa7d30f7e8c2f95e8bbeed75fcd18454c3c5be12**，44文件2409增加/71删除；227backend通过/4显式Chromiumskip、54desktop、1真实Electron（14.3秒）；working/cached敏感和禁入44文件全部为0，完整暂存差异与回执在忽略011目录。最终仅去除测试文件额外EOF空行，cached diff --check通过，功能证据复用不重跑。
+
+| 模块 | 实际正常本地commit | 当前交付 | 证据目录 |
+|---|---|---|---|
+|V4-001|a6c9d300e76814dc1a4f809c29b406a865062be9|可选本地Redis辅助；SQLite事实保留|artifacts/test-results/V4-001/|
+|V4-002|c1ca871a79a8753b96c34ef912fde1974729f5da|声明式Skills注册与有界组合|artifacts/test-results/V4-002/|
+|V4-004|757fefc1d12c9b7a28e5e5c368db85ae61faac8d|固定本地Qwen与混合检索|artifacts/test-results/V4-004/|
+|V4-003|9bd88644ffa50d2cb2e1fdf46c654d32ebfbf33e|五轮上下文及批准长期记忆|artifacts/test-results/V4-003/|
+|V4-005|acd22eee67e5a523c28f4076af259c68a569a54d|来源绑定实体关系与有界图查询|artifacts/test-results/V4-005/|
+|V4-006|c9e3074590823aba58121d27e466eb1e9eea43c3|批准查询改写与本地Context Skills|artifacts/test-results/V4-006/|
+|V4-007|aacab8dde34c781f664ea159aaade9dc767b1f4d|审批MCP只读客户端及专用凭据|artifacts/test-results/V4-007/|
+|V4-008|0ef9b0a8ed14baf8cd91b1414908c9f72caaa185|批准Shell/实际Windows解释器与产物核验|artifacts/test-results/V4-008/|
+|V4-009|6c2472a9e31b6d6d840be9a8833e7f3e5e0c9287|准确身份普通用户Windows进程管理|artifacts/test-results/V4-009/|
+|V4-010|3e9234d7d575b678e7bbeaaa827658c037e58ee4|有界调研、原文综合与独立三格式保存|artifacts/test-results/V4-010/|
+|V4-011|aa7d30f7e8c2f95e8bbeed75fcd18454c3c5be12|安全读取重试与逐目标事实闭环|artifacts/test-results/V4-011/|
+
+V4-001真实隔离Redis、V4-004已批准固定Qwen真实合成推理，与其余默认mock/真实本机组件分别记录；各模块具体命令/模型计数/历史失败/未覆盖风险在对应段和目录，不重复旧有效验证。Redis默认可选、断连不影响事实业务，三个角色各固定模型与审批/证据/权限链保留。工具依赖安装仅001/004：redis7.0.0、CPUtorch2.8.0+cpu/transformers4.57.6/safetensors0.7.0及项目锁定配套库、官方Qwen六工件；Redis7.2.4镜像仅隔离验收夹具保留，后续模块无新安装。本地模型约1.12GiB，配套库文件约3.02GiB；实际来源/版本/校验/测量见004段。
+
+为了把真实已创建commit号写入本PROGRESS，另建纯文档正常提交docs(V4-011): record completed goal and local commit receipts；不amend任何模块、不混入后续业务，文档only不重跑代码测试。提交前同样核status/diff/cached，显式只本文件，预存两未跟踪文件不读取/暂存。011完成后停止，Goal所有授权开发要求已满足；不自动启动其它任务。所有这些提交仍仅本地，未push、Release或重建安装包，手动推送由用户决定。已知限制（普通WSL未覆盖、真实供应商语义/生产Internet/Tavily、人工原生dialogs、独立Windows/签名安装验收等）保留，不能把mock和本机结果替代它们。
