@@ -1,5 +1,9 @@
 # Computer 只读工具（M03）
 
+## V4-008 独立Shell工具
+
+通用Shell位于`../shell`，不是原M03固定模板放宽。主进程逐次批准准确解释器/脚本/cwd/输入/预算，`selected_file`与PathPolicy只用于显式输入及新文件回传；Shell自身普通权限不受原目录grant或LPAC隔离。运行/未知阻止会话删除，自有Windows Job和WSL进程组分别回查；exit0只证明进程退出。真实三解释器、取消、输入和产物验证见shell README/PROGRESS，原M03只读接口和M18权限保持。
+
 ## M20 批次扫描与权限复用
 
 `ComputerGateway.begin_scan('computer',mission_id,grant_id)`是M20扫描的窄入口，复核当前内存grant与原根身份，并扣一次原200调用预算；`check_scan`每批/每目录复核同一token和根，撤销/重新授权/目录替换立即停止后续访问。Main/Browser不能借调用此接口获得Computer权限。原M03列表/搜索/统计契约和预算仍保持，M20独立快照/分页由`../chat/scans.py`提供。

@@ -112,6 +112,10 @@ V4-003五轮与本地长期记忆见[memory README](src/orvia_backend/memory/REA
 
 `memory_context`、`query_rewrite`为固定本地Skill工具，只读取已核验事实；无文件grant仅允许展开后全部本地leaf，文件工具仍逐叶ComputerGateway检查。每叶data8KiB、受限停止后续、原10秒工作流预算保留。本地执行账本归属选中会话，purge及晚到写入有删除保护；声明不能自选cid或generate。无新增依赖，真实SQLite/FTS/LangGraph与Main mock分别记录在PROGRESS。
 
+## V4-008 逐次批准Shell
+
+`shell`模块提供九个固定私有方法：detect/preview/review/execute/cancel/status/history/export_preview/export。完整审批绑定实际exe SHA256/version、脚本、cwd、输入全文及预算；普通令牌拒提权，Windows挂起创建先入Job再运行，WSL使用明确发行版和独立Linux进程组身份回查。SQLite shell_attempts先记running并保留128次单次消费事实，shell_executions最多32条正文/历史10条48KiB；重启running→unknown，旧批准不恢复。状态/取消/历史绕过普通执行锁且仍严格参数验证。删除恢复先清私有正文，运行/未知阻止删除，用户原件/工作目录/导出成品保持。三种已有Windows解释器真实验证，无模型调用、新依赖或安装包；普通WSL尚无真实环境。见[模块README](src/orvia_backend/shell/README.md)及PROGRESS。
+
 ## V4-007 MCP只读客户端
 
 固定mcp方法族分离配置、连接、工具清单、调用和历史；可信主进程准确原生确认后才触发外部请求。冻结2025-06-18，有限schema校验、真实stdio Windows Job及HTTPS JSON/SSE。SQLite保存全局配置/审查与会话尝试/结果，删除会话清后两表且晚到不得重建；启动不恢复连接或许可。独立Bearer仅私有Initialize.mcp_credentials/credential_replace进入内存，不接受配置env或角色Key，不落库。每工具请求20秒、完整调用60秒（包括前后发现），未知不重试。无新增依赖，现有httpx/psutil用于受控传输及实际验收；[模块README](src/orvia_backend/mcp/README.md)记录支持子集、预算和限制。

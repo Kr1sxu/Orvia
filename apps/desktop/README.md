@@ -1,5 +1,9 @@
 # Electron 桌面模块（M20 源码）
 
+## V4-008 Shell
+
+设置页ShellPanel通过七个固定preload入口检测、准备、执行、取消、状态、历史和单产物回传；路径只来自主进程原生目录/文件/保存选择器，完整脚本和环境原生逐次批准，许可消耗后不能重用。shell-contracts严格限制字段/字节，shell-ipc复核同一完整包；运行中状态轮询与取消不排在长执行后。进程退出/回收/明确核验分别展示，stdout/stderr仅文本，exit0不能标全部业务完成。真实Electron/SQLite/Python/PowerShell与Bash、取消子进程及回传已验证，原生dialogs仅测试替换，人工原生/普通WSL未覆盖。试用`npm start`→设置→Shell，预算/示例见后端shell README。没有新增依赖或重建安装包。
+
 ## V4-007 MCP外部只读工具
 
 设置页McpPanel通过12个固定preload入口调用私有后端。配置文件由原生单选，连接准确程序/参数/HTTPS接收方、工具清单、每次完整JSON参数分别确认；取消不执行工具，旧版本/重启不恢复许可。mcp-contracts提供严格身份、有限JSON和字节预算，mcp-ipc持有一次性批准，mcp-credentials独立safeStorage加密令牌；无明文开发回退，损坏文件锁定且保留原文件。外部正文与URI只作文本，结果文案区分有效响应与真实业务完成。`npm start`→设置→MCP；实际合成stdio/Electron及本地TLS测试见PROGRESS，人工原生/第三方服务兼容未覆盖。没有新增依赖或安装包重建。

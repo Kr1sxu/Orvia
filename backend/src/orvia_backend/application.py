@@ -35,6 +35,7 @@ from .graph import GraphService, GraphError
 from .rewrite import RewriteService, RewriteError
 from .mcp import McpService
 from .mcp.protocol import McpError
+from .shell import ShellService, ShellError
 
 
 class Params(BaseModel):
@@ -138,6 +139,38 @@ class McpCredentialRequest(McpServerRequest):
 
 class MissionId(Params):
     id: Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class ShellConversation(Params):
+    """Shell为独立Computer能力；原生路径仅私有主进程传入，渲染端不能授权目录。"""
+    id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class ShellPreviewRequest(ShellConversation):
+    interpreter_id: str = Field(min_length=1, max_length=100, strict=True)
+    script: str = Field(min_length=1, max_length=16384, strict=True)
+    timeout_seconds: int = Field(default=20, ge=1, le=60, strict=True)
+    expected_stdout: str | None = Field(default=None, max_length=1000, strict=True)
+    output_names: list[Annotated[str, Field(min_length=1,max_length=100,strict=True)]] = Field(default_factory=list,max_length=10)
+    cwd: str | None = Field(default=None,max_length=1000,strict=True)
+    inputs: list[Annotated[str, Field(min_length=1,max_length=1000,strict=True)]] = Field(default_factory=list,max_length=3)
+
+
+class ShellRunRequest(ShellConversation):
+    run_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+class ShellApprovalRequest(ShellRunRequest):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ShellExportPreviewRequest(ShellRunRequest):
+    name: str = Field(min_length=1,max_length=100,strict=True)
+
+
+class ShellExportRequest(ShellExportPreviewRequest):
+    path: str = Field(min_length=1,max_length=1000,strict=True)
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class OperationId(Params):
@@ -262,6 +295,7 @@ class Application:
         self.auxiliary: AuxiliaryService | None = None
         self.skills: SkillsService | None = None
         self.mcp: McpService | None = None
+        self.shell: ShellService | None = None
         self.embedding: LocalEmbedder | None = None
         self.retrieval: RetrievalService | None = None
         # 仅由私有stdio服务注入；事件出口不能由renderer、模型或业务参数覆写。
@@ -282,6 +316,7 @@ class Application:
         methods |= {"memory.list", "memory.context", "memory.preview", "memory.generate", "memory.search", "memory.correct", "memory.forget"}
         methods |= {"graph.list", "graph.preview", "graph.generate", "graph.query"}
         methods |= {"mcp.list","mcp.preview_config","mcp.configure","mcp.connect_preview","mcp.connect","mcp.approve_tools","mcp.call_preview","mcp.call","mcp.history","mcp.disconnect","mcp.remove","mcp.credential_replace"}
+        methods |= {"shell.detect","shell.preview","shell.review","shell.execute","shell.cancel","shell.status","shell.history","shell.export_preview","shell.export"}
         methods |= {"rewrite.preview", "rewrite.generate", "rewrite.search", "rewrite.history"}
         methods |= {'skills.list', 'skills.enable', 'skills.preview_import', 'skills.register', 'skills.plan', 'skills.execute', 'skills.execution', 'skills.history', 'skills.cancel'}
         methods |= {"chat.document.attach", "chat.document.source", "chat.document.ask", "chat.document.preview", "chat.document.export"}
@@ -329,6 +364,10 @@ class Application:
                     await store.recover_operations()
                     await graph.__aenter__()
                     chat = ChatService(store, self.computer, graph, self.registry, self.browser)
+                    # Shell私有正文清理须先于旧会话删除journal恢复；仅迁移账本，不启动解释器。
+                    shell = ShellService(store, chat, self.computer)
+                    await shell.open()
+                    chat.shell = shell
                     if self.event_sink is not None:
                         chat.set_event_sink(self.event_sink)
                     await chat.open()
@@ -366,6 +405,7 @@ class Application:
                 self.auxiliary = auxiliary
                 self.skills = skills
                 self.mcp = mcp
+                self.shell = shell
                 self.embedding, self.retrieval = embedding, retrieval
                 result = {"initialized": True}
             elif self.store is None:
@@ -403,6 +443,30 @@ class Application:
             elif method == "mcp.list":
                 Params.model_validate(params)
                 result = await self.mcp.list()
+            elif method == "shell.detect":
+                Params.model_validate(params)
+                result = await self.shell.detect()
+            elif method == "shell.preview":
+                request = ShellPreviewRequest.model_validate(params)
+                result = await self.shell.preview(request.id,request.interpreter_id,request.script,request.timeout_seconds,request.expected_stdout,request.output_names,request.cwd,request.inputs)
+            elif method == "shell.execute":
+                request = ShellApprovalRequest.model_validate(params)
+                result = await self.shell.execute(request.id,request.run_id,request.revision)
+            elif method == "shell.review":
+                request = ShellRunRequest.model_validate(params)
+                result = await self.shell.review(request.id,request.run_id)
+            elif method in {"shell.cancel","shell.status"}:
+                request = ShellRunRequest.model_validate(params)
+                action = self.shell.cancel if method == "shell.cancel" else self.shell.status
+                result = await action(request.id,request.run_id)
+            elif method == "shell.history":
+                result = await self.shell.history(ShellConversation.model_validate(params).id)
+            elif method == "shell.export_preview":
+                request = ShellExportPreviewRequest.model_validate(params)
+                result = await self.shell.export_preview(request.id,request.run_id,request.name)
+            elif method == "shell.export":
+                request = ShellExportRequest.model_validate(params)
+                result = await self.shell.export(request.id,request.run_id,request.name,request.path,request.revision)
             elif method == "mcp.preview_config":
                 result = await self.mcp.preview_config(SkillImport.model_validate(params).path)
             elif method == "mcp.configure":
@@ -514,6 +578,8 @@ class Application:
                 if self.mcp is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
                     # 成功撤回或删除后清本机调用准备正文；实际尝试账本仍由SQLite决定。
                     self.mcp.forget_previews(params["id"])
+                if self.shell is not None and method in {"chat.delete", "chat.revoke", "chat.material.remove"}:
+                    self.shell.forget_previews(params["id"])
                 if method in {"chat.send", "chat.natural", "chat.continue", "chat.fallback.confirm", "chat.document.attach", "chat.synthesis.generate", "chat.material.remove"}:
                     # 只建立本地候选；外发整理仍走独立准确预览及主进程原生批准。
                     await self.chat.memory.synchronize(params["id"])
@@ -599,7 +665,7 @@ class Application:
         except ValidationError:
             # ValidationError 可带原始输入，绝不序列化异常详情或写日志。
             return error_response(request_id, "INVALID_PARAMS", "参数或持久化契约无效")
-        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError) as error:
+        except (ToolError, SystemToolError, SkillError, RetrievalError, MemoryError, GraphError, RewriteError, McpError, ShellError) as error:
             return error_response(request_id, error.code, error.message)
         except ModelUnavailable as error:
             # 固定客户端错误码不带供应商正文；批准的派生生成失败也不能鼓励未知结果重发。
@@ -629,6 +695,9 @@ class Application:
         return {"v": 1, "id": request_id, "ok": True, "result": result}
 
     async def close(self) -> None:
+        if self.shell is not None:
+            await self.shell.close()
+            self.shell = None
         if self.mcp is not None:
             await self.mcp.close()
             self.mcp = None

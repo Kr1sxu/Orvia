@@ -17,6 +17,13 @@ export type Role = 'main' | 'computer' | 'browser' | 'tavily' | 'redis';
 export type Settings = Configuration & { mode: 'development' | 'secure_storage'; encryption_available: boolean; credential_error: string | null;
   credentials: { role: Role; configured: boolean; source: 'development_env' | 'safe_storage' | 'missing' }[] };
 declare global { interface Window { orvia: {
+  shellDetect:()=>Promise<Reply<import('../main/shell-contracts').ShellDetected>>;
+  shellPreview:(input:z.infer<typeof import('../main/shell-contracts').shellPreviewInput>)=>Promise<Reply<{cancelled:boolean;result?:import('../main/shell-contracts').ShellPreview}>>;
+  shellExecute:(input:{id:string;run_id:string;revision:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/shell-contracts').ShellRun}>>;
+  shellCancel:(input:{id:string;run_id:string})=>Promise<Reply<import('../main/shell-contracts').ShellRun>>;
+  shellStatus:(input:{id:string;run_id:string})=>Promise<Reply<import('../main/shell-contracts').ShellRun>>;
+  shellHistory:(input:{id:string})=>Promise<Reply<import('../main/shell-contracts').ShellHistory>>;
+  shellExport:(input:{id:string;run_id:string;name:string})=>Promise<Reply<{cancelled:boolean;result?:import('../main/shell-contracts').ShellExported}>>;
   memoryList:(input:{id:string})=>Promise<Reply<import('../main/memory-contracts').MemoryList>>;
   mcpList:()=>Promise<Reply<import('../main/mcp-contracts').McpList>>;
   mcpImport:()=>Promise<Reply<{cancelled:boolean;result?:import('../main/mcp-contracts').McpServer}>>;

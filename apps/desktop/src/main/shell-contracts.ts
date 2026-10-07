@@ -1,0 +1,31 @@
+import {z} from 'zod';
+const hash=z.string().regex(/^[a-f0-9]{64}$/);
+const unicode=(value:string)=>!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(value);
+const text=(length:number)=>z.string().max(length*2).refine(value=>Array.from(value).length<=length&&unicode(value));
+const utf8=(bytes:number)=>z.string().max(bytes).refine(value=>unicode(value)&&new TextEncoder().encode(value).byteLength<=bytes);
+/** 路径仅来自原生选择；renderer只能指定解释器身份、准确脚本和有限核验条件。 */
+export const shellId=z.object({id:z.string().uuid()}).strict();
+export const shellOperation=shellId.extend({run_id:z.string().uuid()}).strict();
+export const shellApproval=shellOperation.extend({revision:hash}).strict();
+export const shellOutputName=text(100).refine(value=>value.length>0&&!/[\x00-\x1f/\\:*?"<>|]/.test(value)&&!/[. ]$/.test(value)&&!/^\.{1,2}$/.test(value)&&! /^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)/i.test(value));
+const interpreterId=z.string().max(150).regex(/^(?:powershell|windows_powershell|git_bash|wsl:[^\r\n\x00]{1,100})$/);
+export const shellPreviewInput=shellId.extend({interpreter_id:interpreterId,script:utf8(16384).refine(value=>value.trim().length>0&&!value.includes('\0')),timeout_seconds:z.number().int().min(1).max(60).default(20),expected_stdout:text(1000).optional(),output_names:z.array(shellOutputName).max(10).refine(value=>new Set(value.map(item=>item.toLowerCase())).size===value.length),choose_cwd:z.boolean(),choose_inputs:z.boolean()}).strict();
+export const shellExportInput=shellOperation.extend({name:shellOutputName}).strict();
+function bounded<T extends z.ZodTypeAny>(schema:T,bytes:number):z.ZodEffects<T>{return schema.refine((value:z.output<T>)=>new TextEncoder().encode(JSON.stringify(value)).byteLength<=bytes,'Shell响应超过运输预算') as z.ZodEffects<T>;}
+const location=text(2048);
+export const shellInterpreter=z.object({id:interpreterId,label:text(200),executable:location,version:text(1000).nullable(),sha256:hash.nullable(),available:z.boolean(),reason:text(1000).nullable(),distro:text(100).nullable()}).strict();
+export const shellDetected=bounded(z.object({interpreters:z.array(shellInterpreter).max(32)}).strict(),49152);
+const file=z.object({name:shellOutputName,bytes:z.number().int().min(0).max(1048576),sha256:hash}).strict();
+export const shellPreview=bounded(z.object({id:z.string().uuid(),run_id:z.string().uuid(),revision:hash,interpreter:shellInterpreter,script:utf8(16384),cwd:location,inputs:z.array(z.object({name:text(240),path:location,bytes:z.number().int().min(0).max(10485760),sha256:hash}).strict()).max(3),output_names:z.array(shellOutputName).max(10),timeout_seconds:z.number().int().min(1).max(60),expected_stdout:text(1000).nullable(),budgets:z.object({script_bytes:z.literal(16384),stdout_bytes:z.literal(16384),stderr_bytes:z.literal(16384),file_bytes:z.literal(1048576),total_file_bytes:z.literal(2097152)}).strict(),purpose:z.literal('执行普通账户 Shell 脚本')}).strict().refine(value=>value.inputs.reduce((sum,item)=>sum+item.bytes,0)<=31457280,'显式输入超过30MiB总预算'),49152);
+export const shellRun=bounded(z.object({id:z.string().uuid(),run_id:z.string().uuid(),revision:hash,interpreter_id:interpreterId,status:z.enum(['running','exited','timed_out','cancelled','unknown','failed']),exit_code:z.number().int().nullable(),stdout:utf8(16384),stderr:utf8(16384),stdout_truncated:z.boolean(),stderr_truncated:z.boolean(),children_reaped:z.boolean(),started_at:text(100).nullable(),finished_at:text(100).nullable(),verification:z.object({status:z.enum(['passed','failed','not_requested','unknown']),details:z.array(text(1000)).max(12)}).strict(),outputs:z.array(file).max(10),error:z.object({code:z.string().max(100),message:text(1000)}).strict().nullable()}).strict().refine(value=>value.outputs.reduce((sum,item)=>sum+item.bytes,0)<=2097152,'产物超过2MiB总预算'),49152);
+export const shellHistory=bounded(z.object({executions:z.array(shellRun).max(10),truncated:z.boolean()}).strict(),49152);
+export const shellExportPreview=bounded(z.object({id:z.string().uuid(),run_id:z.string().uuid(),name:shellOutputName,bytes:z.number().int().min(0).max(1048576),sha256:hash,revision:hash,purpose:z.literal('回传 Shell 产物为新文件')}).strict(),8192);
+export const shellExported=z.object({filename:location,bytes:z.number().int().min(0).max(1048576),sha256:hash,verified:z.literal(true)}).strict();
+export type ShellMethod='detect'|'preview'|'review'|'execute'|'status'|'cancel'|'history'|'export_preview'|'export';
+export type ShellInterpreter=z.infer<typeof shellInterpreter>;
+export type ShellDetected=z.infer<typeof shellDetected>;
+export type ShellPreview=z.infer<typeof shellPreview>;
+export type ShellRun=z.infer<typeof shellRun>;
+export type ShellHistory=z.infer<typeof shellHistory>;
+export type ShellExportPreview=z.infer<typeof shellExportPreview>;
+export type ShellExported=z.infer<typeof shellExported>;

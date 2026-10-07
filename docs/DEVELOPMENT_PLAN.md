@@ -1,5 +1,13 @@
 # 模块开发清单
 
+## V4-008（2026-10-08）
+
+- [x] √ 已安装准确Shell探测、完整逐次审批、Windows普通令牌Job运行与有界输出、独立SQLite尝试/恢复/删除及新产物回传实现。
+- [x] √ 三种本机解释器、输入/产物核验、取消实际后代、Electron和相关调度/生命周期验证，L0～L3证据及限制见PROGRESS和shell README。
+- [x] √ 文档、敏感审计与本模块独立正常本地commit，最终回执见PROGRESS/Git。
+- [ ] 普通WSL真实Linux环境验收；本机只有Docker管理发行版，不改系统或假称通过。
+- [ ] 用户手动push；不发布或重建安装包。
+
 ## V4-007（2026-10-08）
 
 - [x] √ MCP2025-06-18有限stdio/HTTPS JSON/SSE、原生配置/连接/清单/参数批准、有限schema与真实SQLite调用事实，开发版已验证。
@@ -279,6 +287,6 @@ V2 M15–M20清单与验收状态见[DEVELOPMENT_PLAN_V2.md](DEVELOPMENT_PLAN_V2
 - [x] √ V4-003五轮/当前请求事实、原生批准滚动摘要与来源记忆、冲突/纠正/忘记/撤回/删除、持久调用账本；L0～L3、中文文档与独立本地commit，标题 `feat(V4-003): add five-round context and approved source-backed memory`，hash见Git历史。
 - [x] √ V4-005人物/项目/文件实体、有原文及全文版本支持的固定关系、同名消歧/冲突保留/两跳/撤回/删除，L0～L3、中文文档及独立正常本地commit；标题 `feat(V4-005): add source-verified entities and bounded relationship queries`，实际hash见Git历史。
 - [x] √ V4-006来源批准的最多三候选、原查询/范围保留、回退与真实MemoryContext/QueryRewrite本地组合；L0～L3/文档/独立提交详见PROGRESS。
-- [ ] V4-008→009→010→011尚未完成；用户“继续目标”已解除004后暂停，逐模块实际交付后自动继续。
+- [ ] V4-009→010→011尚未完成；用户“继续目标”已解除004后暂停，逐模块实际交付后自动继续。
 
 V4-004本机开发版验收完成：102个不同后端用例、2个前端契约、关键词与实际Qwen共2个Electron流程；固定合成集三通道Recall@5/MRR@5/耗时、向量与SQLite大小、RSS树均有实际记录。满批资源与token超限独立验证，无云模型调用；不把mock/原生模拟当真实模型或人工验收。证据和限制见PROGRESS；未push、发布或重建安装包。

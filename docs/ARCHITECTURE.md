@@ -1,5 +1,13 @@
 # 序航 Orvia 架构
 
+### V4-008 Shell执行架构（2026-10-08）
+
+Electron ShellPanel→七个固定IPC→shell-ipc原生选择/完整审批→九个私有stdio方法→ShellService→runtime。预览绑定exe SHA/version、完整脚本、cwd/输入/核验和预算，review复核后才原生一次批准；真正启动前再次检查令牌/exe及输入。脚本16KiB、每输出流16KiB、运行1～60秒、审批/完整结果48KiB；输入3/30MiB，指定产物10/2MiB只是回查预算，不能保证任意磁盘写入配额。
+
+SQLite独立shell_attempts128次不可淘汰，启动前running；shell_executions32份/展示10，取消/超时/退出/未知与verification分开，exit0不证明业务完成。重启不执行，运行→unknown；状态/取消/历史stdio旁路仍严格校验。会话删除检查所有尝试，未知阻止删除，私有任务正文在删除journal恢复前可用并安全清理，最终同事务purge两表，迟到不能重建。用户输入原件/cwd/新导出保持，回传独立准确SHA/新位置原生批准、独占创建fsync读回。
+
+Windows挂起进程先入既有kill-on-close Job再resume，干净env无角色密钥；原生创建不可取消时保留后到Job直至清理，极端阻塞可能超过预算。WSL普通非root用户/准确distro/bash工具身份、setsid PGID/SID/starttime/nonce/gate与Linux组回查；未独立回查不能称回收。普通Shell并非LPAC/网络路径隔离，Job只覆盖成员、Linux组只覆盖自有组，外部broker/新session逃离不保证回收。真实Windows三解释器及Electron已验，本机只有Docker管理发行版，WSL不可用及未真实验收明确显示。不自动安装/切换/提权/重试，模型配置不变。
+
 ### V4-007 MCP客户端架构（2026-10-08）
 
 McpService将配置、连接、发现工具审查与逐次调用分开；SQLite全局mcp_servers/mcp_tool_reviews不恢复权限，会话mcp_attempts/mcp_executions保存实际尝试/校验响应并纳入同事务purge和最终alive核验。每次工具清单分页重核，metadata/schema或session变化即失效。后端只暴露固定方法，renderer不能直接提供程序、URL、凭据、SQL或批准标志。独立MCP令牌只Electron safeStorage与后端内存，角色模型配置不变；不调用模型。

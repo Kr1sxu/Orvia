@@ -1704,3 +1704,61 @@ L4评估：外部普通用户进程与网络是新增边界，已跑真实双传
 现有httpx0.28.1/psutil7.2.2和OpenSSL3.0.13（仅生成合成本机TLS证书）沿用，无安装依赖/模型。合成测试CA/key.pem在忽略目录不是用户私钥，不入Git。所有权已完整交回，模块/root/backend/desktop README、ARCHITECTURE、DEVELOPMENT_PLAN、V4与PROGRESS更新。提交前git status/diff/cached与真实敏感/禁入审计，working/staged/commit-receipt均在忽略目录；显式选择当前模块，不读取/暂存预存.zcodeignore、docs/INTERVIEW.md，不收DB、Key、日志/测试产物/模型/用户文件。独立正常本地commit标题`feat(V4-007): add approved bounded MCP clients and isolated credentials`，hash见Git/回执，不amend、不push、不Release/重建包。
 
 试用npm start→设置→MCP→原生选择符合模块README的服务JSON→准确配置/连接/工具清单确认→选会话与准确tool/JSON→预览/每次原生批准；关闭或另行确认撤回服务。007独立提交后自动进入008，完整Goal仍未完成。
+
+## V4-008：逐次批准的通用Shell（2026-10-08交付）
+
+007已实际提交 **aacab8d**（148后端/59桌面/1真实Electron；working/staged33文件审计0），工作树只有预存.zcodeignore与docs/INTERVIEW.md，保留不读/暂存。008当前唯一模块，尚未开始009。rewrite_core独占新shell/runtime.py及运行时目标tests/fixtures，graph_core独占shell/service.py/__init__/README及service测试，rewrite_desktop独占shell桌面contracts/ipc/Panel/test；主Agent拥有现有接入、集成/E2E、文档/审查/提交。
+
+环境实际探测：Windows PowerShell5.1.26100.9444、既有用户私有PowerShell7.6.5、Git Bash5.2.26（C:/Program Files/Git/bin/bash.exe，GPLv3+既有工具）；wsl --list --quiet仅docker-desktop，排除Docker系统管理发行版，不替用户改Docker或安装Linux系统。各Shell独立准确路径/version/hash，没有静默切换；需要普通WSL的bash/setsid/kill等能力且Linux进程组回收独立验证，当前无可用普通distro将明确不可用。无需新工具安装。
+
+设计预算：脚本16KiB、完整审批包48KiB、每流stdout/stderr16KiB、timeout1～60秒默认20；显式输入最多3/单10MiB合30MiB，启动前普通文件/hash核验及私有副本；默认独立任务目录，可另原生选准确cwd。产物仅指定最多10个普通leaf名字、单1MiB合2MiB、版本/hash/大小回查，逐文件另原生新保存批准。普通账户非LPAC，不承诺路径/网络隔离、字符串安全或回滚；当前token已提权则拒普通执行。exit0只记录exited，核验条件/截断/产物/回收另记，不能据此完成全任务。未知/超时/取消不重试，Windows Job只证明owned成员，WSL不能仅杀Windows启动器称Linux全回收。
+
+- [x] √ 实际检测、版本批准、运行/有界输出、取消超时/回收、产物核验与独立原生回传。
+- [x] √ L0～L3真实已安装环境证据、模块及相关文档/清单，敏感审计及独立正常本地commit回执见下文/Git；随后才进入009。
+- [ ] 普通WSL真实执行/独立Linux回收验收，本机缺环境，不以mock或GitBash语法验证冒充。
+
+008实现固定九个私有Shell方法与七个preload入口，主进程才可选择cwd/输入/新保存路径；准确完整审批包括版本/hash/script/inputs/预算/核验，执行前重核同包、普通Token与实际exe。WindowsPowerShell5.1使用私有UTF8 BOM脚本和进程级ExecutionPolicy Bypass，不修改系统策略；PS7/Bash无profile加载，不继承角色Key/proxy/个人env。挂起先入既有kill-on-close Job再resume，原生线程前复核Token/SHA，持续有限排空两流；实际exit259可退出，不误当STILL_ACTIVE。WSL仅明确非root用户，冻结bash/setsid/kill/ps工具身份，nonce/starttime/PGID/SID/gate校验后才释放脚本、独立Linux组回查；拒Docker管理发行版。不增加模型调用/依赖/环境安装。
+
+SQLite shell_attempts先记running/每会话128次不淘汰；shell_executions最近32完整正文、历史10/48KiB。每次最终alive/删除墓碑检查，迟到不重建。restart running→unknown、批准失效、不重放；无账本规范UUID准备目录安全清理，已尝试及非规范未知目录保留。运行/unknown独立账本阻止永久删除，私有正文清理服务先于chat删除journal启动恢复；purge仅私有树无reparse，同事务清两表，原输入/cwd/已回传成品保持。产物SHA/普通文件/nlink/大小复核后逐项新位置另原生确认，独占x+b、fsync读回，旧许可拒重放/覆盖。
+
+审批及输出预算/限制如上；检测单次总25秒、私有IPC95秒用于检测+运行+正常收尾，非硬系统deadline。核验明确stdout包含批准文本和指定产物哈希/大小；未声明条件为not_requested，非零/超时/取消/截断/回收未确认为unknown，exit0只说明进程退出。检测版本64MiB exe hash预算；产物预算不是实际磁盘配额，输入副本也不是权限隔离。
+
+实际命令（根目录；所有报告在artifacts/test-results/V4-008/，仅合成数据；云模型0）：
+
+```powershell
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell_runtime.py -q --basetemp=artifacts/test-results/V4-008/runtime-accept-temp --junitxml=artifacts/test-results/V4-008/runtime-accept.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell_runtime.py -q -k wsl --basetemp=artifacts/test-results/V4-008/runtime-wsl-temp --junitxml=artifacts/test-results/V4-008/runtime-wsl.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell_runtime.py::test_actual_git_bash_wsl_host_syntax_and_control_escaping -q --basetemp=artifacts/test-results/V4-008/runtime-escaping-final-temp --junitxml=artifacts/test-results/V4-008/runtime-escaping-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell.py -k 'not real_service' -q --basetemp=artifacts/test-results/V4-008/service-final-data --junitxml=artifacts/test-results/V4-008/service-final.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell.py -k real_service -q --basetemp=artifacts/test-results/V4-008/service-real-data --junitxml=artifacts/test-results/V4-008/service-real.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell.py::test_preparation_rejects_invalid_limits_without_start -q --basetemp=artifacts/test-results/V4-008/service-limits-data --junitxml=artifacts/test-results/V4-008/service-limits.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_application.py backend/tests/test_v3_management.py backend/tests/test_v4_shell_protocol.py -k 'not actual_shell' -q --basetemp=artifacts/test-results/V4-008/lifecycle-data --junitxml=artifacts/test-results/V4-008/lifecycle.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell_protocol.py -k pending_delete -q --basetemp=artifacts/test-results/V4-008/purge-restart-data --junitxml=artifacts/test-results/V4-008/purge-restart.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell_protocol.py backend/tests/test_server.py backend/tests/test_m20_transport.py -k 'not actual_shell' -q --basetemp=artifacts/test-results/V4-008/transport-related-data --junitxml=artifacts/test-results/V4-008/transport-related.xml
+backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_shell_protocol.py -k actual_shell -q --basetemp=artifacts/test-results/V4-008/protocol-launch-guard-data --junitxml=artifacts/test-results/V4-008/protocol-launch-guard.xml
+backend/.venv/Scripts/python.exe -X utf8 -m compileall -q backend/src/orvia_backend/shell backend/src/orvia_backend/application.py backend/src/orvia_backend/chat/management.py backend/src/orvia_backend/server.py
+npx vitest run apps/desktop/tests/v4-shell.test.ts apps/desktop/tests/backend.test.ts apps/desktop/tests/v3-management.test.ts apps/desktop/tests/m20-transport.test.ts --reporter=default --reporter=json --outputFile=artifacts/test-results/V4-008/desktop-related.json
+npm run check
+npm run build
+$env:ORVIA_TEST_MODULE='V4-008'
+npx playwright test tests/e2e/v4-shell.spec.ts
+```
+
+|级别|实际结果/证据|真实性与结论|
+|---|---|---|
+|L0|compileall、check/build、diffcheck通过|66模块开发构建，未重建安装包|
+|L1/L2 runtime|38不同通过：runtime-accept35、wsl新增2、escaping新增1|实际三解释器中文/空格/单引号路径、env无secret/proxy、UTF8持续排空/截断、exit7/259、超时/取消及owned子进程和后到Job实际回收。WSL先决条件/未知/预算为mock，真实Bash仅无害控制格式与三host语法验证|
+|L1/L2 service|43不同通过：service-final38 mock/SQLite＋service-real5真实|三环境完整输入副本/中文cwd/产物核验/新回传及保留原件，真实PS超时/marker出现后取消、已回收/unknown核验/重复拒绝；实际5目标18.86秒。最后无效参数15最小复验通过，不重复计数|
+|L2协议/相关|10协议＋28相关通过|真实Application/SQLite三环境/回传/删除3、严格权限参数/运行取消/重启未知/journal清理4、实际serve控制调度3；application4、v3管理13、server4、M20stdio7。transport-related18通过，launch-guard后真实3重新通过12.03秒|
+|L1桌面|desktop-related.json37通过：12目标＋25相关|dialogs模拟，原生取消零执行/完整版本/输出预算/一次许可/新文件保存取消/严格入口验证|
+|L3|e2e.json1通过，26.3秒测试/27.0秒总；electron-WtK4ZF/acceptance.json|真实Electron/preload/main/Python/SQLite/PS7/GitBash，原生cwd/input和审批dialogs仅替换；取消批准0、真实运行/核验/new-file读回，子PID先活后因用户取消消失，3事实重启保持/无自动执行；模型0|
+
+按JUnit最新证据去重 **119个不同后端通过、未解决失败/skip0**（38runtime＋43服务＋10协议＋28相关），verification-final.json保存归属/历史失败；不把重复复验或早期failure累加。服务初轮33个setup因fixture旧app.gateway，修为computer后32pass/1SQLite Row对tuple断言fixture，最小修复并38全通过。runtime首轮29pass/2因Job已空与WindowsPID对象短暂存留，改2秒有限真实回查并35通过。生成WSL无害转义片段首次fixture误取早期tr，修取最后NUL段，最终真实Bash通过；无真实distro。L3首轮实际暴露stdio普通锁使Shell状态/取消阻塞：server新增shell.cancel/status/history固定旁路仍全参数验证，后续写仍串行，新增3调度case＋7真实M20相关与L3通过；晚期native launchguard后再最小复验三环境和完整取消L3通过。旧失败报告全部保留。
+
+已实际查看最终流程同样结果截图shell-verified-output.png（先通过electron-beYLcT），中文exit0/回收/仅具体核验提示、原文/哈希/逐文件回传均可读，无横向溢出。L4评估：新增普通权限执行边界，已有三环境真实exec/Job取消/输入回传、协议/删除恢复/相关stdio及Electron验证，覆盖当前重大变化，复用前模块未变权限/模型/存储结论，不跑无关全量或安装包。
+
+限制：Shell普通权限可读写/联网且副作用不回滚；WindowsJob只owned成员，WSL组只当前ownedPGID，WMI/外部broker/新session逃离不能保证全后代。WSL工具hash不覆盖动态库或所有隐式依赖，exe在核验与OS打开之间仍存在普通账户并发替换窗口，不能当系统安全沙箱。原生创建不可硬取消、极端系统阻塞收尾可能超预算；CPU/实际磁盘无强配额。缺普通WSL、人工原生dialogs、独立Windows、真实用户脚本/第三方环境和真实模型未覆盖。敏感样式过滤有限，准确脚本需用户审查。不声明所有Shell或任意安装路径兼容。
+
+现有PowerShell7.6.5（MIT）、WindowsPowerShell5.1.26100.9444（系统已有）、GitBash5.2.26（GPLv3+）、Python3.12/psutil7.2.2/ctypes沿用，无新工具/依赖/模型安装。模块/root/backend/desktop/Computer README、架构/清单/V4/进度已更新。提交前git status/diff/cached及working/staged敏感/禁入审计，报告和commit-receipt在忽略目录；仅显式008文件，预存.zcodeignore/docs/INTERVIEW.md保留不读取/暂存，不收Key/数据库/用户文件/测试产物。独立正常本地commit标题`feat(V4-008): execute approved shell scripts with verified process and artifact evidence`，hash见Git/回执；不amend、不push、不发布/重建包。008提交后按继续目标进入009，完整Goal仍未完成。
+
+试用npm start→设置→Shell检测→选择准确解释器→输入模块README的合成脚本/核验文本及产物名→可选原生cwd/input→准备→核对完整script/version/预算后原生批准→查看退出/回收/具体核验→产物单独原生新位置批准；正在运行可取消，结果未知不重试。缺环境只能显示不可用，不自动切换。
