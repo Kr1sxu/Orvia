@@ -1979,3 +1979,13 @@ V4-001真实隔离Redis、V4-004已批准固定Qwen真实合成推理，与其�
 - [x] √ `git diff --check` 通过；按纯文档规则不运行 L1–L4，不调用模型，不读取凭据文件；无 mock 或真实模型测试。原有 `.zcodeignore`、`docs/INTERVIEW.md` 保留未读取、未暂存。
 
 交付仅正常本地文档提交，具体 hash 以本节 Git 历史及交付回复为准；Agent 不 push、Release 或重建安装包，后续推送由用户决定。指南反映上述基线，不承诺后续源码变动后自动同步；业务验证限制沿用对应模块记录。
+
+## 自学指南完整正文重写（2026-10-08，纯文档）
+
+用户指出上一版偏阅读大纲，明确改为完整理解设计架构与各模块，而非以修改模块为学习目标。本轮在 `753232b` 上重写 `docs/LEARNING_GUIDE.md`，展开为13章连续教程、约1.9万汉字、5张Mermaid图、3个完整案例和15道附展开答案的自测题。覆盖各模块设计动机、内部过程、衔接、状态/权限/证据和失败边界；保留3–5天阅读节奏，移除改模块训练主线。历史指南交付记录保留，不代表本版仍仅为约3900字索引。
+
+- [x] √ 重新核对架构、最新进度、各业务README及协议/角色/状态图/动作/来源/检索/协调/核验关键源码；明确自然任务协调、文件LangGraph、Skills与知识图谱的区别，以及普通Shell与LPAC、持久化与授权、技术返回与业务完成的区别。
+- [x] √ L0：PowerShell内联Python（`backend/.venv/Scripts/python.exe -X utf8 -`）检查13章/15题连续编号、5图/代码围栏、130处路径引用（96个不同路径）存在性、常见凭据/私钥模式与占位符；输出 `artifacts/test-results/LEARNING_GUIDE/expanded-l0-review.json`。`git check-ignore artifacts/test-results/LEARNING_GUIDE/expanded-l0-review.json` 确认忽略。初次 `git diff --check` 发现末尾多余空行，规范UTF-8及末尾换行后最小复验通过。
+- [x] √ 纯文档不运行L1–L4，无mock/真实模型调用，不读取凭据内容。Mermaid完成静态节点/边及事实核对，不声称浏览器渲染验收；不改变代码、依赖或产品能力。预存 `.zcodeignore` 与 `docs/INTERVIEW.md` 仍未读取或暂存。
+
+本轮只提交指南及本记录，正常本地commit的hash以Git和交付回复为准；Agent未push、Release或重建安装包。后续源码变化可能使教程需更新；生产签名、独立Windows、普通WSL等既有验证限制保持。预检远端默认main仍为892d5b8，本地包含上一版指南提交；只读核对不改变手动推送流程。
