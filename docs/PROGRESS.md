@@ -1969,3 +1969,13 @@ backend/.venv/Scripts/python.exe -X utf8 -m pytest backend/tests/test_v4_task_cl
 V4-001真实隔离Redis、V4-004已批准固定Qwen真实合成推理，与其余默认mock/真实本机组件分别记录；各模块具体命令/模型计数/历史失败/未覆盖风险在对应段和目录，不重复旧有效验证。Redis默认可选、断连不影响事实业务，三个角色各固定模型与审批/证据/权限链保留。工具依赖安装仅001/004：redis7.0.0、CPUtorch2.8.0+cpu/transformers4.57.6/safetensors0.7.0及项目锁定配套库、官方Qwen六工件；Redis7.2.4镜像仅隔离验收夹具保留，后续模块无新安装。本地模型约1.12GiB，配套库文件约3.02GiB；实际来源/版本/校验/测量见004段。
 
 为了把真实已创建commit号写入本PROGRESS，另建纯文档正常提交docs(V4-011): record completed goal and local commit receipts；不amend任何模块、不混入后续业务，文档only不重跑代码测试。提交前同样核status/diff/cached，显式只本文件，预存两未跟踪文件不读取/暂存。011完成后停止，Goal所有授权开发要求已满足；不自动启动其它任务。所有这些提交仍仅本地，未push、Release或重建安装包，手动推送由用户决定。已知限制（普通WSL未覆盖、真实供应商语义/生产Internet/Tavily、人工原生dialogs、独立Windows/签名安装验收等）保留，不能把mock和本机结果替代它们。
+
+## 自学指南交付（2026-10-08，纯文档）
+
+用户要求基于当前源码编写统一中文学习路径与概念地图，新增 `docs/LEARNING_GUIDE.md`，基线 `892d5b8`。不实施新业务模块，不改变代码、配置或依赖。预检 `git ls-remote --symref origin HEAD` 确认远端默认 main，当时远端 HEAD 与本地基线一致；此只读核对不表示 Agent 执行过推送，也不改写上文历史交付状态。
+
+- [x] √ 覆盖产品定位、进程/模型/权限、核心数据流、3–5天路线、M01–M20/V3/V4学习清单、易混点、14道题及答案；包含两张 Mermaid 图，正文约3900汉字（不含英文路径等）。
+- [x] √ L0：PowerShell 内联 Python（`backend/.venv/Scripts/python.exe -X utf8 -`）核对61处完整/缩写路径均存在、题数14、图数2、代码围栏闭合及常见凭据/私钥模式零命中；人工核对关键源码与两图节点/边。结果 `artifacts/test-results/LEARNING_GUIDE/l0-review.json`，已确认 Git 忽略。未做浏览器图形渲染验收。
+- [x] √ `git diff --check` 通过；按纯文档规则不运行 L1–L4，不调用模型，不读取凭据文件；无 mock 或真实模型测试。原有 `.zcodeignore`、`docs/INTERVIEW.md` 保留未读取、未暂存。
+
+交付仅正常本地文档提交，具体 hash 以本节 Git 历史及交付回复为准；Agent 不 push、Release 或重建安装包，后续推送由用户决定。指南反映上述基线，不承诺后续源码变动后自动同步；业务验证限制沿用对应模块记录。
